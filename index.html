@@ -54,6 +54,7 @@
         <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="B">B ボール</button>
         <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="C">C 円軌道</button>
         <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="D">D 指揮</button>
+        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="E">E 階段</button>
       </div>
     </div>
     <div id="stage"><canvas id="cv"></canvas></div>
@@ -62,7 +63,7 @@
   <!-- ===== 右（下）：操作パネル ===== -->
   <aside id="panel" class="p-4 space-y-5 bg-[#0b1222]">
     <button id="playBtn" class="w-full py-4 rounded-2xl text-xl font-extrabold text-slate-900 bg-lime-400 shadow-[0_0_22px_rgba(163,230,53,.4)] active:scale-[.98] transition">▶ 再生</button>
-    <div class="text-[11px] text-slate-500 -mt-3 text-center">スペースキーでも再生／停止　・　1〜4 キーでモード切替</div>
+    <div class="text-[11px] text-slate-500 -mt-3 text-center">スペースキーでも再生／停止　・　1〜5 キーでモード切替</div>
 
     <div>
       <div class="flex items-baseline justify-between mb-2">
@@ -160,7 +161,7 @@ function hexA(hex, a) {
 /* 不整多角形（円に内接）を、辺の長さ＝拍の長さ で作る */
 function buildPoly(groups) {
   let sides = groups.slice();
-  while (sides.length < 4) sides = sides.concat(groups);   // 2グループだと形にならないので繰り返す
+  while (sides.length < 3) sides = sides.concat(groups);   // 2辺だと形にならないので繰り返す
   const N = sides.length, maxL = Math.max(...sides);
   const f = R => sides.reduce((s, L) => s + 2 * Math.asin(Math.min(1, L / (2 * R))), 0);
   let lo = maxL / 2, hi = maxL * N;
@@ -179,6 +180,37 @@ function buildPoly(groups) {
   return { sides, N, R, verts, edgeAng, ext, prefix, perim: acc };
 }
 
+/* 転がる図形を作る
+   ・x/4 の拍子（2/4・3/4・4/4）：1拍＝1辺　→ 3/4 は三角形、4/4 は四角形（2/4 は2小節で四角形）
+   ・x/8 の拍子（5/8・6/8・7/8…）：8分音符1つ＝1辺 → 5/8 は五角形、6/8 は六角形
+     グループの頭の角だけ外にとがらせる → 頭の角で大きく「コトン」、途中の角は小さく「ころ」 */
+function buildShape(mt) {
+  const quarter = mt.sigs.every(s => /\/4$/.test(s));
+  if (quarter) {
+    let units = mt.groups.map((L, g) => ({ dur: L, L, head: true, label: String(g - mt.barStartGroup[mt.barOfGroup[g]] + 1) }));
+    const base = units.slice(); while (units.length < 3) units = units.concat(base);
+    return Object.assign(buildPoly(units.map(u => u.dur)), { unit: 'group', units });
+  }
+  const n = mt.total, units = [], verts = [];
+  for (let i = 0; i < n; i++) {
+    const g = mt.subToGroup[i], L = mt.groups[g], k = i - mt.starts[g];
+    units.push({ dur: 1, L, head: k === 0, label: SYL[L][k] });
+  }
+  const f = n >= 6 ? 0.9 : 0.86;
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI / 2 + 2 * Math.PI * i / n, r = units[i].head ? 1 : f;
+    verts.push({ x: r * Math.cos(a), y: r * Math.sin(a) });
+  }
+  const sides = [], edgeAng = [], prefix = [], ext = []; let acc = 0;
+  for (let i = 0; i < n; i++) {
+    const p = verts[i], q = verts[(i + 1) % n];
+    sides.push(Math.hypot(q.x - p.x, q.y - p.y)); edgeAng.push(Math.atan2(q.y - p.y, q.x - p.x));
+    prefix.push(acc); acc += sides[i];
+  }
+  for (let j = 0; j < n; j++) ext.push(mod(edgeAng[j] - edgeAng[mod(j - 1, n)], Math.PI * 2));
+  return { unit: 'sub', units, sides, N: n, R: 1, verts, edgeAng, ext, prefix, perim: acc };
+}
+
 function makeMeta(p) {
   const bars = p.bars, sigs = p.sigs || bars.map(() => p.sig);
   const groups = [], starts = [], subToGroup = [], barOfGroup = [], barStartGroup = [], barStartSub = [];
@@ -191,7 +223,9 @@ function makeMeta(p) {
       groups.push(L); s += L;
     });
   });
-  return { preset: p, bars, sigs, nBars: bars.length, groups, starts, subToGroup, barOfGroup, barStartGroup, barStartSub, total: s, poly: buildPoly(groups) };
+  const mt = { preset: p, bars, sigs, nBars: bars.length, groups, starts, subToGroup, barOfGroup, barStartGroup, barStartSub, total: s };
+  mt.poly = buildShape(mt);
+  return mt;
 }
 
 /* =========================================================
@@ -201,7 +235,7 @@ let selected = PRESETS[4];   // 最初は 5/8 [2+3]
 let activeMeta = makeMeta(selected), pendingMeta = null;
 let bpm = 160, subOn = true, volume = 0.7, mode = 'A', playing = false;
 let ctx = null, master = null, bus = null, timer = null;
-let nextTime = 0, curSub = 0, measure = 0, stepCounter = 0;
+let nextTime = 0, curSub = 0, measure = 0, stepCounter = 0, subCounter = 0;
 let queue = [], lastNote = null, frozenFrac = 0, accents = [];
 
 /* =========================================================
@@ -240,11 +274,11 @@ function playClick(t) {         // 弱拍：1200Hz の乾いたクリック（�
 
 function scheduler() {
   while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
-    if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; measure = 0; }
+    if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
     const m = activeMeta, g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
     if (isAcc) { playAccent(nextTime); stepCounter++; }
     else if (subOn) playClick(nextTime);
-    queue.push({ time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, measure });
+    queue.push({ time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure });
     nextTime += dur; curSub++;
     if (curSub >= m.total) { curSub = 0; measure++; }
   }
@@ -273,7 +307,7 @@ function start() {
   initAudio(); if (ctx.state !== 'running') ctx.resume();
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
-  curSub = 0; measure = 0; stepCounter = 0; queue = []; lastNote = null; accents = [];
+  curSub = 0; measure = 0; stepCounter = 0; subCounter = 0; queue = []; lastNote = null; accents = [];
   nextTime = ctx.currentTime + 0.08;
   playing = true; scheduler(); timer = setInterval(scheduler, LOOKAHEAD_MS);
   updatePlayBtn();
@@ -288,11 +322,11 @@ function togglePlay() { playing ? stop() : start(); }
 
 /* 描画用の現在位置（すべてオーディオ時刻から計算） */
 function getState(now) {
-  if (!lastNote) return { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, measure: 0, sub: 0, frac: 0, has: false };
+  if (!lastNote) return { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, sc: 0, measure: 0, sub: 0, frac: 0, has: false };
   const n = lastNote, m = n.meta;
   const frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
   const pos = n.sub + frac, gs = m.starts[n.g], len = m.groups[n.g];
-  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, measure: n.measure, sub: n.sub, frac, has: true };
+  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true };
 }
 
 /* =========================================================
@@ -325,7 +359,7 @@ function frame() {
   if (playing) {
     while (queue.length && queue[0].time <= now) {
       const n = queue.shift(); lastNote = n;
-      if (n.isAcc) accents.push({ t: n.time, step: n.step, g: n.g, meta: n.meta });
+      if (n.isAcc) accents.push({ t: n.time, step: n.step, sc: n.sc, g: n.g, meta: n.meta });
     }
   }
   if (accents.length) accents = accents.filter(a => now - a.t < 1.5);
@@ -339,7 +373,8 @@ function frame() {
   if (mode === 'A') drawRoll(st, now, sceneH);
   else if (mode === 'B') drawBounce(st, now, sceneH);
   else if (mode === 'C') drawOrbit(st, now, sceneH);
-  else drawConduct(st, now, sceneH);
+  else if (mode === 'D') drawConduct(st, now, sceneH);
+  else drawStairs(st, now, sceneH);
   drawHeader(st);
   drawStrip(st, sceneH, stripH);
   requestAnimationFrame(frame);
@@ -390,9 +425,9 @@ function drawStrip(st, y0, h) {
   });
 }
 
-/* ---------- モードA：不揃いな多角形の転がり ---------- */
+/* ---------- モードA：転がる図形 ---------- */
 function drawRoll(st, now, ah) {
-  const m = st.m, P = m.poly, N = P.N;
+  const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
   const groundY = ah * 0.8;
   const Rpx = Math.min(ah * 0.27, W * 0.2), u = Rpx / P.R;
   const span = W + 4 * Rpx + 40 * K, off = 2 * Rpx + 20 * K;
@@ -405,12 +440,14 @@ function drawRoll(st, now, ah) {
     return [dx * c - dy * s, dx * s + dy * c];
   };
   const centerW = (k, p) => { const r = rotRel(0, 0, mod(k, N), phiAt(k, p)); return [X(k) + r[0], r[1]]; };
-  const S = Math.max(0, st.step), j = mod(S, N);
-  const t = clamp(st.gp, 0, 1), p = ease(t), phi = phiAt(S, p);
+  const S = st.has ? Math.max(0, byGroup ? st.step : st.sc) : 0, j = mod(S, N);
+  const t = st.has ? clamp(byGroup ? st.gp : st.frac, 0, 1) : 0, p = ease(t), phi = phiAt(S, p);
   const scr = w => [toS(w[0]), groundY - w[1] * u];
   const SH = [-span, 0, span];
+  const shapeName = { 3: '三角形', 4: '四角形', 5: '五角形', 6: '六角形', 7: '七角形', 8: '八角形' }[N] || `${N}角形`;
 
-  txt('角が床に「コトッ」とつく瞬間 ＝ 強拍　／　白い線 ＝ 重心の軌跡', W / 2, ah * 0.94, 12 * K, '#64748b', 500);
+  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 8分音符　とがった角 ＝ グループの頭'}`, W / 2, Math.max(ah * 0.15, 96 * K), 13 * K, '#cbd5e1', 700);
+  txt('角が床に「コトッ」とつく瞬間に音が鳴る　／　白い線 ＝ 重心の軌跡', W / 2, ah * 0.94, 12 * K, '#64748b', 500);
 
   // 地面
   cx.strokeStyle = '#334155'; cx.lineWidth = 2 * K;
@@ -418,28 +455,28 @@ function drawRoll(st, now, ah) {
 
   // 足あと（これまでに接地した辺）
   for (let k = Math.max(0, S - 2 * N); k < S; k++) {
-    const a = toS(X(k)), L = P.sides[mod(k, N)], w = L * u;
+    const a = toS(X(k)), un = U[mod(k, N)], w = P.sides[mod(k, N)] * u;
     const al = 0.15 + 0.55 * (1 - (S - 1 - k) / (2 * N));
     for (const sh of SH) {
       const xa = a + sh; if (xa > W || xa + w < 0) continue;
-      cx.strokeStyle = hexA(COLORS[L], al); cx.lineWidth = 5 * K;
+      cx.strokeStyle = hexA(COLORS[un.L], al); cx.lineWidth = 5 * K;
       cx.beginPath(); cx.moveTo(xa + 2 * K, groundY + 6 * K); cx.lineTo(xa + w - 2 * K, groundY + 6 * K); cx.stroke();
-      cx.fillStyle = hexA('#e2e8f0', al); cx.beginPath(); cx.arc(xa, groundY, 3 * K, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = hexA(un.head ? LIME : '#e2e8f0', al); cx.beginPath(); cx.arc(xa, groundY, (un.head ? 4.5 : 2.5) * K, 0, Math.PI * 2); cx.fill();
     }
   }
 
-  // 重心の軌跡（中心点が描く波）：長い辺ほど大きく持ち上がる
+  // 重心の軌跡
   const past = [];
   for (let k = Math.max(0, S - N); k <= S; k++) {
-    for (let i = 0; i <= 16; i++) {
-      const tt = i / 16; if (k === S && tt > t) break;
-      past.push({ w: centerW(k, ease(tt)), a: (k - (S - N) + tt) / (N + 1), land: i === 0 });
+    for (let i = 0; i <= 12; i++) {
+      const tt = i / 12; if (k === S && tt > t) break;
+      past.push({ w: centerW(k, ease(tt)), a: (k - (S - N) + tt) / (N + 1), land: i === 0 && U[mod(k, N)].head });
     }
   }
   past.push({ w: centerW(S, p), a: 1 });
   const fut = [];
-  for (let i = 0; i <= 16; i++) { const tt = t + (1 - t) * i / 16; fut.push(centerW(S, ease(tt))); }
-  for (let i = 1; i <= 16; i++) fut.push(centerW(S + 1, ease(i / 16)));
+  for (let i = 0; i <= 12; i++) fut.push(centerW(S, ease(t + (1 - t) * i / 12)));
+  for (let i = 1; i <= 12; i++) fut.push(centerW(S + 1, ease(i / 12)));
   for (const sh of SH) {
     cx.lineCap = 'round';
     for (let i = 1; i < past.length; i++) {
@@ -457,17 +494,17 @@ function drawRoll(st, now, ah) {
     cx.beginPath(); let started = false, prev = null;
     for (const w of fut) {
       const a = scr(w), x = a[0] + sh;
-      if (prev && Math.abs(a[0] - prev) > span / 2) started = false;
+      if (prev !== null && Math.abs(a[0] - prev) > span / 2) started = false;
       started ? cx.lineTo(x, a[1]) : cx.moveTo(x, a[1]); started = true; prev = a[0];
     }
     cx.stroke(); cx.setLineDash([]);
   }
 
-  // 衝撃波（リング）
+  // 衝撃波：強拍は大きなリング、途中の拍は小さなリング
   for (const a of accents) {
     if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.9) continue;
-    const q = age / 0.9, xa = toS(X(a.step)), rad = 8 * K + age * 180 * K;
+    const q = age / 0.9, xa = toS(X(byGroup ? a.step : a.sc)), rad = 8 * K + age * 180 * K;
     for (const sh of SH) {
       const x0 = xa + sh; if (x0 < -300 * K || x0 > W + 300 * K) continue;
       cx.strokeStyle = hexA(LIME, (1 - q) * 0.9); cx.lineWidth = 3 * K * (1 - q) + 0.5;
@@ -476,67 +513,71 @@ function drawRoll(st, now, ah) {
       cx.beginPath(); cx.arc(x0, groundY, rad * 0.6, Math.PI, 0); cx.stroke();
     }
   }
+  if (!byGroup && st.has && lastNote && !lastNote.isAcc && lastNote.meta === m) {
+    const age = now - lastNote.time;
+    if (age >= 0 && age < 0.3) {
+      const q = age / 0.3, xa = toS(X(lastNote.sc));
+      for (const sh of SH) {
+        cx.strokeStyle = hexA('#ffffff', (1 - q) * 0.6); cx.lineWidth = 1.5 * K;
+        cx.beginPath(); cx.ellipse(xa + sh, groundY, 5 * K + q * 30 * K, 2 * K + q * 7 * K, 0, 0, Math.PI * 2); cx.stroke();
+      }
+    }
+  }
 
-  // 多角形本体
+  // 図形本体
   const rel = P.verts.map(v => rotRel(v.x, v.y, j, phi));
   const cRel = rotRel(0, 0, j, phi);
   const px0 = toS(X(S));
-  const L = P.sides[j], gpos = t * L;
+  const dur = U[j].dur, gpos = t * dur;
   for (const sh of SH) {
     const ox = px0 + sh;
     if (ox + 2.2 * Rpx < 0 || ox - 2.2 * Rpx > W) continue;
     const pt = r => [ox + r[0] * u, groundY - r[1] * u];
     const V = rel.map(pt), C = pt(cRel);
 
-    // 影
     const lift = clamp((groundY - C[1]) / Rpx, 0.5, 1.6);
     cx.fillStyle = `rgba(0,0,0,${0.35 / lift})`;
     cx.beginPath(); cx.ellipse(C[0], groundY + 3 * K, Rpx * 0.9 / lift, 6 * K, 0, 0, Math.PI * 2); cx.fill();
 
-    // くさび形（中心→各辺）：1つのくさび＝1グループ
+    // くさび形と言葉
     for (let i = 0; i < N; i++) {
-      const a = V[i], b = V[(i + 1) % N], Li = P.sides[i], act = i === j;
+      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L];
       cx.beginPath(); cx.moveTo(C[0], C[1]); cx.lineTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.closePath();
       const gr = cx.createLinearGradient(C[0], C[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      gr.addColorStop(0, hexA(COLORS[Li], 0.02)); gr.addColorStop(1, hexA(COLORS[Li], act ? 0.42 : 0.16));
+      gr.addColorStop(0, hexA(col, 0.03)); gr.addColorStop(1, hexA(col, act ? 0.48 : 0.17));
       cx.fillStyle = gr; cx.fill();
-      // くさびの中に言葉
-      const wx = C[0] + ((a[0] + b[0]) / 2 - C[0]) * 0.62, wy = C[1] + ((a[1] + b[1]) / 2 - C[1]) * 0.62;
-      if (Rpx > 60) txt(Li === 2 ? 'パン' : 'トマト', wx, wy, Math.min(14 * K, Rpx * 0.16), hexA(COLORS[Li], act ? 1 : 0.55), 800);
+      const wx = C[0] + ((a[0] + b[0]) / 2 - C[0]) * 0.64, wy = C[1] + ((a[1] + b[1]) / 2 - C[1]) * 0.64;
+      txt(un.label, wx, wy, Math.min((byGroup ? 26 : 17) * K, Rpx * (byGroup ? 0.3 : 0.22)), act ? '#ffffff' : hexA(col, 0.75), un.head ? 900 : 700);
     }
-    // スポーク
-    cx.strokeStyle = 'rgba(226,232,240,0.18)'; cx.lineWidth = 1.2 * K;
+    cx.strokeStyle = 'rgba(226,232,240,0.16)'; cx.lineWidth = 1.2 * K;
     V.forEach(q => { cx.beginPath(); cx.moveTo(C[0], C[1]); cx.lineTo(q[0], q[1]); cx.stroke(); });
 
-    // 辺（長さ＝拍の長さ）
+    // 辺
     for (let i = 0; i < N; i++) {
-      const a = V[i], b = V[(i + 1) % N], Li = P.sides[i], act = i === j;
-      cx.strokeStyle = hexA(COLORS[Li], act ? 1 : 0.6); cx.lineWidth = (act ? 6 : 3.5) * K; cx.lineCap = 'round';
-      if (act) { cx.shadowColor = COLORS[Li]; cx.shadowBlur = 14 * K; }
+      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L];
+      cx.strokeStyle = hexA(col, act ? 1 : 0.65); cx.lineWidth = (act ? 6 : 3.5) * K; cx.lineCap = 'round';
+      if (act) { cx.shadowColor = col; cx.shadowBlur = 14 * K; }
       cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.stroke(); cx.shadowBlur = 0;
-      for (let k = 1; k < Li; k++) {   // サブ拍の目盛り
-        const x = a[0] + (b[0] - a[0]) * k / Li, y = a[1] + (b[1] - a[1]) * k / Li;
-        const lit = act && gpos >= k;
-        cx.fillStyle = lit ? '#ffffff' : hexA(COLORS[Li], act ? 0.8 : 0.4);
+      for (let k = 1; k < un.dur; k++) {   // 1辺が2拍ぶんのとき、途中の8分音符
+        const x = a[0] + (b[0] - a[0]) * k / un.dur, y = a[1] + (b[1] - a[1]) * k / un.dur, lit = act && gpos >= k;
+        cx.fillStyle = lit ? '#ffffff' : hexA(col, act ? 0.8 : 0.4);
         cx.beginPath(); cx.arc(x, y, (lit ? 5 : 3.2) * K, 0, Math.PI * 2); cx.fill();
       }
-      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
-      let dx = mx - C[0], dy = my - C[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
-      txt(String(Li), mx + dx * 16 * K, my + dy * 16 * K, (act ? 17 : 13) * K, hexA(COLORS[Li], act ? 1 : 0.7), 800);
     }
-    // 重心（中心）
+    // 重心
     cx.shadowColor = '#ffffff'; cx.shadowBlur = 12 * K;
     cx.fillStyle = '#f8fafc'; cx.beginPath(); cx.arc(C[0], C[1], 5 * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
-    // 頂点
+    // 角：グループの頭は大きく
     V.forEach((q, i) => {
-      const piv = i === j;
+      const piv = i === j, head = U[i].head;
       if (piv) { cx.shadowColor = LIME; cx.shadowBlur = 18 * K; }
-      cx.fillStyle = piv ? LIME : '#e2e8f0';
-      cx.beginPath(); cx.arc(q[0], q[1], (piv ? 7 : 4.5) * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      cx.fillStyle = piv ? LIME : head ? '#f8fafc' : 'rgba(226,232,240,0.6)';
+      cx.beginPath(); cx.arc(q[0], q[1], (piv ? 7 : head ? 5.5 : 3) * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      if (head && !piv) { cx.strokeStyle = hexA(LIME, 0.6); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], 9 * K, 0, Math.PI * 2); cx.stroke(); }
     });
     const nx = V[(j + 1) % N];
     cx.strokeStyle = hexA(LIME, 0.35 + 0.6 * t); cx.lineWidth = 2 * K;
-    cx.beginPath(); cx.arc(nx[0], nx[1], 11 * K, 0, Math.PI * 2); cx.stroke();
+    cx.beginPath(); cx.arc(nx[0], nx[1], 12 * K, 0, Math.PI * 2); cx.stroke();
   }
 }
 
@@ -630,6 +671,7 @@ function drawBounce(st, now, ah) {
     g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, colA); g.addColorStop(1, colB);
     cx.shadowColor = colB; cx.shadowBlur = 22 * K; cx.fillStyle = g;
     cx.beginPath(); cx.ellipse(x, y - r * sq[1], r * sq[0], r * sq[1], 0, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+    cx.save(); cx.translate(x, y - r * sq[1]); cx.scale(sq[0], sq[1]); drawFace(0, 0, r, 1, now); cx.restore();
   };
   const bx = sx(ballU), rBig = clamp(ah * 0.055, 12, 64), rSmall = rBig * 0.5;
   // 大きいボール（奥）
@@ -717,51 +759,197 @@ function drawOrbit(st, now, ah) {
   txt(`1周 ＝ ${m.nBars}小節`, cxC, cyC + hub * 0.62, Math.max(9, 10 * K), '#64748b', 600);
 }
 
+/* ---------- 共通：顔つきのボール ---------- */
+function drawFace(x, y, r, dirX, now) {
+  const blink = (now % 3.3) < 0.12 ? 0.15 : 1;
+  const ex = r * 0.3, ey = -r * 0.12, er = r * 0.2, lx = clamp(dirX, -1, 1) * er * 0.4;
+  for (const s of [-1, 1]) {
+    cx.fillStyle = '#ffffff';
+    cx.beginPath(); cx.ellipse(x + s * ex + lx * 0.5, y + ey, er, er * 1.15 * blink, 0, 0, Math.PI * 2); cx.fill();
+    if (blink > 0.5) { cx.fillStyle = '#0f172a'; cx.beginPath(); cx.arc(x + s * ex + lx, y + ey + er * 0.1, er * 0.55, 0, Math.PI * 2); cx.fill(); }
+  }
+  cx.strokeStyle = 'rgba(15,23,42,0.7)'; cx.lineWidth = Math.max(1.2, r * 0.07);
+  cx.beginPath(); cx.arc(x + lx * 0.5, y + r * 0.2, r * 0.22, 0.15 * Math.PI, 0.85 * Math.PI); cx.stroke();
+}
+function drawCharBall(x, yBottom, r, sq, colA, colB, dirX, now) {
+  const cy = yBottom - r * sq[1];
+  const g = cx.createRadialGradient(x - r * 0.3, cy - r * sq[1] * 0.35, r * 0.1, x, cy, r * 1.2);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, colA); g.addColorStop(1, colB);
+  cx.shadowColor = colB; cx.shadowBlur = 22 * K; cx.fillStyle = g;
+  cx.beginPath(); cx.ellipse(x, cy, r * sq[0], r * sq[1], 0, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+  cx.save(); cx.translate(x, cy); cx.scale(sq[0], sq[1]); drawFace(0, 0, r, dirX, now); cx.restore();
+}
+
+/* ---------- モードE：階段をのぼりおり ----------
+   ・8分音符ごとに小さく跳ねる　・グループの頭で次の段へ（1段の幅 ＝ グループの長さ）
+   ・1小節目はのぼり、2小節目はくだり（交互パターンは小節ごとに のぼり／くだり） */
+let stairCamY = null, stairPops = [];
+function drawStairs(st, now, ah) {
+  const m = st.m, G = m.groups.length, single = m.nBars === 1;
+  const u = W / 13, stepH = Math.min(ah * 0.11, 70 * K), hop = Math.min(ah * 0.07, 44 * K);
+  const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
+  const Lk = k => m.groups[mod(k, G)];
+  const level = k => {   // 段の高さ
+    const gi = mod(k, G), b = m.barOfGroup[gi], idx = gi - m.barStartGroup[b], Gb = m.bars[b].length;
+    const barNo = single ? Math.floor(k / G) : b;
+    return mod(barNo, 2) === 0 ? idx : Gb - idx;
+  };
+  const S = st.has ? Math.max(0, st.step) : 0, L = Lk(S);
+  const q = st.has ? clamp(st.pos - m.starts[st.g], 0, L - 1e-4) : 0;
+  const hopI = Math.floor(q), f = q - hopI;
+  const lvNow = level(S), lvNext = level(S + 1);
+  // ボールの位置（単位：x＝8分音符、y＝段）
+  const ballXu = X(S) + q;
+  let ballLv, liftLv;
+  if (hopI < L - 1) { ballLv = lvNow; liftLv = 0; }
+  else { ballLv = lvNow + (lvNext - lvNow) * f; liftLv = Math.max(0, lvNext - lvNow) * 0.6; }
+  const hopH = hop + liftLv * stepH;
+  const camX = ballXu - (W * 0.36) / u;
+  const target = lvNow * stepH;
+  if (stairCamY === null || !st.has) stairCamY = target;
+  stairCamY += (target - stairCamY) * 0.06;
+  const baseY = ah * 0.7 + stairCamY;          // 段0 の床の高さ（画面座標）
+  const topOf = lv => baseY - lv * stepH;
+  const sx = xu => (xu - camX) * u;
+
+  // 背景の星
+  for (let i = 0; i < 40; i++) {
+    const px = mod(i * 97.3 - camX * u * 0.15, W), py = mod(i * 53.7, ah * 0.6);
+    cx.fillStyle = `rgba(226,232,240,${0.15 + 0.2 * Math.sin(now * 1.5 + i)})`;
+    cx.beginPath(); cx.arc(px, py, 1.3 * K, 0, Math.PI * 2); cx.fill();
+  }
+
+  // 階段
+  const dep = 12 * K;
+  for (let k = S - 8; k <= S + 14; k++) {
+    const x0 = sx(X(k)), w = Lk(k) * u, lv = level(k), yT = topOf(lv), col = COLORS[Lk(k)], cur = k === S && st.has;
+    if (x0 > W + dep || x0 + w < -dep) continue;
+    // 前面
+    const fg = cx.createLinearGradient(0, yT, 0, ah);
+    fg.addColorStop(0, hexA(col, cur ? 0.45 : 0.25)); fg.addColorStop(1, 'rgba(15,23,42,0.1)');
+    cx.fillStyle = fg; cx.fillRect(x0, yT, w, ah - yT);
+    // 上面（奥行き）
+    cx.fillStyle = hexA(col, cur ? 0.9 : 0.55);
+    cx.beginPath(); cx.moveTo(x0, yT); cx.lineTo(x0 + dep, yT - dep * 0.7); cx.lineTo(x0 + w + dep, yT - dep * 0.7); cx.lineTo(x0 + w, yT); cx.closePath(); cx.fill();
+    cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(x0, yT); cx.lineTo(x0 + w, yT); cx.stroke();
+    // 8分音符の目印と言葉
+    for (let s = 0; s < Lk(k); s++) {
+      const lit = cur && q >= s;
+      txt(SYL[Lk(k)][s], x0 + (s + 0.5) * u, yT + 20 * K, Math.min(18 * K, u * 0.4), lit ? '#ffffff' : hexA(col, 0.85), s === 0 ? 900 : 600);
+      if (s > 0) { cx.fillStyle = hexA('#ffffff', 0.35); cx.fillRect(x0 + s * u - 1, yT - 4 * K, 2, 4 * K); }
+    }
+    // 小節の旗
+    const gi = mod(k, G);
+    if (m.barStartGroup.includes(gi) && k >= 0) {
+      const n = single ? Math.floor(k / G) + 1 : Math.floor(k / G) * m.nBars + m.barOfGroup[gi] + 1;
+      const up = level(k + 1) > lv || (level(k + 1) === lv && level(k - 1) < lv);
+      cx.strokeStyle = 'rgba(226,232,240,0.6)'; cx.lineWidth = 2 * K;
+      cx.beginPath(); cx.moveTo(x0 + 6 * K, yT - dep * 0.7); cx.lineTo(x0 + 6 * K, yT - 52 * K); cx.stroke();
+      cx.fillStyle = up ? LIME : '#f472b6';
+      cx.beginPath(); cx.moveTo(x0 + 6 * K, yT - 52 * K); cx.lineTo(x0 + 30 * K, yT - 45 * K); cx.lineTo(x0 + 6 * K, yT - 38 * K); cx.closePath(); cx.fill();
+      txt(`${n}小節 ${up ? 'のぼり' : 'くだり'}`, x0 + 34 * K, yT - 45 * K, 11 * K, up ? LIME : '#f9a8d4', 800, 'left');
+    }
+  }
+
+  // 着地のエフェクト（強拍＝星、8分音符＝輪）
+  for (const a of accents) {
+    if (a.meta !== m) continue;
+    const age = now - a.t; if (age < 0 || age > 0.6) continue;
+    const pq = age / 0.6, xa = sx(X(a.step)) + u * 0.1, ya = topOf(level(a.step));
+    for (let i = 0; i < 7; i++) {
+      const an = -Math.PI * (0.1 + 0.8 * i / 6), d = pq * 50 * K;
+      cx.fillStyle = hexA(i % 2 ? '#fde68a' : LIME, 1 - pq);
+      star(xa + Math.cos(an) * d, ya + Math.sin(an) * d, (5 - 3 * pq) * K);
+    }
+  }
+  const tN = lastNote ? now - lastNote.time : 9;
+  if (st.has && lastNote && !lastNote.isAcc && tN >= 0 && tN < 0.3) {
+    const xs = sx(X(S) + lastNote.sub - m.starts[st.g]), ys = topOf(lvNow), pq = tN / 0.3;
+    cx.strokeStyle = hexA('#ffffff', (1 - pq) * 0.6); cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.ellipse(xs, ys, 5 * K + pq * 24 * K, 2 * K + pq * 5 * K, 0, 0, Math.PI * 2); cx.stroke();
+  }
+  // 言葉がポンと出る
+  if (st.has && lastNote && (!stairPops.length || stairPops[stairPops.length - 1].t !== lastNote.time)) {
+    const n = lastNote, Ln = n.meta.groups[n.g];
+    stairPops.push({ t: n.time, s: SYL[Ln][n.sub - n.meta.starts[n.g]], acc: n.isAcc, col: COLORS[Ln] });
+    if (stairPops.length > 8) stairPops.shift();
+  }
+
+  // ボール
+  const r = clamp(ah * 0.05, 12, 56);
+  const bx = sx(ballXu), yBottom = topOf(ballLv) - 4 * hopH * f * (1 - f);
+  let sq = [1, 1];
+  if (st.has && tN >= 0 && tN < 0.1) { const s = 1 - tN / 0.1, a = lastNote.isAcc ? 0.4 : 0.2; sq = [1 + a * 0.9 * s * s, 1 - a * s * s]; }
+  else if (st.has) { const v = Math.abs(1 - 2 * f) ** 3, y = 1 + 0.15 * v; sq = [1 / Math.sqrt(y), y]; }
+  const hr = clamp((topOf(ballLv) - yBottom) / (hop * 3), 0, 1);
+  cx.fillStyle = `rgba(0,0,0,${0.4 - 0.25 * hr})`;
+  cx.beginPath(); cx.ellipse(bx, topOf(hopI < L - 1 ? lvNow : (f < 0.5 ? lvNow : lvNext)), r * (1.2 - 0.5 * hr), r * 0.22, 0, 0, Math.PI * 2); cx.fill();
+  drawCharBall(bx, yBottom, r, sq, '#d9f99d', LIME, 1, now);
+  for (const pp of stairPops) {
+    const age = now - pp.t; if (age < 0 || age > 0.7) continue;
+    const pq = age / 0.7;
+    txt(pp.s, bx + (pp.acc ? 0 : 14 * K), yBottom - r * 2.2 - pq * 40 * K, (pp.acc ? 30 : 18) * K, hexA(pp.acc ? '#ffffff' : pp.col, 1 - pq), 900);
+  }
+  txt('8分音符ごとに ぴょん、グループの頭で 次の段へ（段の幅 ＝ 2 か 3）', W / 2, ah * 0.97, 12 * K, '#94a3b8', 500);
+}
+function star(x, y, r) {
+  cx.beginPath();
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? r * 0.45 : r; cx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
+  cx.closePath(); cx.fill();
+}
+
 /* ---------- モードD：指揮の図形 ----------
    基本の形（右手・指揮者の後ろから見た図）
      2つ振り：下 → 上　／　3つ振り：下 → 外（右）→ 上　／　4つ振り：下 → 内（左）→ 外（右）→ 上
-   ・打点（ictus）はほぼ同じ高さ（打点の面）に並ぶ
+   ・打点（ictus）はほぼ同じ高さ（打点の面）に並び、打点ではボールが床で跳ねるように鋭く向きを変える
    ・跳ね返りは振り下ろしの 1/3〜1/2 ほど。最後の拍だけ大きく跳ねて最初の高さへ戻る
    ・5/8・7/8 などの長い拍（3）は、形は同じで動きをゆっくりにする（グループの数で2つ振り・3つ振りを選ぶ）
    座標：x は右が＋、y は打点の面が 0・上が −（最上点 −0.85） */
 const PATTERNS = {
-  2: { name: '2つ振り', ict: [0, 4],
-       pts: [[0, 0], [0.2, -0.3], [0.42, -0.4], [0.4, -0.2], [0.26, 0], [0.34, -0.5], [0.12, -0.85], [-0.06, -0.48]] },
-  3: { name: '3つ振り', ict: [0, 3, 6],
-       pts: [[0, 0], [-0.12, -0.28], [0.2, -0.26], [0.62, 0], [0.74, -0.28], [0.52, -0.32], [0.3, -0.04], [0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]] },
-  4: { name: '4つ振り', ict: [0, 3, 7, 10],
-       pts: [[0, 0], [0.12, -0.28], [-0.25, -0.26], [-0.58, 0], [-0.66, -0.28], [-0.4, -0.3], [0.05, -0.24], [0.62, 0], [0.74, -0.28], [0.52, -0.32], [0.3, -0.04], [0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]] },
+  2: { name: '2つ振り', dirs: ['下', '上'], ict: [[0, 0], [0.26, 0]],
+       way: [[[0.2, -0.3], [0.42, -0.4], [0.4, -0.2]], [[0.34, -0.5], [0.12, -0.85], [-0.06, -0.48]]] },
+  3: { name: '3つ振り', dirs: ['下', '外', '上'], ict: [[0, 0], [0.62, 0], [0.3, -0.04]],
+       way: [[[-0.12, -0.28], [0.2, -0.26]], [[0.74, -0.28], [0.52, -0.32]], [[0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]]] },
+  4: { name: '4つ振り', dirs: ['下', '内', '外', '上'], ict: [[0, 0], [-0.58, 0], [0.62, 0], [0.3, -0.04]],
+       way: [[[0.12, -0.28], [-0.25, -0.26]], [[-0.66, -0.28], [-0.4, -0.3], [0.05, -0.24]], [[0.74, -0.28], [0.52, -0.32]], [[0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]]] },
 };
-const SEG_SAMPLES = 24;
-function buildPattern(n) {   // 通過点を滑らかな閉曲線（centripetal Catmull-Rom）にする
-  const pat = PATTERNS[n], P = pat.pts, N = P.length, out = [];
-  const tj = (a, b, t) => t + (Math.pow(Math.hypot(b[0] - a[0], b[1] - a[1]), 0.5) || 1e-4);
-  for (let i = 0; i < N; i++) {
-    const p0 = P[mod(i - 1, N)], p1 = P[i], p2 = P[(i + 1) % N], p3 = P[(i + 2) % N];
+const SEG_SAMPLES = 20;
+function crOpen(pts) {   // centripetal Catmull-Rom（両端は補助点）
+  const out = [], tj = (a, b, t) => t + (Math.pow(Math.hypot(b[0] - a[0], b[1] - a[1]), 0.5) || 1e-4);
+  for (let i = 1; i < pts.length - 2; i++) {
+    const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2];
     const t0 = 0, t1 = tj(p0, p1, t0), t2 = tj(p1, p2, t1), t3 = tj(p2, p3, t2);
     for (let s = 0; s < SEG_SAMPLES; s++) {
       const t = t1 + (t2 - t1) * s / SEG_SAMPLES, L = (a, b, ta, tb) => [0, 1].map(d => ((tb - t) * a[d] + (t - ta) * b[d]) / (tb - ta));
       const A1 = L(p0, p1, t0, t1), A2 = L(p1, p2, t1, t2), A3 = L(p2, p3, t2, t3);
-      const B1 = L(A1, A2, t0, t2), B2 = L(A2, A3, t1, t3);
-      out.push(L(B1, B2, t1, t2));
+      out.push(L(L(A1, A2, t0, t2), L(A2, A3, t1, t3), t1, t2));
     }
   }
-  const beats = pat.ict.map((ic, b) => {   // 各拍の区間と長さ
-    const from = ic * SEG_SAMPLES, to = pat.ict[(b + 1) % pat.ict.length] * SEG_SAMPLES;
-    const idx = []; for (let i = from; ; i = (i + 1) % out.length) { idx.push(i); if (i === to) break; }
-    const cum = [0]; for (let i = 1; i < idx.length; i++) { const a = out[idx[i - 1]], c = out[idx[i]]; cum.push(cum[i - 1] + Math.hypot(c[0] - a[0], c[1] - a[1])); }
-    return { idx, cum };
+  out.push(pts[pts.length - 2]);
+  return out;
+}
+function buildPattern(n) {
+  const pat = PATTERNS[n], G = pat.ict.length;
+  const beats = pat.ict.map((I, b) => {
+    const J = pat.ict[(b + 1) % G];
+    // 打点では「下から来て上へはね返る」ので、補助点を打点の真下に置いて V 字にする
+    const pts = crOpen([[I[0], I[1] + 0.3], I, ...pat.way[b], J, [J[0], J[1] + 0.3]]);
+    const cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    return { pts, cum };
   });
-  return { name: pat.name, samples: out, beats };
+  return { name: pat.name, dirs: pat.dirs, ict: pat.ict, beats };
 }
 const PAT_CACHE = {};
-const getPattern = n => PAT_CACHE[n] || (PAT_CACHE[n] = buildPattern(clamp(n, 2, 4)));
-function patPos(pg, b, t) {   // 打点の直前・直後は速く、跳ね返りの頂点ではゆっくり
-  const bt = pg.beats[b], s = clamp(t + 0.8 * Math.sin(2 * Math.PI * t) / (2 * Math.PI), 0, 1), target = s * bt.cum[bt.cum.length - 1];
+const getPattern = n => PAT_CACHE[clamp(n, 2, 4)] || (PAT_CACHE[clamp(n, 2, 4)] = buildPattern(clamp(n, 2, 4)));
+function patAt(bt, u) {   // u：0〜1 の道のり
+  const target = clamp(u, 0, 1) * bt.cum[bt.cum.length - 1];
   let i = 1; while (i < bt.cum.length - 1 && bt.cum[i] < target) i++;
-  const a = pg.samples[bt.idx[i - 1]], c = pg.samples[bt.idx[i]], seg = bt.cum[i] - bt.cum[i - 1] || 1, f = (target - bt.cum[i - 1]) / seg;
+  const a = bt.pts[i - 1], c = bt.pts[i], f = (target - bt.cum[i - 1]) / ((bt.cum[i] - bt.cum[i - 1]) || 1);
   return [a[0] + (c[0] - a[0]) * f, a[1] + (c[1] - a[1]) * f];
 }
+// 打点の直前・直後は速く、跳ね返りの頂点ではゆっくり（重力で跳ねるボールのように）
+const beatEase = t => clamp(t + 0.8 * Math.sin(2 * Math.PI * t) / (2 * Math.PI), 0, 1);
+const patPos = (pg, b, t) => patAt(pg.beats[b], beatEase(t));
 
 let mirrorView = false;
 try { mirrorView = localStorage.getItem('kr_mirror') === '1'; } catch (e) {}
@@ -770,56 +958,79 @@ function drawConduct(st, now, ah) {
   const m = st.m, bar = st.has ? m.barOfGroup[st.g] : 0;
   const bg = m.bars[bar], G = bg.length, g0 = m.barStartGroup[bar], pg = getPattern(G);
   const top = 92 * K;
-  const S = Math.max(60, Math.min(W * 0.52, (ah * 0.86 - top) / 1.3));
-  const oy = top + 1.02 * S, ox = W / 2 - 0.04 * S * (mirrorView ? -1 : 1);
+  const S = Math.max(60, Math.min(W * 0.5, (ah * 0.9 - top) / 1.35));
+  const oy = top + 0.98 * S, ox = W / 2 - 0.04 * S * (mirrorView ? -1 : 1);
   const P = p => [ox + (mirrorView ? -p[0] : p[0]) * S, oy + p[1] * S];
-  const lb = st.has ? st.g - g0 : 0;                          // 小節の中で何拍目か
+  const lb = st.has ? st.g - g0 : 0;
   const lt = st.has ? clamp(st.gp, 0, 0.9999) : 0;
 
   txt(`${pg.name}（${bg.join(' ＋ ')}）`, W / 2, top - 22 * K, 16 * K, '#e2e8f0', 800);
   txt(mirrorView ? '向かい合って見た図（奏者側から）' : '指揮者の後ろから見た図（右手）', W / 2, top - 2 * K, 11 * K, '#94a3b8', 600);
-  txt('● が打点。長い拍（3）は同じ形のまま、ゆっくり動く', W / 2, ah * 0.97, 12 * K, '#64748b', 500);
+  txt('打点で鋭く跳ね返る。長い拍（3）は同じ形のまま、ゆっくり動く', W / 2, ah * 0.97, 12 * K, '#64748b', 500);
 
-  // 打点の面
-  cx.setLineDash([3 * K, 7 * K]); cx.strokeStyle = 'rgba(148,163,184,0.25)'; cx.lineWidth = 1.5 * K;
-  cx.beginPath(); cx.moveTo(ox - 0.95 * S, oy); cx.lineTo(ox + 0.95 * S, oy); cx.stroke(); cx.setLineDash([]);
-
-  // 図形（拍ごとに色分け）
-  pg.beats.forEach((bt, b) => {
-    const L = bg[b], col = COLORS[L], cur = st.has && b === lb;
-    cx.strokeStyle = hexA(col, cur ? 0.85 : 0.35); cx.lineWidth = (cur ? 5 : 3.5) * K; cx.lineCap = 'round'; cx.lineJoin = 'round';
-    cx.beginPath(); bt.idx.forEach((ii, n) => { const q = P(pg.samples[ii]); n ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); }); cx.stroke();
-    for (let k = 1; k < L; k++) {   // 8分音符の位置
-      const q = P(patPos(pg, b, k / L)), lit = cur && lt * L >= k;
-      cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.75);
-      cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5.5 : 4) * K, 0, Math.PI * 2); cx.fill();
-    }
-  });
-  // 打点
-  pg.beats.forEach((bt, b) => {
-    const L = bg[b], col = COLORS[L], q = P(pg.samples[bt.idx[0]]);
-    cx.fillStyle = hexA(col, 0.25); cx.strokeStyle = col; cx.lineWidth = 2.5 * K;
-    cx.beginPath(); cx.arc(q[0], q[1], 14 * K, 0, Math.PI * 2); cx.fill(); cx.stroke();
-    txt(String(b + 1), q[0], q[1] + 1, 14 * K, '#f8fafc', 900);
-    txt(`（${L}）`, q[0], q[1] + 27 * K, 11 * K, hexA(col, 0.9), 700);
-  });
-  // 打点の光
-  for (const a of accents) {
-    if (a.meta !== m || m.barOfGroup[a.g] !== bar) continue;
-    const age = now - a.t; if (age < 0 || age > 0.6) continue;
-    const q = age / 0.6, c = P(pg.samples[pg.beats[a.g - g0].idx[0]]);
-    cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
-    cx.beginPath(); cx.arc(c[0], c[1], 15 * K + q * 50 * K, 0, Math.PI * 2); cx.stroke();
-  }
-  // 指揮棒の先：光の尾
-  const tipAt = lp => {   // lp：小節の中の位置（8分音符単位）
+  // 指揮棒の先の位置
+  const tipAt = lp => {
     let b = 0; while (b < G - 1 && lp >= m.starts[g0 + b + 1] - m.barStartSub[bar]) b++;
     const s0 = m.starts[g0 + b] - m.barStartSub[bar];
     return P(patPos(pg, b, clamp((lp - s0) / bg[b], 0, 0.9999)));
   };
   const lp = st.has ? st.pos - m.barStartSub[bar] : 0;
+  const tip = tipAt(lp);
+
+  // 腕・手・指揮棒（手首から先の動き）
+  const sgn = mirrorView ? -1 : 1;
+  const hand = [tip[0] + sgn * 0.1 * S, tip[1] + 0.26 * S];
+  const elbow = [hand[0] + sgn * 0.3 * S, hand[1] + 0.34 * S];
+  cx.lineCap = 'round'; cx.lineJoin = 'round';
+  cx.strokeStyle = 'rgba(148,163,184,0.16)'; cx.lineWidth = 0.075 * S;
+  cx.beginPath(); cx.moveTo(elbow[0], elbow[1]); cx.lineTo(hand[0], hand[1]); cx.stroke();
+  cx.fillStyle = 'rgba(203,213,225,0.28)'; cx.beginPath(); cx.arc(hand[0], hand[1], 0.05 * S, 0, Math.PI * 2); cx.fill();
+  const bgr = cx.createLinearGradient(hand[0], hand[1], tip[0], tip[1]);
+  bgr.addColorStop(0, 'rgba(226,232,240,0.35)'); bgr.addColorStop(1, 'rgba(255,255,255,0.95)');
+  cx.strokeStyle = bgr; cx.lineWidth = 3 * K; cx.beginPath(); cx.moveTo(hand[0], hand[1]); cx.lineTo(tip[0], tip[1]); cx.stroke();
+
+  // 打点の面
+  cx.setLineDash([3 * K, 7 * K]); cx.strokeStyle = 'rgba(148,163,184,0.3)'; cx.lineWidth = 1.5 * K;
+  cx.beginPath(); cx.moveTo(ox - 0.95 * S, oy); cx.lineTo(ox + 0.95 * S, oy); cx.stroke(); cx.setLineDash([]);
+  txt('打点の面', ox - sgn * 0.95 * S, oy + 14 * K, 10 * K, '#64748b', 600, mirrorView ? 'right' : 'left');
+
+  // 図形（拍ごとに色分け）＋ 向きの矢印
+  pg.beats.forEach((bt, b) => {
+    const L = bg[b], col = COLORS[L], cur = st.has && b === lb;
+    cx.strokeStyle = hexA(col, cur ? 0.9 : 0.38); cx.lineWidth = (cur ? 5 : 3.5) * K; cx.lineCap = 'round'; cx.lineJoin = 'round';
+    cx.beginPath(); bt.pts.forEach((pt, n) => { const q = P(pt); n ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); }); cx.stroke();
+    for (const ua of [0.35, 0.8]) {   // 矢印
+      const a = P(patAt(bt, ua - 0.02)), c = P(patAt(bt, ua + 0.02)), an = Math.atan2(c[1] - a[1], c[0] - a[0]), z = 8 * K;
+      cx.fillStyle = hexA(col, cur ? 1 : 0.55);
+      cx.beginPath(); cx.moveTo(c[0] + Math.cos(an) * z, c[1] + Math.sin(an) * z);
+      cx.lineTo(c[0] + Math.cos(an + 2.5) * z, c[1] + Math.sin(an + 2.5) * z); cx.lineTo(c[0] + Math.cos(an - 2.5) * z, c[1] + Math.sin(an - 2.5) * z);
+      cx.closePath(); cx.fill();
+    }
+    for (let k = 1; k < L; k++) {   // 8分音符の位置
+      const q = P(patPos(pg, b, k / L)), lit = cur && lt * L >= k;
+      cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.8);
+      cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5.5 : 4) * K, 0, Math.PI * 2); cx.fill();
+    }
+  });
+  // 打点と「下・内・外・上」
+  pg.ict.forEach((I, b) => {
+    const L = bg[b], col = COLORS[L], q = P(I), cur = st.has && b === lb;
+    cx.fillStyle = hexA(col, cur ? 0.5 : 0.22); cx.strokeStyle = col; cx.lineWidth = 2.5 * K;
+    cx.beginPath(); cx.arc(q[0], q[1], 14 * K, 0, Math.PI * 2); cx.fill(); cx.stroke();
+    txt(String(b + 1), q[0], q[1] + 1, 14 * K, '#f8fafc', 900);
+    txt(`${pg.dirs[b]}（${L}）`, q[0], q[1] + 28 * K, 12 * K, hexA(col, 0.95), 800);
+  });
+  // 打点の光
+  for (const a of accents) {
+    if (a.meta !== m || m.barOfGroup[a.g] !== bar) continue;
+    const age = now - a.t; if (age < 0 || age > 0.6) continue;
+    const q = age / 0.6, c = P(pg.ict[a.g - g0]);
+    cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+    cx.beginPath(); cx.arc(c[0], c[1], 15 * K + q * 50 * K, 0, Math.PI * 2); cx.stroke();
+  }
+  // 光の尾と先端
   if (st.has) {
-    let prev = tipAt(lp);
+    let prev = tip;
     for (let i = 1; i <= 26; i++) {
       const l2 = lp - i * 0.035; if (l2 < 0) break;
       const q = tipAt(l2);
@@ -827,7 +1038,7 @@ function drawConduct(st, now, ah) {
       cx.beginPath(); cx.moveTo(prev[0], prev[1]); cx.lineTo(q[0], q[1]); cx.stroke(); prev = q;
     }
   }
-  const tip = tipAt(lp), col = COLORS[bg[lb]];
+  const col = COLORS[bg[lb]];
   cx.shadowColor = col; cx.shadowBlur = 28 * K;
   cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(tip[0], tip[1], 9 * K, 0, Math.PI * 2); cx.fill();
   cx.shadowBlur = 0;
@@ -909,7 +1120,7 @@ setMirror(mirrorView);
 cv.addEventListener('click', togglePlay);
 document.addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); }
-  else if (e.key === '1') setMode('A'); else if (e.key === '2') setMode('B'); else if (e.key === '3') setMode('C'); else if (e.key === '4') setMode('D');
+  else if (e.key === '1') setMode('A'); else if (e.key === '2') setMode('B'); else if (e.key === '3') setMode('C'); else if (e.key === '4') setMode('D'); else if (e.key === '5') setMode('E');
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
 renderPresets(); setBpm(160);
