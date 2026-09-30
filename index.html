@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>KineticRhythm</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  html, body { height: 100%; margin: 0; background: #0f172a; }
+  body {
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; color: #e2e8f0;
+  }
+  #app { display: flex; flex-direction: column; min-height: 100%; }
+  #main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  #stage { position: relative; flex: 1; min-height: 56vh; }
+  #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; }
+  #panel { flex: none; }
+  @media (min-width: 1024px), (min-width: 700px) and (orientation: landscape) {
+    #app { flex-direction: row; height: 100vh; height: 100dvh; }
+    #stage { min-height: 0; }
+    #panel { width: 340px; overflow-y: auto; border-left: 1px solid #1e293b; }
+  }
+  @media (min-width: 1700px) { #panel { width: 420px; font-size: 1.1rem; } }
+
+  .tab { color: #94a3b8; border: 1px solid #1e293b; background: #0b1222; transition: all .15s; }
+  .tab.on { color: #0f172a; background: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.45); }
+  .preset { background: #111c33; border: 1px solid #1e293b; transition: all .15s; }
+  .preset:hover { border-color: #334155; }
+  .preset.on { border-color: #a3e635; box-shadow: 0 0 0 1px #a3e635 inset, 0 0 16px rgba(163,230,53,.25); background: #15233a; }
+  .sw { width: 52px; height: 30px; border-radius: 999px; background: #334155; position: relative; transition: background .15s; flex: none; }
+  .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #e2e8f0; transition: transform .15s; }
+  .sw.on { background: #a3e635; }
+  .sw.on::after { transform: translateX(22px); }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: #1e293b; outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22d3ee; box-shadow: 0 0 12px rgba(34,211,238,.6); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: #22d3ee; cursor: pointer; }
+  #vol::-webkit-slider-thumb { background: #fbbf24; box-shadow: 0 0 12px rgba(251,191,36,.6); }
+  #vol::-moz-range-thumb { background: #fbbf24; }
+  #playBtn.playing { background: #fbbf24; box-shadow: 0 0 22px rgba(251,191,36,.45); }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ===== 左（上）：ビジュアル ===== -->
+  <div id="main">
+    <div class="flex flex-wrap items-center gap-2 px-3 pt-3 pb-2">
+      <div class="mr-auto">
+        <div class="text-lg sm:text-xl font-extrabold tracking-wide"><span class="text-cyan-300">Kinetic</span><span class="text-lime-300">Rhythm</span></div>
+        <div class="text-[11px] sm:text-xs text-slate-400">変拍子の「重心」と「周期」を、動きと音で体感する</div>
+      </div>
+      <div class="flex gap-1.5" id="tabs">
+        <button class="tab on px-3 py-2 rounded-lg text-sm font-bold" data-mode="A">A 転がる多角形</button>
+        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="B">B 跳ねるボール</button>
+        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="C">C 円軌道</button>
+      </div>
+    </div>
+    <div id="stage"><canvas id="cv"></canvas></div>
+  </div>
+
+  <!-- ===== 右（下）：操作パネル ===== -->
+  <aside id="panel" class="p-4 space-y-5 bg-[#0b1222]">
+    <button id="playBtn" class="w-full py-4 rounded-2xl text-xl font-extrabold text-slate-900 bg-lime-400 shadow-[0_0_22px_rgba(163,230,53,.4)] active:scale-[.98] transition">▶ 再生</button>
+    <div class="text-[11px] text-slate-500 -mt-3 text-center">スペースキーでも再生／停止　・　1 / 2 / 3 キーでモード切替</div>
+
+    <div>
+      <div class="flex items-baseline justify-between mb-2">
+        <span class="text-sm font-bold text-slate-300">テンポ（8分音符）</span>
+        <span class="font-extrabold text-2xl text-cyan-300"><span id="bpmVal">160</span><span class="text-xs text-slate-400 ml-1">BPM</span></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="bpmDown" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">−</button>
+        <input id="bpm" type="range" min="80" max="300" step="1" value="160">
+        <button id="bpmUp" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">＋</button>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <div class="text-sm font-bold text-slate-300">サブ拍クリック</div>
+        <div class="text-[11px] text-slate-500" id="subDesc">グループ内の細かい拍も鳴らす</div>
+      </div>
+      <button id="subSw" class="sw on" aria-label="サブ拍クリック"></button>
+    </div>
+
+    <div>
+      <div class="flex items-baseline justify-between mb-2">
+        <span class="text-sm font-bold text-slate-300">音量</span>
+        <span class="text-sm text-amber-300 font-bold" id="volVal">70</span>
+      </div>
+      <input id="vol" type="range" min="0" max="100" step="1" value="70">
+    </div>
+
+    <div>
+      <div class="text-sm font-bold text-slate-300 mb-2">リズム・プリセット</div>
+      <div id="presets" class="grid grid-cols-2 gap-2"></div>
+      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">
+        <span class="text-cyan-300 font-bold">2</span>＝「パン」　<span class="text-amber-300 font-bold">3</span>＝「トマト」。<br>
+        再生中に切り替えると、次の小節の頭から変わります。
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script>
+/* =========================================================
+   基本データ
+   ========================================================= */
+const COLORS = { 2: '#22d3ee', 3: '#fbbf24' };   // 2＝シアン / 3＝アンバー
+const LIME = '#a3e635';
+const SYL = { 2: ['パ', 'ン'], 3: ['ト', 'マ', 'ト'] };
+const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
+const PRESETS = [
+  { sig: '5/8', groups: [2, 3], note: 'パン＋トマト' },
+  { sig: '5/8', groups: [3, 2], note: 'トマト＋パン' },
+  { sig: '7/8', groups: [2, 2, 3], note: 'パン＋パン＋トマト' },
+  { sig: '7/8', groups: [3, 2, 2], note: 'トマト＋パン＋パン' },
+  { sig: '6/8', groups: [3, 3], note: 'トマト＋トマト' },
+  { sig: '8/8', groups: [3, 3, 2], note: 'トレスティーヨ' },
+];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const mod = (a, n) => ((a % n) + n) % n;
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/* 不整多角形（円に内接）を、辺の長さ＝拍の長さ で作る */
+function buildPoly(groups) {
+  let sides = groups.slice();
+  while (sides.length < 4) sides = sides.concat(groups);   // 2グループだと形にならないので繰り返す
+  const N = sides.length, maxL = Math.max(...sides);
+  const f = R => sides.reduce((s, L) => s + 2 * Math.asin(Math.min(1, L / (2 * R))), 0);
+  let lo = maxL / 2, hi = maxL * N;
+  for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (f(mid) > 2 * Math.PI) lo = mid; else hi = mid; }
+  const R = (lo + hi) / 2;
+  const verts = []; let a = Math.PI * 0.5;
+  for (let i = 0; i < N; i++) { verts.push({ x: R * Math.cos(a), y: R * Math.sin(a) }); a += 2 * Math.asin(sides[i] / (2 * R)); }
+  const edgeAng = [], prefix = [], ext = [];
+  let acc = 0;
+  for (let i = 0; i < N; i++) {
+    const p = verts[i], q = verts[(i + 1) % N];
+    edgeAng.push(Math.atan2(q.y - p.y, q.x - p.x));
+    prefix.push(acc); acc += sides[i];
+  }
+  for (let j = 0; j < N; j++) ext.push(mod(edgeAng[j] - edgeAng[mod(j - 1, N)], Math.PI * 2));
+  return { sides, N, R, verts, edgeAng, ext, prefix, perim: acc };
+}
+
+function makeMeta(p) {
+  const starts = [], subToGroup = []; let s = 0;
+  p.groups.forEach((L, i) => { starts.push(s); for (let k = 0; k < L; k++) subToGroup.push(i); s += L; });
+  return { preset: p, groups: p.groups, starts, subToGroup, total: s, poly: buildPoly(p.groups) };
+}
+
+/* =========================================================
+   状態
+   ========================================================= */
+let selected = PRESETS[0];
+let activeMeta = makeMeta(selected), pendingMeta = null;
+let bpm = 160, subOn = true, volume = 0.7, mode = 'A', playing = false;
+let ctx = null, master = null, bus = null, timer = null;
+let nextTime = 0, curSub = 0, measure = 0, stepCounter = 0;
+let queue = [], lastNote = null, frozenFrac = 0, accents = [];
+
+/* =========================================================
+   音響エンジン（ルックアヘッド・スケジューラー）
+   ========================================================= */
+const SCHEDULE_AHEAD = 0.1;   // 秒
+const LOOKAHEAD_MS = 25;      // ミリ秒
+
+function initAudio() {
+  if (ctx) return;
+  ctx = new (window.AudioContext || window.webkitAudioContext)();
+  master = ctx.createGain(); master.gain.value = volume; master.connect(ctx.destination);
+  // iOS 対策：無音を一度鳴らしてロック解除
+  const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0);
+}
+
+function playAccent(t) {        // 強拍：880Hz → 110Hz の急速ピッチダウン（ディケイ 0.08秒）
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(880, t);
+  o.frequency.exponentialRampToValueAtTime(110, t + 0.08);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(1.0, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.1);
+}
+function playClick(t) {         // 弱拍：1200Hz の乾いたクリック（ディケイ 0.02秒）
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'square'; o.frequency.setValueAtTime(1200, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.22, t + 0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
+}
+
+function scheduler() {
+  while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
+    if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; measure = 0; }
+    const m = activeMeta, g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
+    if (isAcc) { playAccent(nextTime); stepCounter++; }
+    else if (subOn) playClick(nextTime);
+    queue.push({ time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, measure });
+    nextTime += dur; curSub++;
+    if (curSub >= m.total) { curSub = 0; measure++; }
+  }
+}
+
+function audioNow() {   // 画面描画用の「いま」＝オーディオクロック（出力遅延ぶん補正）
+  return ctx ? ctx.currentTime - (ctx.outputLatency || 0) : performance.now() / 1000;
+}
+
+function start() {
+  initAudio(); if (ctx.state !== 'running') ctx.resume();
+  bus = ctx.createGain(); bus.connect(master);
+  if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
+  curSub = 0; measure = 0; stepCounter = 0; queue = []; lastNote = null; accents = [];
+  nextTime = ctx.currentTime + 0.08;
+  playing = true; scheduler(); timer = setInterval(scheduler, LOOKAHEAD_MS);
+  updatePlayBtn();
+}
+function stop() {
+  frozenFrac = getState(audioNow()).frac || 0;
+  playing = false; clearInterval(timer); queue = [];
+  if (bus) { const b = bus; b.gain.setValueAtTime(0, ctx.currentTime); setTimeout(() => b.disconnect(), 300); bus = null; }
+  updatePlayBtn();
+}
+function togglePlay() { playing ? stop() : start(); }
+
+/* 描画用の現在位置（すべてオーディオ時刻から計算） */
+function getState(now) {
+  if (!lastNote) return { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, measure: 0, sub: 0, frac: 0, has: false };
+  const n = lastNote, m = n.meta;
+  const frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
+  const pos = n.sub + frac, gs = m.starts[n.g], len = m.groups[n.g];
+  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, measure: n.measure, sub: n.sub, frac, has: true };
+}
+
+/* =========================================================
+   Canvas
+   ========================================================= */
+const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+let W = 300, H = 300, K = 1;
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(50, r.width); H = Math.max(50, r.height);
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  cx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  K = clamp(Math.min(W, H) / 480, 0.7, 2.4);
+}
+new ResizeObserver(resize).observe(cv.parentElement); resize();
+
+function rr(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  cx.beginPath(); cx.moveTo(x + r, y);
+  cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r);
+  cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
+}
+function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middle') {
+  cx.font = `${weight} ${size}px ${FONT}`; cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
+}
+
+function frame() {
+  const now = audioNow();
+  if (playing) {
+    while (queue.length && queue[0].time <= now) {
+      const n = queue.shift(); lastNote = n;
+      if (n.isAcc) accents.push({ t: n.time, step: n.step, g: n.g, meta: n.meta });
+    }
+  }
+  if (accents.length) accents = accents.filter(a => now - a.t < 1.5);
+  const st = getState(now);
+
+  cx.clearRect(0, 0, W, H);
+  const bg = cx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#0a1020');
+  cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
+
+  const stripH = clamp(H * 0.17, 60, 130), sceneH = H - stripH;
+  if (mode === 'A') drawRoll(st, now, sceneH);
+  else if (mode === 'B') drawBounce(st, now, sceneH);
+  else drawOrbit(st, now, sceneH);
+  drawHeader(st);
+  drawStrip(st, sceneH, stripH);
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 共通：見出し ---------- */
+function drawHeader(st) {
+  const m = st.m, pad = 14 * K; let x = pad; const y = pad + 16 * K;
+  cx.textBaseline = 'middle'; cx.textAlign = 'left';
+  cx.font = `800 ${26 * K}px ${FONT}`; cx.fillStyle = '#e2e8f0'; cx.fillText(m.preset.sig, x, y);
+  x += cx.measureText(m.preset.sig).width + 12 * K;
+  m.groups.forEach((L, i) => {
+    if (i) { cx.fillStyle = '#64748b'; cx.fillText('+', x, y); x += cx.measureText('+').width + 6 * K; }
+    cx.fillStyle = COLORS[L]; cx.fillText(String(L), x, y); x += cx.measureText(String(L)).width + 6 * K;
+  });
+  txt(m.preset.note, pad, y + 24 * K, 13 * K, '#94a3b8', 500, 'left');
+  txt(`♪ = ${bpm}`, W - pad, y, 18 * K, '#67e8f9', 800, 'right');
+  if (st.has) txt(`${st.measure + 1} 小節目`, W - pad, y + 24 * K, 12 * K, '#94a3b8', 500, 'right');
+  if (pendingMeta) txt(`次の小節から ${pendingMeta.preset.sig} [${pendingMeta.groups.join('+')}]`, W - pad, y + 44 * K, 12 * K, LIME, 700, 'right');
+}
+
+/* ---------- 共通：下のカウント帯（パ・ン・ト・マ・ト） ---------- */
+function drawStrip(st, y0, h) {
+  const m = st.m, T = m.total, G = m.groups.length;
+  const pad = 14 * K, gap = 5 * K, ggap = 16 * K;
+  const bw = (W - 2 * pad - (T - G) * gap - (G - 1) * ggap) / T, bh = h * 0.6, by = y0 + (h - bh) / 2;
+  let x = pad;
+  m.groups.forEach((L, g) => {
+    for (let k = 0; k < L; k++) {
+      const i = m.starts[g] + k, on = st.has && st.sub === i, col = COLORS[L];
+      rr(x, by, bw, bh, 8 * K);
+      if (on) { cx.shadowColor = col; cx.shadowBlur = 20 * K; }
+      cx.fillStyle = on ? col : hexA(col, k === 0 ? 0.2 : 0.1); cx.fill(); cx.shadowBlur = 0;
+      cx.lineWidth = (k === 0 ? 3 : 1.2) * K; cx.strokeStyle = hexA(col, k === 0 ? 0.95 : 0.45); cx.stroke();
+      txt(SYL[L][k], x + bw / 2, by + bh / 2, Math.min(bh * 0.5, bw * 0.55), on ? '#0f172a' : col, k === 0 ? 900 : 600);
+      if (k === 0) txt('>', x + 8 * K, by + 10 * K, 11 * K, on ? '#0f172a' : col, 900);
+      x += bw + (k < L - 1 ? gap : ggap);
+    }
+  });
+}
+
+/* ---------- モードA：不揃いな多角形の転がり ---------- */
+function drawRoll(st, now, ah) {
+  const m = st.m, P = m.poly, N = P.N;
+  const groundY = ah * 0.8;
+  const Rpx = Math.min(ah * 0.28, W * 0.17), u = Rpx / P.R;
+  const span = W + 4 * Rpx + 40 * K, off = 2 * Rpx + 20 * K;
+  const X = k => Math.floor(k / N) * P.perim + P.prefix[mod(k, N)];
+  const toS = xu => mod(xu * u, span) - off;
+  const S = Math.max(0, st.step), j = mod(S, N);
+  const t = clamp(st.gp, 0, 1);
+  const p = 0.3 * t + 0.7 * t * t;   // 持ち上がりはゆっくり、倒れる瞬間は速く（コトッ）
+  const phi = -P.edgeAng[mod(j - 1, N)] - P.ext[j] * p;
+  const c = Math.cos(phi), s = Math.sin(phi);
+
+  txt('角が床に「コトッ」とつく瞬間 ＝ グループの頭（強拍）', W / 2, ah * 0.93, 12 * K, '#64748b', 500);
+
+  // 地面
+  cx.strokeStyle = '#334155'; cx.lineWidth = 2 * K;
+  cx.beginPath(); cx.moveTo(0, groundY); cx.lineTo(W, groundY); cx.stroke();
+
+  // 足あと（これまでに接地した辺）
+  for (let k = Math.max(0, S - 2 * N); k < S; k++) {
+    const a = toS(X(k)), L = P.sides[mod(k, N)], w = L * u;
+    const al = 0.15 + 0.55 * (1 - (S - 1 - k) / (2 * N));
+    for (const sh of [-span, 0, span]) {
+      const xa = a + sh; if (xa > W || xa + w < 0) continue;
+      cx.strokeStyle = hexA(COLORS[L], al); cx.lineWidth = 5 * K;
+      cx.beginPath(); cx.moveTo(xa + 2 * K, groundY + 6 * K); cx.lineTo(xa + w - 2 * K, groundY + 6 * K); cx.stroke();
+      cx.fillStyle = hexA('#e2e8f0', al); cx.beginPath(); cx.arc(xa, groundY, 3 * K, 0, Math.PI * 2); cx.fill();
+    }
+  }
+
+  // 衝撃波（リング）
+  for (const a of accents) {
+    if (a.meta !== m) continue;
+    const age = now - a.t; if (age < 0 || age > 0.9) continue;
+    const q = age / 0.9, xa = toS(X(a.step)), rad = 8 * K + age * 180 * K;
+    for (const sh of [-span, 0, span]) {
+      const x0 = xa + sh; if (x0 < -300 * K || x0 > W + 300 * K) continue;
+      cx.strokeStyle = hexA(LIME, (1 - q) * 0.9); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+      cx.beginPath(); cx.ellipse(x0, groundY, rad, rad * 0.28, 0, 0, Math.PI * 2); cx.stroke();
+      cx.strokeStyle = hexA(LIME, (1 - q) * 0.45); cx.lineWidth = 2 * K;
+      cx.beginPath(); cx.arc(x0, groundY, rad * 0.6, Math.PI, 0); cx.stroke();
+    }
+  }
+
+  // 多角形本体
+  const rel = P.verts.map(v => { const dx = v.x - P.verts[j].x, dy = v.y - P.verts[j].y; return [dx * c - dy * s, dx * s + dy * c]; });
+  const cRel = (() => { const dx = -P.verts[j].x, dy = -P.verts[j].y; return [dx * c - dy * s, dx * s + dy * c]; })();
+  const px0 = toS(X(S));
+  const L = P.sides[j], gpos = t * L;
+  for (const sh of [-span, 0, span]) {
+    const ox = px0 + sh;
+    if (ox + 2.2 * Rpx < 0 || ox - 2.2 * Rpx > W) continue;
+    const pt = r => [ox + r[0] * u, groundY - r[1] * u];
+    const V = rel.map(pt), C = pt(cRel);
+
+    cx.beginPath(); V.forEach((q, i) => i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1])); cx.closePath();
+    const gr = cx.createRadialGradient(C[0], C[1], 0, C[0], C[1], Rpx);
+    gr.addColorStop(0, 'rgba(148,163,184,0.16)'); gr.addColorStop(1, 'rgba(148,163,184,0.04)');
+    cx.fillStyle = gr; cx.fill();
+
+    // 辺（長さ＝拍の長さ）
+    for (let i = 0; i < N; i++) {
+      const a = V[i], b = V[(i + 1) % N], Li = P.sides[i], act = i === j;
+      cx.strokeStyle = hexA(COLORS[Li], act ? 1 : 0.55); cx.lineWidth = (act ? 6 : 3.5) * K; cx.lineCap = 'round';
+      if (act) { cx.shadowColor = COLORS[Li]; cx.shadowBlur = 14 * K; }
+      cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.stroke(); cx.shadowBlur = 0;
+      // サブ拍の目盛り
+      for (let k = 1; k < Li; k++) {
+        const x = a[0] + (b[0] - a[0]) * k / Li, y = a[1] + (b[1] - a[1]) * k / Li;
+        const lit = act && gpos >= k;
+        cx.fillStyle = lit ? '#ffffff' : hexA(COLORS[Li], act ? 0.8 : 0.4);
+        cx.beginPath(); cx.arc(x, y, (lit ? 5 : 3.2) * K, 0, Math.PI * 2); cx.fill();
+      }
+      // 辺の数字
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      let dx = mx - C[0], dy = my - C[1]; const dl = Math.hypot(dx, dy) || 1; dx /= dl; dy /= dl;
+      txt(String(Li), mx + dx * 16 * K, my + dy * 16 * K, (act ? 17 : 13) * K, hexA(COLORS[Li], act ? 1 : 0.7), 800);
+    }
+    // 中心とスポーク（回転が見える）
+    cx.strokeStyle = 'rgba(226,232,240,0.25)'; cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.moveTo(C[0], C[1]); cx.lineTo(V[j][0], V[j][1]); cx.stroke();
+    cx.fillStyle = '#cbd5e1'; cx.beginPath(); cx.arc(C[0], C[1], 3.5 * K, 0, Math.PI * 2); cx.fill();
+    // 頂点
+    V.forEach((q, i) => {
+      const piv = i === j;
+      if (piv) { cx.shadowColor = LIME; cx.shadowBlur = 18 * K; }
+      cx.fillStyle = piv ? LIME : '#e2e8f0';
+      cx.beginPath(); cx.arc(q[0], q[1], (piv ? 7 : 4.5) * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+    });
+    const nx = V[(j + 1) % N];
+    cx.strokeStyle = hexA(LIME, 0.35 + 0.6 * t); cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.arc(nx[0], nx[1], 11 * K, 0, Math.PI * 2); cx.stroke();
+  }
+}
+
+/* ---------- モードB：重力ボールバウンド ---------- */
+function drawBounce(st, now, ah) {
+  const m = st.m, G = m.groups.length;
+  const u = W / Math.max(12, m.total * 1.6);
+  const groundY = ah * 0.76, blockH = Math.min(ah * 0.12, 44 * K);
+  const hMax = ah * 0.46;
+  const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
+  const Lk = k => m.groups[mod(k, G)];
+  const hOf = L => hMax * (L / 3) ** 2;       // h ∝ T²
+  const S = Math.max(0, st.step), gp = clamp(st.gp, 0, 1), len = Lk(S);
+  const ballU = X(S) + gp * len;
+  const cam = ballU - (W * 0.35) / u;
+
+  for (let k = S - 10; k <= S + 16; k++) {
+    const x0 = (X(k) - cam) * u, L = Lk(k), w = L * u;
+    if (x0 > W || x0 + w < 0) continue;
+    const col = COLORS[L], cur = k === S && st.has, hh = hOf(L);
+    // 小節線
+    if (mod(k, G) === 0) {
+      cx.strokeStyle = 'rgba(148,163,184,0.22)'; cx.lineWidth = 1.5 * K; cx.setLineDash([4 * K, 6 * K]);
+      cx.beginPath(); cx.moveTo(x0, groundY + blockH); cx.lineTo(x0, ah * 0.2); cx.stroke(); cx.setLineDash([]);
+      if (k >= 0) txt(`${Math.floor(k / G) + 1}小節`, x0 + 4 * K, ah * 0.2, 11 * K, '#64748b', 600, 'left');
+    }
+    // 放物線の予定軌道
+    cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(col, cur ? 0.75 : 0.22); cx.lineWidth = 2 * K;
+    cx.beginPath();
+    for (let i = 0; i <= 30; i++) { const tt = i / 30, px = x0 + tt * w, py = groundY - 4 * hh * tt * (1 - tt); i ? cx.lineTo(px, py) : cx.moveTo(px, py); }
+    cx.stroke(); cx.setLineDash([]);
+    // ブロック
+    rr(x0 + 3 * K, groundY, w - 6 * K, blockH, 7 * K);
+    cx.fillStyle = hexA(col, cur ? 0.32 : 0.13); cx.fill();
+    cx.strokeStyle = hexA(col, cur ? 1 : 0.5); cx.lineWidth = 2 * K; cx.stroke();
+    for (let s = 0; s < L; s++) {
+      const lit = cur && (st.pos - m.starts[mod(k, G)]) >= s;
+      txt(SYL[L][s], x0 + (s + 0.5) * u, groundY + blockH / 2, Math.min(blockH * 0.5, u * 0.5), lit ? '#ffffff' : hexA(col, 0.8), s === 0 ? 900 : 600);
+      if (s > 0) { cx.fillStyle = hexA(col, 0.6); cx.fillRect(x0 + s * u - 1, groundY - 5 * K, 2, 5 * K); }
+    }
+    if (cur) {
+      txt(`滞空 ${L}拍`, x0 + w / 2, groundY - 4 * hh * 0.25 - 30 * K, 13 * K, col, 800);
+      txt(`高さ ×${L === 2 ? '1' : '2.25'}`, x0 + w / 2, groundY - 4 * hh * 0.25 - 12 * K, 12 * K, hexA(col, 0.8), 600);
+    }
+  }
+  txt('跳ぶ時間が 1.5 倍 → 高さは 2.25 倍（h ∝ T²）', W / 2, ah * 0.96, 12 * K, '#64748b', 500);
+
+  // 着地の砂ぼこり
+  for (const a of accents) {
+    if (a.meta !== m) continue;
+    const age = now - a.t; if (age < 0 || age > 0.5) continue;
+    const q = age / 0.5, xa = (X(a.step) - cam) * u;
+    for (let i = 0; i < 8; i++) {
+      const dir = i < 4 ? -1 : 1, sp = (i % 4 + 1) / 4;
+      const x = xa + dir * q * (18 + 30 * sp) * K, y = groundY - Math.sin(q * Math.PI) * (8 + 18 * sp) * K;
+      cx.fillStyle = hexA(LIME, (1 - q) * 0.8); cx.beginPath(); cx.arc(x, y, (3 - q * 2) * K, 0, Math.PI * 2); cx.fill();
+    }
+    cx.strokeStyle = hexA(LIME, (1 - q) * 0.7); cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.ellipse(xa, groundY, 10 * K + q * 60 * K, 3 * K + q * 10 * K, 0, 0, Math.PI * 2); cx.stroke();
+  }
+
+  // ボール（Squash & Stretch）
+  const r = clamp(ah * 0.05, 10, 60);
+  const bx = (ballU - cam) * u, hh = hOf(len), by = groundY - 4 * hh * gp * (1 - gp);
+  const last = accents[accents.length - 1];
+  const ta = last ? now - last.t : 9;
+  let sx = 1, sy = 1;
+  if (st.has && ta >= 0 && ta < 0.13) { const q = 1 - ta / 0.13; sy = 1 - 0.42 * q * q; sx = 1 + 0.38 * q * q; }
+  else if (st.has) { const v = Math.abs(1 - 2 * gp) ** 3 * (len / 3); sy = 1 + 0.22 * v; sx = 1 / Math.sqrt(sy); }
+  const hr = (groundY - by) / (hMax * 4 * 0.25 || 1);
+  cx.fillStyle = `rgba(0,0,0,${0.45 - 0.3 * clamp(hr, 0, 1)})`;
+  cx.beginPath(); cx.ellipse(bx, groundY + 2 * K, r * (1.3 - 0.6 * clamp(hr, 0, 1)) * sx, r * 0.25, 0, 0, Math.PI * 2); cx.fill();
+  const g = cx.createRadialGradient(bx - r * 0.3, by - r * sy * 1.3, r * 0.1, bx, by - r * sy, r * 1.2);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, '#d9f99d'); g.addColorStop(1, LIME);
+  cx.shadowColor = LIME; cx.shadowBlur = 24 * K; cx.fillStyle = g;
+  cx.beginPath(); cx.ellipse(bx, by - r * sy, r * sx, r * sy, 0, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+}
+
+/* ---------- モードC：円軌道レーダー ---------- */
+function drawOrbit(st, now, ah) {
+  const m = st.m, T = m.total;
+  const top = 64 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
+  const R = Math.max(40, Math.min(W * 0.4, (ah - top) * 0.44));
+  const A0 = -Math.PI / 2, ang = (v, tt = T) => A0 + 2 * Math.PI * v / tt;
+
+  // セクター
+  m.groups.forEach((L, i) => {
+    const a0 = ang(m.starts[i]), a1 = ang(m.starts[i] + L), cur = st.has && i === st.g, col = COLORS[L];
+    cx.beginPath(); cx.moveTo(cxC, cyC); cx.arc(cxC, cyC, R, a0, a1); cx.closePath();
+    cx.fillStyle = hexA(col, cur ? 0.26 : 0.09); cx.fill();
+    if (cur) { cx.shadowColor = col; cx.shadowBlur = 18 * K; }
+    cx.strokeStyle = hexA(col, cur ? 1 : 0.5); cx.lineWidth = 9 * K;
+    cx.beginPath(); cx.arc(cxC, cyC, R, a0 + 0.01, a1 - 0.01); cx.stroke(); cx.shadowBlur = 0;
+    const am = (a0 + a1) / 2, lx = cxC + Math.cos(am) * R * 0.62, ly = cyC + Math.sin(am) * R * 0.62;
+    txt(String(L), lx, ly - 8 * K, 30 * K, hexA(col, cur ? 1 : 0.7), 900);
+    txt(`${Math.round(360 * L / T)}°`, lx, ly + 18 * K, 13 * K, hexA(col, 0.85), 700);
+  });
+  // 目盛り・境界線
+  for (let s = 0; s < T; s++) {
+    const a = ang(s), isStart = m.starts.includes(s), ca = Math.cos(a), sa = Math.sin(a);
+    cx.lineWidth = (isStart ? 2.5 : 1.5) * K;
+    cx.strokeStyle = isStart ? 'rgba(226,232,240,0.55)' : 'rgba(148,163,184,0.45)';
+    cx.beginPath();
+    if (isStart) { cx.moveTo(cxC, cyC); cx.lineTo(cxC + ca * (R + 14 * K), cyC + sa * (R + 14 * K)); }
+    else { cx.moveTo(cxC + ca * (R - 14 * K), cyC + sa * (R - 14 * K)); cx.lineTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); }
+    cx.stroke();
+  }
+  // 境界を通過した瞬間のパルス（中心→境界線）
+  for (const a of accents) {
+    const age = now - a.t; if (age < 0 || age > 0.55) continue;
+    const an = ang(a.meta.starts[a.g], a.meta.total), ca = Math.cos(an), sa = Math.sin(an);
+    const reach = clamp(age / 0.2, 0, 1), fade = age < 0.2 ? 1 : 1 - (age - 0.2) / 0.35;
+    cx.shadowColor = LIME; cx.shadowBlur = 20 * K;
+    cx.strokeStyle = hexA(LIME, 0.85 * fade); cx.lineWidth = 5 * K;
+    cx.beginPath(); cx.moveTo(cxC, cyC); cx.lineTo(cxC + ca * R * reach, cyC + sa * R * reach); cx.stroke();
+    cx.fillStyle = hexA('#ffffff', fade); cx.beginPath(); cx.arc(cxC + ca * R * reach, cyC + sa * R * reach, 7 * K, 0, Math.PI * 2); cx.fill();
+    cx.shadowBlur = 0;
+    cx.strokeStyle = hexA(LIME, 0.5 * fade); cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.arc(cxC, cyC, R + 18 * K + age * 60 * K, an - 0.25, an + 0.25); cx.stroke();
+  }
+  // ポインターの光の尾
+  const pa = ang(st.pos), col = COLORS[m.groups[st.g]];
+  if (st.has) {
+    const d = (2 * Math.PI / T) * 0.9 / 20;
+    for (let i = 0; i < 20; i++) {
+      cx.strokeStyle = hexA('#f0fdfa', (1 - i / 20) * 0.6); cx.lineWidth = (7 - i * 0.25) * K;
+      cx.beginPath(); cx.arc(cxC, cyC, R, pa - (i + 1) * d, pa - i * d); cx.stroke();
+    }
+  }
+  // 光の球
+  const ox = cxC + Math.cos(pa) * R, oy = cyC + Math.sin(pa) * R;
+  cx.shadowColor = col; cx.shadowBlur = 30 * K;
+  cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(ox, oy, 10 * K, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = col; cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(ox, oy, 15 * K, 0, Math.PI * 2); cx.stroke();
+  cx.shadowBlur = 0;
+  // 中心ハブ
+  const hub = R * 0.24;
+  cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(cxC, cyC, hub, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = 'rgba(148,163,184,0.4)'; cx.lineWidth = 2 * K; cx.stroke();
+  const L = m.groups[st.g], k = clamp(Math.floor(st.pos - m.starts[st.g]), 0, L - 1);
+  txt(st.has ? SYL[L][k] : '▶', cxC, cyC - 4 * K, hub * 0.8, st.has ? COLORS[L] : '#475569', 900);
+  txt('1周 ＝ 1小節', cxC, cyC + hub * 0.62, Math.max(9, 10 * K), '#64748b', 600);
+}
+
+requestAnimationFrame(frame);
+
+/* =========================================================
+   UI
+   ========================================================= */
+const $ = s => document.querySelector(s);
+function updatePlayBtn() {
+  const b = $('#playBtn');
+  b.textContent = playing ? '❚❚ 一時停止' : '▶ 再生';
+  b.classList.toggle('playing', playing);
+}
+function renderPresets() {
+  const box = $('#presets'); box.innerHTML = '';
+  PRESETS.forEach(p => {
+    const b = document.createElement('button');
+    b.className = 'preset rounded-xl p-2.5 text-left' + (p === selected ? ' on' : '');
+    const nums = p.groups.map(L => `<span style="color:${COLORS[L]}">${L}</span>`).join('<span class="text-slate-500"> + </span>');
+    b.innerHTML = `<div class="flex items-baseline gap-1.5"><span class="font-extrabold text-slate-100">${p.sig}</span><span class="font-extrabold text-sm">[${nums}]</span></div>
+                   <div class="text-[11px] text-slate-400 mt-0.5">${p.note}</div>`;
+    b.onclick = () => selectPreset(p);
+    box.appendChild(b);
+  });
+}
+function selectPreset(p) {
+  selected = p;
+  if (playing) pendingMeta = makeMeta(p);
+  else { activeMeta = makeMeta(p); pendingMeta = null; lastNote = null; accents = []; }
+  renderPresets();
+}
+function setMode(md) {
+  mode = md;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
+}
+function setBpm(v) { bpm = clamp(Math.round(v), 80, 300); $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; }
+
+$('#playBtn').onclick = togglePlay;
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setMode(t.dataset.mode));
+$('#bpm').oninput = e => setBpm(+e.target.value);
+$('#bpmDown').onclick = () => setBpm(bpm - 5);
+$('#bpmUp').onclick = () => setBpm(bpm + 5);
+$('#subSw').onclick = () => {
+  subOn = !subOn; $('#subSw').classList.toggle('on', subOn);
+  $('#subDesc').textContent = subOn ? 'グループ内の細かい拍も鳴らす' : '拍頭（強拍）だけ鳴らす';
+};
+$('#vol').oninput = e => {
+  volume = (+e.target.value) / 100; $('#volVal').textContent = e.target.value;
+  if (master) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.02);
+};
+cv.addEventListener('click', togglePlay);
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); }
+  else if (e.key === '1') setMode('A'); else if (e.key === '2') setMode('B'); else if (e.key === '3') setMode('C');
+});
+document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
+renderPresets(); setBpm(160);
+</script>
+</body>
+</html>
