@@ -38,7 +38,12 @@
   .brand-sub { font-size: 11px; color: #94a3b8; }
   @media (min-width: 640px) { .brand-name { font-size: 20px; } .brand-sub { font-size: 12px; } }
   .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tab { padding: 7px 11px; border-radius: 8px; font-size: 14px; font-weight: 700;
+  @media (max-width: 699px) {
+    .tabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tab { flex: none; }
+  }
+  .tab { padding: 7px 11px; border-radius: 8px; font-size: 14px; white-space: nowrap; font-weight: 700;
          color: #94a3b8; border: 1px solid #1e293b; background: #0b1222; transition: all .15s; }
   .tab.on { color: #0f172a; background: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.45); }
 
@@ -151,6 +156,7 @@
         <button class="tab" data-mode="D">D 指揮</button>
         <button class="tab" data-mode="E">E 階段</button>
         <button class="tab" data-mode="F">F ポリリズム</button>
+        <button class="tab" data-mode="G">G 電車</button>
       </div>
     </div>
     <div id="stage"><canvas id="cv"></canvas></div>
@@ -159,7 +165,7 @@
   <!-- ===== 右（下）：操作パネル ===== -->
   <aside id="panel">
     <button id="playBtn" class="btn-play">▶ 再生</button>
-    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　1〜6 キー：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
+    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　数字キー 1〜7：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
 
     <div class="blk">
       <div class="row base">
@@ -477,6 +483,29 @@ function playClick(t, level = 1) {   // 弱拍：1200Hz の乾いたクリック
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
   o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
 }
+/* 電車の音：ガタン（グループの頭）／コトン（サブ拍） */
+function playClank(t, strong) {
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = strong ? 1500 : 2600; f.Q.value = strong ? 1.6 : 2.2;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(strong ? 0.9 : 0.35, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (strong ? 0.06 : 0.025));
+  s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.3); s.stop(t + 0.1);
+  const o = ctx.createOscillator(), og = ctx.createGain();   // ドンという低い響き
+  o.type = 'sine'; o.frequency.setValueAtTime(strong ? 150 : 240, t); o.frequency.exponentialRampToValueAtTime(strong ? 55 : 120, t + (strong ? 0.12 : 0.05));
+  og.gain.setValueAtTime(0.0001, t);
+  og.gain.exponentialRampToValueAtTime(strong ? 1.0 : 0.4, t + 0.003);
+  og.gain.exponentialRampToValueAtTime(0.0001, t + (strong ? 0.14 : 0.06));
+  o.connect(og); og.connect(bus); o.start(t); o.stop(t + 0.16);
+  if (strong) {   // 金属がカンと鳴る音
+    const r = ctx.createOscillator(), rg = ctx.createGain();
+    r.type = 'square'; r.frequency.setValueAtTime(620, t);
+    rg.gain.setValueAtTime(0.0001, t);
+    rg.gain.exponentialRampToValueAtTime(0.12, t + 0.002);
+    rg.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+    r.connect(rg); rg.connect(bus); r.start(t); r.stop(t + 0.06);
+  }
+}
 /* ポリリズムの2つの音色 */
 function playPolyHigh(t, down) {     // 高い音：木をたたいたような音
   const o = ctx.createOscillator(), g = ctx.createGain();
@@ -580,8 +609,8 @@ function scheduleMeta() {
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : playAccent(nextTime); }
-    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : playClick(nextTime); }
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : mode === 'G' ? playClank(nextTime, true) : playAccent(nextTime); }
+    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : mode === 'G' ? playClank(nextTime, false) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
@@ -785,6 +814,7 @@ function frame() {
     else if (mode === 'B') drawBounce(st, now, sceneH);
     else if (mode === 'C') drawOrbit(st, now, sceneH);
     else if (mode === 'D') drawConduct(st, now, sceneH);
+    else if (mode === 'G') drawTrain(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, sceneH + bandH, stripH);
@@ -1565,6 +1595,196 @@ function drawConduct(st, now, ah) {
   cx.shadowBlur = 0;
 }
 
+/* ---------- モードG：電車 ----------
+   ・パン＝短い車両（8分音符2つぶん）、トマト＝長い車両（3つぶん）。車両の長さは拍の長さに比例
+   ・電車は左へ走る（画面は電車について行くので、景色とレールが右へ流れる）
+   ・レールの継ぎ目は「1小節ぶんの長さ」ごとにある → 継ぎ目が車両の継ぎ目（＝グループの頭）を通る瞬間に「ガタン」、
+     車両の中の車輪（＝サブ拍）を通る瞬間に「コトン」。小節の頭の車両は色を変える
+   ・交互パターンでは、2小節ぶんの編成（例：2+3 の次に 3+2）がくり返しつながる */
+const hash01 = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+function drawTrain(st, now, ah) {
+  const m = st.m, T = m.total, G = m.groups.length, dur = 60 / bpm;
+  const u = W / clamp(T * 1.3, 10, 26);                       // 8分音符1つぶんの長さ（画面上）
+  const s = st.has ? st.sc + st.frac : 0;                     // 走った距離（8分音符いくつぶんか）
+  const shift = s * u;                                        // 景色が右へ流れた量
+  const railY = ah * 0.76, wr = clamp(u * 0.13, 5, 18);
+  const carBot = railY - wr * 1.75, carH = clamp(Math.min(ah * 0.22, u * 1.9 + 24), 34, 170), carTop = carBot - carH;
+  const A = Math.max(2.6 * u, W * 0.17);                      // 先頭（機関車のうしろ）の画面上の位置
+  const X = c => A + c * u;                                   // 編成の中の位置 c（8分音符単位）→ 画面
+  const isBarHead = gi => m.barStartGroup.includes(gi);
+
+  /* ----- 空と景色 ----- */
+  const sky = cx.createLinearGradient(0, 0, 0, railY);
+  sky.addColorStop(0, '#0b1026'); sky.addColorStop(0.65, '#1e1b4b'); sky.addColorStop(1, '#3b2a5c');
+  cx.fillStyle = sky; cx.fillRect(0, 0, W, railY);
+  for (let i = 0; i < 46; i++) {                              // 星（ほとんど動かない）
+    const x = mod(hash01(i) * W * 1.3 + shift * 0.02, W * 1.3) - W * 0.15, y = hash01(i + 99) * railY * 0.55;
+    cx.fillStyle = `rgba(226,232,240,${0.25 + 0.35 * hash01(i + 7)})`;
+    cx.fillRect(x, y, 1.6 * K, 1.6 * K);
+  }
+  cx.fillStyle = 'rgba(254,243,199,0.9)';                     // 月
+  cx.beginPath(); cx.arc(W * 0.62, railY * 0.34, 16 * K, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = '#1e1b4b'; cx.beginPath(); cx.arc(W * 0.62 + 7 * K, railY * 0.34 - 4 * K, 14 * K, 0, Math.PI * 2); cx.fill();
+  // 遠くの山（ゆっくり流れる）
+  const mShift = shift * 0.12;
+  cx.fillStyle = '#26214f'; cx.beginPath(); cx.moveTo(0, railY);
+  for (let x = 0; x <= W + 8; x += 8) {
+    const gx = x - mShift;
+    cx.lineTo(x, railY * 0.62 - (Math.sin(gx * 0.0045) * 34 + Math.sin(gx * 0.013 + 1) * 16 + 30) * K);
+  }
+  cx.lineTo(W, railY); cx.closePath(); cx.fill();
+  // 町の建物（中くらいの速さ）
+  const bShift = shift * 0.38, bw0 = 46 * K;
+  const bi0 = Math.floor(-bShift / bw0) - 1;
+  for (let i = bi0 - 1; i < bi0 + W / bw0 + 3; i++) {
+    const x = i * bw0 + bShift, w = bw0 * (0.7 + 0.5 * hash01(i)), h = (40 + 110 * hash01(i + 3)) * K;
+    const y = railY - 6 * K - h;
+    cx.fillStyle = '#17153a'; cx.fillRect(x, y, w, h + 6 * K);
+    for (let wy = y + 8 * K; wy < railY - 14 * K; wy += 12 * K)
+      for (let wx = x + 6 * K; wx < x + w - 8 * K; wx += 10 * K)
+        if (hash01(i * 31 + Math.round(wy) * 7 + Math.round(wx)) > 0.62) { cx.fillStyle = 'rgba(253,224,71,0.55)'; cx.fillRect(wx, wy, 4 * K, 5 * K); }
+  }
+  // 地面
+  const gnd = cx.createLinearGradient(0, railY, 0, ah);
+  gnd.addColorStop(0, '#1f2937'); gnd.addColorStop(1, '#0b1222');
+  cx.fillStyle = gnd; cx.fillRect(0, railY - 2 * K, W, ah - railY + 2 * K);
+
+  /* ----- 電柱と架線（電車と同じ速さで流れる） ----- */
+  const pSp = Math.max(4.2 * u, 150 * K), wireY = carTop - 26 * K;
+  const pole = i => mod(i * pSp + shift, W + pSp) - pSp * 0.5;
+  const poles = []; for (let i = 0; i < Math.ceil(W / pSp) + 2; i++) poles.push(pole(i));
+  poles.sort((a, b) => a - b);
+  cx.strokeStyle = 'rgba(148,163,184,0.45)'; cx.lineWidth = 1.5 * K;
+  for (let i = 0; i + 1 < poles.length; i++) {
+    if (poles[i + 1] - poles[i] > pSp * 1.5) continue;
+    cx.beginPath(); cx.moveTo(poles[i], wireY); cx.quadraticCurveTo((poles[i] + poles[i + 1]) / 2, wireY + 10 * K, poles[i + 1], wireY); cx.stroke();
+  }
+  poles.forEach(x => {
+    cx.fillStyle = '#334155'; cx.fillRect(x - 3 * K, wireY - 14 * K, 6 * K, railY - wireY + 14 * K);
+    cx.fillRect(x - 14 * K, wireY - 10 * K, 28 * K, 4 * K);
+  });
+
+  /* ----- 線路：まくら木とレール ----- */
+  const sl = 0.5 * u;
+  for (let x = mod(shift, sl) - sl; x < W + sl; x += sl) {
+    cx.fillStyle = '#3f3a36'; cx.fillRect(x - 4 * K, railY + 3 * K, 8 * K, 9 * K);
+  }
+  cx.fillStyle = '#94a3b8'; cx.fillRect(0, railY - 1 * K, W, 4 * K);
+  cx.fillStyle = '#64748b'; cx.fillRect(0, railY + 3 * K, W, 2 * K);
+
+  /* ----- レールの継ぎ目（1小節ごと） ----- */
+  const k0 = Math.floor(s), fs = s - k0, ageS = fs * dur;   // いちばん最近、継ぎ目が車輪を通ってからの時間
+  const lastPos = mod(k0, T), strongNow = m.starts.includes(lastPos);
+  const gaps = [];
+  for (let c = mod(s, T) - 2 * T; X(c) < W + 20; c += T) if (X(c) > -20) gaps.push(c);
+  gaps.forEach(c => {
+    const x = X(c), glow = Math.exp(-ageS / (strongNow ? 0.16 : 0.08));
+    cx.fillStyle = '#0b1222'; cx.fillRect(x - 3 * K, railY - 2 * K, 6 * K, 6 * K);
+    cx.fillStyle = hexA(strongNow ? LIME : '#e2e8f0', 0.25 + 0.75 * glow * (strongNow ? 1 : 0.6));
+    cx.beginPath(); cx.arc(x, railY + 1 * K, (5 + (strongNow ? 7 : 3) * glow) * K, 0, Math.PI * 2); cx.fill();
+    txt('継ぎ目', x, railY + 22 * K, 10 * K, 'rgba(148,163,184,0.75)', 700);
+  });
+
+  /* ----- 車両のゆれ（継ぎ目を通った車輪がはねる） ----- */
+  const bumpAt = (w, strong) => {                             // 位置 w の車輪のゆれ
+    const age = mod(s - w, T) * dur;
+    return (strong ? 1 : 0.45) * Math.exp(-age / 0.07) * Math.cos(age * 40);
+  };
+  const amp = 5 * K;
+
+  /* ----- 機関車（先頭） ----- */
+  {
+    const bump = bumpAt(0, true) * amp, x0 = X(-2.5) + 4 * K, x1 = X(0) - 4 * K, y0 = carTop - 6 * K + bump * 0.6, y1 = carBot + bump * 0.6;
+    cx.fillStyle = 'rgba(253,230,138,0.12)';                  // ヘッドライトの光
+    cx.beginPath(); cx.moveTo(x0 + 8 * K, y1 - carH * 0.35); cx.lineTo(x0 - W * 0.3, y1 - carH * 0.9); cx.lineTo(x0 - W * 0.3, y1 + carH * 0.2); cx.closePath(); cx.fill();
+    const g = cx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#e2e8f0'); g.addColorStop(1, '#94a3b8');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.moveTo(x1, y0); cx.lineTo(x0 + carH * 0.45, y0); cx.quadraticCurveTo(x0, y0 + carH * 0.25, x0, y1 - 6 * K);
+    cx.lineTo(x0, y1); cx.lineTo(x1, y1); cx.closePath(); cx.fill();
+    cx.fillStyle = '#0f172a'; rr(x0 + carH * 0.3, y0 + carH * 0.14, (x1 - x0) - carH * 0.42, carH * 0.3, 5 * K); cx.fill();
+    cx.fillStyle = '#fde68a'; cx.beginPath(); cx.arc(x0 + 7 * K, y1 - carH * 0.32, 5 * K, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#f472b6'; cx.fillRect(x0 + 4 * K, y1 - carH * 0.16, x1 - x0 - 4 * K, 4 * K);
+    [-1.8, -0.7].forEach(c => drawWheel(X(c), railY - wr, wr, s));
+  }
+
+  /* ----- 車両 ----- */
+  const firstCycle = 0, lastCycle = Math.ceil((W - A) / (T * u)) + 1;
+  for (let cyc = firstCycle; cyc <= lastCycle; cyc++) {
+    for (let gi = 0; gi < G; gi++) {
+      const L = m.groups[gi], cs = cyc * T + m.starts[gi], x0 = X(cs), x1 = X(cs + L);
+      if (x0 > W + 10) break;
+      if (x1 < -10) continue;
+      const col = COLORS[L], head = isBarHead(gi);
+      // ゆれ：前の継ぎ目・うしろの継ぎ目・中の車輪
+      const bf = bumpAt(cs, true), bb = bumpAt(cs + L, true);
+      let bmid = 0; for (let k = 1; k < L; k++) bmid += bumpAt(cs + k, false);
+      const dy = -(bf + bb) * 0.5 * amp - bmid * amp * 0.6, tilt = (bf - bb) * amp / (L * u);
+      const cxm = (x0 + x1) / 2;
+      cx.save(); cx.translate(cxm, carBot + dy); cx.rotate(tilt); cx.translate(-cxm, -carBot);
+      const bx0 = x0 + 3 * K, bx1 = x1 - 3 * K, bw = bx1 - bx0;
+      // 車体
+      const g = cx.createLinearGradient(0, carTop, 0, carBot);
+      if (head) { g.addColorStop(0, '#ecfccb'); g.addColorStop(1, '#84cc16'); }
+      else { g.addColorStop(0, hexA(col, 0.95)); g.addColorStop(1, hexA(col, 0.6)); }
+      rr(bx0, carTop, bw, carH, 8 * K); cx.fillStyle = g; cx.fill();
+      cx.strokeStyle = 'rgba(15,23,42,0.6)'; cx.lineWidth = 1.5 * K; cx.stroke();
+      cx.fillStyle = 'rgba(15,23,42,0.35)'; cx.fillRect(bx0 + 4 * K, carTop + 4 * K, bw - 8 * K, 4 * K);   // 屋根
+      cx.fillStyle = head ? hexA(col, 1) : 'rgba(15,23,42,0.45)'; cx.fillRect(bx0, carBot - carH * 0.2, bw, carH * 0.07);   // 帯
+      // 窓（8分音符1つに1枚）：いま継ぎ目の上にある拍の窓が光る
+      for (let k = 0; k < L; k++) {
+        const wx0 = X(cs + k) + 0.14 * u, ww = 0.72 * u, wy = carTop + carH * 0.2, wh = carH * 0.36;
+        const lit = st.has && mod(s - (cs + k), T) < 1;
+        rr(wx0, wy, ww, wh, 5 * K);
+        cx.fillStyle = lit ? '#fef9c3' : 'rgba(15,23,42,0.7)'; cx.fill();
+        if (lit) { cx.shadowColor = '#fde047'; cx.shadowBlur = 18 * K; cx.fill(); cx.shadowBlur = 0; }
+        txt(SYL[L][k], wx0 + ww / 2, wy + wh / 2 + 0.5, Math.min(wh * 0.62, ww * 0.6), lit ? '#0f172a' : hexA(head ? '#ecfccb' : col, 0.9), k === 0 ? 900 : 700);
+      }
+      txt(L === 2 ? 'パン' : 'トマト', cxm, carBot - carH * 0.32, Math.min(carH * 0.17, u * 0.42), head ? '#1a2e05' : '#0f172a', 900);
+      if (head) {   // 小節の頭の車両の目印
+        cx.fillStyle = '#f8fafc'; rr(bx0 + 6 * K, carTop - 16 * K, 58 * K, 14 * K, 7 * K); cx.fill();
+        txt('小節の頭', bx0 + 35 * K, carTop - 8.5 * K, 9.5 * K, '#3f6212', 900);
+      }
+      cx.restore();
+      // 連結器
+      cx.fillStyle = '#475569'; cx.fillRect(x0 - 4 * K, carBot - carH * 0.3, 8 * K, 6 * K);
+    }
+  }
+  // 車輪（8分音符の位置ごと。車両の継ぎ目の車輪は大きめ）
+  for (let c = 0; X(c) < W + wr; c++) {
+    if (X(c) < -wr) continue;
+    const gi = m.subToGroup[mod(c, T)], joint = m.starts[gi] === mod(c, T);
+    drawWheel(X(c), railY - wr, wr * (joint ? 1.15 : 0.9), s);
+  }
+
+  /* ----- 「ガタン」「コトン」 ----- */
+  if (st.has && ageS < 0.5) {
+    const q = ageS / 0.5;
+    gaps.forEach(c => {
+      const x = X(c);
+      if (strongNow) {
+        txt('ガタン！', x, carTop - 34 * K - q * 26 * K, (24 - 4 * q) * K, hexA(LIME, 1 - q), 900);
+        for (let i = 0; i < 6; i++) {   // 火花
+          const an = -Math.PI * (0.15 + 0.7 * i / 5), d = q * 34 * K;
+          cx.fillStyle = hexA(i % 2 ? '#fde68a' : '#fb923c', 1 - q);
+          cx.beginPath(); cx.arc(x + Math.cos(an) * d, railY + Math.sin(an) * d, (3 - 2 * q) * K, 0, Math.PI * 2); cx.fill();
+        }
+      } else txt('コトン', x, carTop - 26 * K - q * 16 * K, 13 * K, hexA('#e2e8f0', 0.85 * (1 - q)), 800);
+    });
+  }
+  if (W < 640) {
+    txt('レールの継ぎ目を「車両の継ぎ目」が通ると ガタン！', W / 2, ah * 0.93, 11 * K, '#94a3b8', 600);
+    txt('車両の中の車輪が通ると コトン', W / 2, ah * 0.975, 11 * K, '#94a3b8', 600);
+  } else txt('レールの継ぎ目を「車両の継ぎ目」が通ると ガタン！ ／ 車両の中の車輪が通ると コトン', W / 2, ah * 0.955, 12 * K, '#94a3b8', 600);
+}
+function drawWheel(x, y, r, s) {
+  cx.fillStyle = '#1e293b'; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = '#94a3b8'; cx.lineWidth = 2 * K; cx.stroke();
+  const a = -s * 2.2;   // 回転（左へ走るので反時計回り）
+  cx.strokeStyle = 'rgba(148,163,184,0.8)'; cx.lineWidth = 1.5 * K;
+  cx.beginPath(); cx.moveTo(x + Math.cos(a) * r * 0.75, y + Math.sin(a) * r * 0.75); cx.lineTo(x - Math.cos(a) * r * 0.75, y - Math.sin(a) * r * 0.75); cx.stroke();
+  cx.fillStyle = '#cbd5e1'; cx.beginPath(); cx.arc(x, y, r * 0.25, 0, Math.PI * 2); cx.fill();
+}
+
 /* ---------- モードF：同時ポリリズム ----------
    1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
    外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
@@ -1741,6 +1961,8 @@ function setMode(md) {
   }
   if (md !== 'F') lastMetaMode = md;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
+  const on = document.querySelector(`.tab[data-mode="${md}"]`);
+  if (on && on.scrollIntoView && window.innerWidth < 700) { try { on.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) {} }
   renderPresets(); renderPolySel();
 }
 
@@ -1898,8 +2120,8 @@ document.addEventListener('keydown', e => {
   if (SET.tapOn && (e.code === 'KeyJ' || e.code === 'KeyF' || e.key === 'Enter')) {
     e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return;
   }
-  const md = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F' }[e.key];
-  if (md) setMode(md);
+  const md = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F', '7': 'G', '8': 'H', '9': 'I', '0': 'J', '-': 'K', '^': 'L', '=': 'L' }[e.key];
+  if (md && document.querySelector(`.tab[data-mode="${md}"]`)) setMode(md);
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
 
