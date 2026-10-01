@@ -18,37 +18,106 @@
   b { font-weight: 800; }
   small { font-size: .7em; }
 
-  /* ===== 画面のならび ===== */
-  #app { display: flex; flex-direction: column; min-height: 100%; }
-  #main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  #stage { position: relative; flex: 1; min-height: 56vh; }
+  /* ===== 画面のならび：上＝モード選び、まん中＝絵、下＝いつも使う操作、右（スマホは下）＝設定の引き出し ===== */
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  #topbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0b1222; border-bottom: 1px solid #1e293b; }
+  .brand { flex: none; font-size: 16px; font-weight: 800; letter-spacing: .03em; }
+  #body { flex: 1; display: flex; min-height: 0; position: relative; }
+  #stage { position: relative; flex: 1; min-width: 0; min-height: 0; }
   #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
-  #panel { flex: none; padding: 16px; background: #0b1222; }
-  @media (min-width: 1024px), (min-width: 700px) and (orientation: landscape) {
-    #app { flex-direction: row; height: 100vh; height: 100dvh; }
-    #stage { min-height: 0; }
-    #panel { width: 350px; overflow-y: auto; border-left: 1px solid #1e293b; }
-  }
-  @media (min-width: 1700px) { #panel { width: 430px; font-size: 1.1rem; } }
 
-  /* ===== 上のバー ===== */
-  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 12px 8px; }
-  .brand { margin-right: auto; }
-  .brand-name { font-size: 18px; font-weight: 800; letter-spacing: .03em; }
-  .brand-sub { font-size: 11px; color: #94a3b8; }
-  @media (min-width: 640px) { .brand-name { font-size: 20px; } .brand-sub { font-size: 12px; } }
-  .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
-  @media (max-width: 699px) {
-    .tabs { flex-wrap: nowrap; overflow-x: auto; width: 100%; padding-bottom: 4px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-    .tabs::-webkit-scrollbar { display: none; }
-    .tab { flex: none; }
-  }
-  .tab { padding: 7px 11px; border-radius: 8px; font-size: 14px; white-space: nowrap; font-weight: 700;
-         color: #94a3b8; border: 1px solid #1e293b; background: #0b1222; transition: all .15s; }
-  .stage-btn { position: absolute; left: 12px; top: 120px; padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 800;
+  /* モード選び（パソコン：グループごとに並べる） */
+  .modes { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; }
+  .mgroup { display: flex; align-items: center; gap: 5px; }
+  .mglabel { font-size: 12px; font-weight: 800; color: #94a3b8; writing-mode: horizontal-tb; margin-right: 2px; }
+  .mglabel.g1 { color: #67e8f9; } .mglabel.g2 { color: #c4b5fd; } .mglabel.g3 { color: #fcd34d; }
+  .tab { display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: 10px; font-size: 15px; white-space: nowrap; font-weight: 800;
+         color: #cbd5e1; border: 1px solid #1e293b; background: #111c33; transition: all .15s; }
+  .tab .em { font-size: 18px; line-height: 1; }
+  .tab:hover { border-color: #334155; }
+  .tab.on { color: #0f172a; background: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.45); }
+  /* モード選び（スマホ：今のモード＋前後ボタン。押すと一覧） */
+  .mode-mini { display: none; flex: 1; align-items: center; gap: 6px; min-width: 0; }
+  .mode-cur { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 12px; background: #111c33; border: 1px solid #334155; font-size: 16px; font-weight: 800;
+              display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; }
+  .mode-cur .em { font-size: 20px; }
+  .mm-arrow { flex: none; width: 40px; height: 40px; border-radius: 12px; background: #1e293b; font-size: 16px; color: #cbd5e1; }
+  @media (max-width: 1399px) { .brand { display: none; } .tab { padding: 5px 8px; font-size: 14px; gap: 4px; } .tab .em { font-size: 16px; } .modes { gap: 4px 10px; } .mgroup { gap: 4px; } }
+  @media (max-width: 899px) { .modes { display: none; } .mode-mini { display: flex; } }
+
+  .stage-btn { position: absolute; left: 12px; top: 120px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 800;
                background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
   .stage-btn:active { background: #334155; }
-  .tab.on { color: #0f172a; background: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.45); }
+  .help-btn { position: absolute; right: 10px; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; font-weight: 900;
+              background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
+  .help-btn:hover { border-color: #94a3b8; }
+
+  /* 下のバー（いつも見える） */
+  #bar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 12px; padding-bottom: max(8px, env(safe-area-inset-bottom));
+         background: #0b1222; border-top: 1px solid #1e293b; }
+  .bar-play { flex: none; min-width: 120px; height: 48px; padding: 0 16px; border-radius: 14px; font-size: 18px; font-weight: 900;
+              color: #0f172a; background: #a3e635; box-shadow: 0 0 18px rgba(163,230,53,.35); }
+  .bar-play.playing { background: #fbbf24; box-shadow: 0 0 18px rgba(251,191,36,.4); }
+  .bar-play.waiting { background: #fb923c; }
+  .bar-tempo { flex: none; display: flex; align-items: center; gap: 4px; }
+  .bar-tempo .sq { width: 40px; height: 40px; }
+  .bar-bpm { min-width: 64px; text-align: center; line-height: 1.05; }
+  .bar-bpm b { display: block; font-size: 22px; color: #67e8f9; }
+  .bar-bpm small { font-size: 11px; color: #94a3b8; }
+  .bar-rhythm { flex: 1; min-width: 0; height: 48px; padding: 0 12px; border-radius: 14px; background: #111c33; border: 1px solid #334155; text-align: left;
+                display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+  .bar-rhythm .r1 { font-size: 16px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-rhythm .r2 { font-size: 12px; color: #94a3b8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar-icon { flex: none; height: 48px; min-width: 48px; padding: 0 12px; border-radius: 14px; background: #1e293b; border: 1px solid #334155; font-size: 15px; font-weight: 800; color: #e2e8f0; }
+  .bar-icon .ic { font-size: 18px; }
+  @media (max-width: 599px) {
+    #bar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+    .bar-play { min-width: 76px; padding: 0 10px; font-size: 16px; }
+    .bar-tempo .sq { width: 34px; height: 40px; }
+    .bar-bpm { min-width: 44px; } .bar-bpm b { font-size: 19px; }
+    .bar-icon { min-width: 42px; padding: 0 8px; } .bar-icon .tx { display: none; }
+    #barFs { display: none; }          /* スマホでは全画面ボタンを設定の中へ */
+    .bar-rhythm .r2 { display: none; } .bar-rhythm { padding: 0 8px; } .bar-rhythm .r1 { font-size: 15px; }
+  }
+  .only-narrow { display: none; }
+  @media (max-width: 599px) { .only-narrow { display: inline-block; } }
+
+  /* 設定の引き出し */
+  #drawer { display: none; flex: none; width: 370px; overflow-y: auto; padding: 0 16px 24px; background: #0b1222; border-left: 1px solid #1e293b; }
+  #app.dr-open #drawer { display: block; }
+  .dr-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 12px 0 10px; background: #0b1222; }
+  .dr-head b { font-size: 17px; }
+  .dr-close { width: 40px; height: 40px; border-radius: 12px; background: #1e293b; font-size: 18px; }
+  @media (max-width: 1099px) {   /* 小さい画面では、絵の上に重ねて出す */
+    #drawer { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; box-shadow: -10px 0 30px rgba(0,0,0,.5); }
+  }
+  @media (max-width: 599px) {    /* スマホでは下から出てくる */
+    #drawer { left: 0; right: 0; top: auto; width: auto; height: 74%; border-left: 0; border-top: 1px solid #334155; border-radius: 18px 18px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,.5); }
+  }
+  @media (min-width: 1700px) { #drawer { width: 430px; font-size: 1.1rem; } }
+
+  /* 全画面：操作をかくし、マウスを動かすと出る */
+  body.fs #topbar, body.fs #bar { position: fixed; left: 0; right: 0; z-index: 30; transition: opacity .25s; opacity: 0; pointer-events: none; }
+  body.fs #topbar { top: 0; } body.fs #bar { bottom: 0; }
+  body.fs.ui-show #topbar, body.fs.ui-show #bar { opacity: .96; pointer-events: auto; }
+  body.fs #help-btn-hide { display: none; }
+
+  /* ポップアップ */
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,.7); padding: 16px; }
+  .modal.hidden { display: none; }
+  .modal-box { width: min(560px, 100%); max-height: 90%; overflow-y: auto; background: #0f1a30; border: 1px solid #334155; border-radius: 18px; padding: 18px 20px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  .modal-box h3 { margin: 0 0 10px; font-size: 20px; }
+  .modal-box ul { margin: 8px 0 0; padding-left: 1.2em; font-size: 16px; line-height: 1.8; color: #e2e8f0; }
+  .modal-box .mnote { font-size: 14px; color: #a3b1c6; margin-top: 10px; line-height: 1.7; }
+  .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .sheet-grp { margin-top: 12px; }
+  .sheet-grp .mglabel { display: block; margin-bottom: 6px; font-size: 14px; }
+  .sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .sheet-grid .tab { flex-direction: column; justify-content: center; padding: 10px 4px; font-size: 14px; white-space: normal; text-align: center; }
+  .sheet-grid .tab .em { font-size: 26px; }
+  .share-url { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #334155; background: #0b1222; color: #e2e8f0; font-size: 14px; font-family: inherit; }
+  .qr-wrap { display: flex; justify-content: center; margin-top: 12px; }
+  .qr-wrap canvas { background: #fff; border-radius: 10px; width: 220px; height: 220px; image-rendering: pixelated; }
 
   /* ===== 色 ===== */
   .c-cyan { color: #67e8f9; } .c-lime { color: #bef264; } .c-amber { color: #fcd34d; }
@@ -59,7 +128,7 @@
               color: #0f172a; background: #a3e635; box-shadow: 0 0 22px rgba(163,230,53,.4); transition: transform .1s, background .15s; }
   .btn-play:active { transform: scale(.98); }
   .btn-play.playing { background: #fbbf24; box-shadow: 0 0 22px rgba(251,191,36,.45); }
-  .hint { font-size: 11px; color: #64748b; line-height: 1.6; }
+  .hint { font-size: 13px; color: #a3b1c6; line-height: 1.6; }
   .center { text-align: center; }
   .blk { margin-top: 16px; }
   .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
@@ -145,35 +214,24 @@
 </head>
 <body>
 <div id="app">
-  <!-- ===== 左（上）：ビジュアル ===== -->
-  <div id="main">
-    <div class="top">
-      <div class="brand">
-        <div class="brand-name"><span class="c-cyan">Kinetic</span><span class="c-lime">Rhythm</span></div>
-        <div class="brand-sub">変拍子の「重心」と「周期」を、動きと音で体感する</div>
-      </div>
-      <div class="tabs" id="tabs">
-        <button class="tab on" data-mode="A">A 多角形</button>
-        <button class="tab" data-mode="B">B ボール</button>
-        <button class="tab" data-mode="C">C 円軌道</button>
-        <button class="tab" data-mode="D">D 指揮</button>
-        <button class="tab" data-mode="E">E 階段</button>
-        <button class="tab" data-mode="F">F ポリリズム</button>
-        <button class="tab" data-mode="G">G 電車</button>
-        <button class="tab" data-mode="H">H 紋章</button>
-        <button class="tab" data-mode="I">I 花火</button>
-        <button class="tab" data-mode="J">J 歯車</button>
-        <button class="tab" data-mode="K">K 踊る人</button>
-      </div>
+  <!-- ===== 上：モード選び ===== -->
+  <header id="topbar">
+    <div class="brand"><span class="c-cyan">Kinetic</span><span class="c-lime">Rhythm</span></div>
+    <nav class="modes" id="modes"></nav>
+    <div class="mode-mini">
+      <button id="mPrev" class="mm-arrow" aria-label="前のモード">◀</button>
+      <button id="modeCur" class="mode-cur" aria-label="モードを選ぶ"></button>
+      <button id="mNext" class="mm-arrow" aria-label="次のモード">▶</button>
     </div>
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button></div>
-  </div>
+  </header>
 
-  <!-- ===== 右（下）：操作パネル ===== -->
-  <aside id="panel">
-    <button id="playBtn" class="btn-play">▶ 再生</button>
-    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　数字キー 1〜9・0・−：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
+  <div id="body">
+    <!-- ===== まん中：絵 ===== -->
+    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
+    <!-- ===== 設定の引き出し ===== -->
+    <aside id="drawer" aria-label="設定">
+    <div class="dr-head"><b>⚙ 設定</b><button id="drClose" class="dr-close" aria-label="閉じる">✕</button></div>
     <div class="blk">
       <div class="row base">
         <span class="lbl">テンポ（8分音符）</span>
@@ -187,12 +245,12 @@
     </div>
 
     <!-- リズムを選ぶ -->
-    <details class="sec" open>
+    <details class="sec" open id="secRhythm">
       <summary>リズムを選ぶ</summary>
       <div id="presets" class="grid2"></div>
       <div class="hint" style="margin-top:8px">
         <b class="c2">2</b>＝「パン」　<b class="c3">3</b>＝「トマト」。<br>
-        再生中に切り替えると、次の小節の頭から変わります。
+        再生中に切り替えると、次の小節の頭から変わります。［ ］キーでも切り替えられます。
       </div>
     </details>
 
@@ -208,7 +266,7 @@
         <div class="row"><span class="lbl2">叩く拍</span>
           <div class="seg" id="tapTarget"><button data-v="all">全部の拍</button><button data-v="head">まとまりの頭だけ</button></div>
         </div>
-        <div class="hint" style="margin-top:8px">画面をタップ、または J・F・Enter キーで叩きます。<br>（タップ判定がONの間、画面タップでは停止しません）</div>
+        <div class="hint" style="margin-top:8px">画面をタップ、または J・Enter キーで叩きます。<br>（タップ判定がONの間、画面タップでは停止しません）</div>
         <div class="row" style="margin-top:8px">
           <div class="score" id="tapScore"></div>
           <button id="tapReset" class="btn small">記録を消す</button>
@@ -270,11 +328,35 @@
     </details>
 
     <!-- ポリリズム -->
-    <details class="sec">
-      <summary>ポリリズム（F モード）</summary>
+    <details class="sec" id="secPoly">
+      <summary>ポリリズム</summary>
       <div class="hint" style="margin-bottom:8px">2つのリズムを同時に鳴らします。<b style="color:#f472b6">高い音</b>と<b style="color:#38bdf8">低い音</b>が、1周の中で同じ時間をちがう数で分けます。</div>
       <div class="seg full" id="polySel"></div>
-      <div class="hint" style="margin-top:8px">選ぶと F モードに切りかわります。サブ拍クリックをONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+      <div class="hint" style="margin-top:8px">選ぶとポリリズムのモードに切りかわります。サブ拍クリックをONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+    </details>
+
+    <!-- 授業で使う -->
+    <details class="sec" open>
+      <summary>授業で使う</summary>
+      <div class="row">
+        <div><div class="lbl">再生前のカウント</div><div class="hint">そのリズムで1小節数えてから始まる（グループの頭で「1・2…」）</div></div>
+        <button id="countSw" class="sw" aria-label="再生前のカウント"></button>
+      </div>
+      <div class="row">
+        <span class="lbl">止めかた</span>
+        <div class="seg" id="stopSel"><button data-v="bar">小節の終わりで</button><button data-v="now">すぐ止める</button></div>
+      </div>
+      <div class="hint" style="margin-top:6px">「小節の終わりで」のときも、停止ボタンをもう一度押すと、すぐ止まります。</div>
+      <div class="btns" style="margin-top:12px">
+        <button class="btn main wide" id="shareBtn">🔗 この設定を配る（URL・QRコード）</button>
+        <button class="btn only-narrow" id="fsBtn2">⛶ 全画面</button>
+      </div>
+      <div class="hint" style="margin-top:10px" id="keyHelp">
+        <b class="c-white">キーボード</b><br>
+        スペース：再生／停止　F：全画面<br>
+        ← →：モードを切り替え　↑ ↓：テンポ ±5<br>
+        [ ]：リズムを切り替え　J・Enter：タップ判定でたたく
+      </div>
     </details>
 
     <!-- 表示と音 -->
@@ -318,7 +400,36 @@
       </div>
     </details>
   </aside>
+  </div>
+
+  <!-- ===== 下：いつも使う操作 ===== -->
+  <footer id="bar">
+    <button id="barPlay" class="bar-play">▶ 再生</button>
+    <div class="bar-tempo">
+      <button id="barDown" class="sq" aria-label="テンポを下げる">−</button>
+      <div class="bar-bpm"><b id="barBpm">160</b><small>テンポ</small></div>
+      <button id="barUp" class="sq" aria-label="テンポを上げる">＋</button>
+    </div>
+    <button id="barRhythm" class="bar-rhythm" title="リズムを選ぶ"><span class="r1" id="barR1"></span><span class="r2" id="barR2"></span></button>
+    <button id="barSet" class="bar-icon" title="設定"><span class="ic">⚙</span><span class="tx"> 設定</span></button>
+    <button id="barFs" class="bar-icon" title="全画面（F キー）"><span class="ic">⛶</span><span class="tx"> 全画面</span></button>
+  </footer>
 </div>
+
+<!-- モードの一覧（スマホ） -->
+<div id="modeSheet" class="modal hidden"><div class="modal-box"><h3>モードを選ぶ</h3><div id="sheetBody"></div>
+  <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
+<!-- くわしい説明 -->
+<div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
+  <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
+<!-- この設定を配る -->
+<div id="sharePop" class="modal hidden"><div class="modal-box"><h3>この設定を配る</h3>
+  <div class="mnote" style="margin-top:0">このURLを開くと、いまのリズム・テンポ・モードで始まります。</div>
+  <input id="shareUrl" class="share-url" readonly style="margin-top:10px">
+  <div class="btns"><button class="btn main" id="shareCopy">URLをコピー</button><span class="hint" id="shareMsg" style="align-self:center"></span></div>
+  <div class="qr-wrap"><canvas id="qr" width="220" height="220"></canvas></div>
+  <div class="mnote center">スマホのカメラでQRコードを読み取ると開けます</div>
+  <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 
 <script>
 /* =========================================================
@@ -428,6 +539,7 @@ const SET = {
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
+  countOn: true, stopMode: 'bar',
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -443,6 +555,34 @@ const presetKey = p => JSON.stringify([p.sigs || p.sig, p.bars]);
 
 const POLY_PAIRS = [[3, 2], [4, 3], [5, 4], [5, 3], [5, 2]];
 const PA = '#f472b6', PB = '#38bdf8';   // ポリリズム：高い音／低い音
+
+/* モードの一覧：グループ・絵文字・1行の説明（line＝ふつう、short＝せまい画面）・くわしい説明 */
+const MODE_GROUPS = [['g1', 'きほん'], ['g2', 'ふしぎ'], ['g3', 'たのしい']];
+const MODE_INFO = {
+  A: { g: 'g1', em: '🔷', name: '多角形', line: '角が床に「コトッ」とつく瞬間に音が鳴る。とがった角＝グループの頭', short: '角が床につく瞬間に音。とがった角＝頭',
+       detail: ['1辺＝8分音符1つ（2/4・3/4・4/4は1辺＝1拍）。', 'とがった角（グループの頭）が床につくと大きく「コトン」、途中の角は小さく「ころ」。', '長い辺（トマト）は、角が持ち上がるのに時間がかかる＝タメ。', '白い線は重心の動き。点線はこれから進む道。'] },
+  B: { g: 'g1', em: '🏀', name: 'ボール', line: '奥の大きいボール＝グループ（2か3）、手前の小さいボール＝8分音符', short: '大きいボール＝グループ、小さい＝8分音符',
+       detail: ['大きいボールは、グループの頭ごとに次のブロックへ跳ぶ。', 'トマト（3）は高く長く跳ぶ。滞空時間が長いほど高くなる。', '手前の小さいボールは8分音符ごとに跳ねる。', '着地の瞬間に音が鳴り、ボールが少しつぶれる。'] },
+  C: { g: 'g1', em: '⭕', name: '円軌道', line: '光の球が1周する間が1周期。色の境目を通ると音が鳴る', short: '1周＝1周期。色の境目で音',
+       detail: ['円を、拍の長さで色分けしています（水色＝パン、黄色＝トマト）。', '2と3で、扇形の角度の広さがちがう。', '光の球が境目を通る瞬間＝グループの頭。中心から光が走る。', 'ふつうは1周＝1小節。交互パターンでは1周＝2小節。'] },
+  D: { g: 'g1', em: '🎼', name: '指揮', line: '指揮の図形。打点で鋭く跳ね返り、長い拍（3）はゆっくり動く', short: '指揮の図形。打点で跳ね返る',
+       detail: ['1つの線が1拍（グループ）。打点で鋭く跳ね返る。', '長い拍（トマト）は、同じ形のままゆっくり動く。', '「設定」→「表示と音」で、左右反転（生徒から見た向き）にできる。'] },
+  E: { g: 'g1', em: '🪜', name: '階段', line: '8分音符ごとにぴょん、グループの頭で次の段へ（段の幅＝2か3）', short: '8分音符でぴょん、頭で次の段へ',
+       detail: ['ボールが8分音符ごとに小さく跳ねる。', 'グループの頭で次の段へ上がる（または下がる）。', '段の幅は、パン＝2、トマト＝3。'] },
+  F: { g: 'g2', em: '🎶', name: 'ポリリズム', line: '針が角を通ると音が鳴る。真上で2つの音がそろう', short: '針が角を通ると音。真上でそろう',
+       detail: ['2つのリズムを同時に鳴らします。高い音と低い音が、同じ時間をちがう数で分ける。', '外側の図形＝高い音、内側の図形＝低い音。', '組み合わせ（3対2など）は「設定」→「ポリリズム」で選べます。'] },
+  G: { g: 'g3', em: '🚃', name: '電車', line: '車両の継ぎ目がレールの継ぎ目を通るとガタン！ パン＝短い車両、トマト＝長い車両', short: '継ぎ目でガタン！ パン＝短い車両',
+       detail: ['パンは短い車両、トマトは長い車両。', '車両の継ぎ目がレールの継ぎ目を通るとガタン（グループの頭）。', '車両の中の車輪が通るとコトン（サブ拍）。', '小節の頭の車両は色がちがう。'] },
+  H: { g: 'g2', em: '💠', name: '紋章', line: '外側の大きな点＝グループの頭、内側の点＝サブ拍。小節ごとに模様が育つ', short: '大きな点＝頭。模様が育つ',
+       detail: ['円の上を光が走り、拍ごとに点を打って線で結ぶ。', '外側の大きな点＝グループの頭（重心）。トマトはパンより深く内側へ入る。', '小節ごとに少し回転して重なり、万華鏡のように育つ。', '拍子ごとにちがう模様になる。「模様をリセット」で消せる。'] },
+  I: { g: 'g3', em: '🎆', name: '花火', line: '大きな花火＝グループの頭、小さな火花＝サブ拍。ピンクの花火＝小節の頭', short: '大きな花火＝頭、小さな火花＝サブ拍',
+       detail: ['グループの頭で大きな花火（ドン）、サブ拍で小さな火花（パチッ）。', 'トマトの花火は大きく、長く光る。', '小節の頭はピンクの二重の花火。', '開く場所は毎小節同じなので、くり返しが見える。'] },
+  J: { g: 'g2', em: '⚙️', name: '歯車', line: 'サブ拍の歯車の歯がかみ合う強拍のときだけ、強拍の歯車が回る', short: '歯がかみ合う強拍だけ、強拍の歯車が回る',
+       detail: ['サブ拍の歯車：1拍で1マス進み、1回転でちょうど1小節。', '歯は強拍のマスにだけある。歯のあいだは、パン＝2マス、トマト＝3マス。', '強拍の歯車：歯がかみ合う強拍のときだけ回り、サブ拍のあいだは止まっている。', '歯の真ん中どうしがかみ合う瞬間に音が鳴る。小節の頭の歯は緑。'] },
+  K: { g: 'g3', em: '💃', name: '踊る人', line: 'サブ拍はつま先で小刻みに、強拍でぐっと踏み込む（5/8・7/8はバルカン半島の民族舞踊でも使われる）', short: 'サブ拍は小刻みに、強拍で踏み込む',
+       detail: ['サブ拍では、つま先で小刻みに1歩ずつ進む。', '強拍（グループの頭）で、ひざを曲げてぐっと踏み込み、腕を大きくひらく。', '色つきの大きな足あと＝強拍、小さな点＝サブ拍。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
+};
+const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
    状態
@@ -571,6 +711,13 @@ function playGear(t, head, L, barHead) {
     og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.35, t + 0.001); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
     o.connect(og); og.connect(bus); o.start(t); o.stop(t + 0.05);
   }
+}
+/* 再生前のカウントの音（木をたたいたような音。最初の1つは高く） */
+function playCount(t, first) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(first ? 1760 : 1320, t); o.frequency.exponentialRampToValueAtTime(first ? 1500 : 1100, t + 0.06);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.75, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.11);
 }
 /* ポリリズムの2つの音色 */
 function playPolyHigh(t, down) {     // 高い音：木をたたいたような音
@@ -702,8 +849,12 @@ function schedulePoly() {
   nextTime += dur; polyK = (polyK + 1) % ab;
 }
 
+let stopReq = false, stopAt = null, countInfo = null;
+function atBarBoundary() { return mode === 'F' ? polyK === 0 : activeMeta.barStartSub.includes(curSub); }
 function scheduler() {
+  if (stopAt !== null) return;
   while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
+    if (stopReq && atBarBoundary()) { stopAt = nextTime; return; }   // 小節の終わりで止める
     if (mode === 'F') schedulePoly(); else scheduleMeta();
   }
 }
@@ -740,22 +891,59 @@ function start() {
   if (SET.rampOn) setBpm(SET.rampStart);
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
+  stopReq = false; stopAt = null; countInfo = null;
+  if (SET.countOn) {   // 再生前のカウント：そのリズムで1小節（グループの頭で「1・2…」）
+    const beats = [];
+    if (mode === 'F') {
+      const n = Math.max(SET.poly[0], SET.poly[1]), d = 2 * 60 / bpm;
+      for (let i = 0; i < n; i++) beats.push({ off: i * d, n: i + 1, head: true });
+      countInfo = { beats, len: n * d };
+    } else {
+      const m = activeMeta, len = m.nBars > 1 ? m.barStartSub[1] : m.total, d = 60 / bpm; let c = 0;
+      for (let i = 0; i < len; i++) { const head = m.starts.includes(i); if (head) c++; beats.push({ off: i * d, n: c, head }); }
+      countInfo = { beats, len: len * d };
+    }
+    countInfo.beats.forEach((b, i) => { b.t = nextTime + b.off; if (b.head) playCount(b.t, i === 0); else if (subOn) playClick(b.t, 0.35); });
+    countInfo.start = nextTime; countInfo.end = nextTime + countInfo.len;
+    nextTime = countInfo.end;
+  }
   playing = true; scheduler(); timer = setInterval(scheduler, LOOKAHEAD_MS);
+  keepAwake(true);
   updatePlayBtn();
 }
+/* 停止ボタン：設定により「小節の終わりで止める」か「すぐ止める」。待っている間にもう一度押すと、すぐ止まる */
+function requestStop() {
+  if (!playing) return;
+  const counting = countInfo && audioNow() < countInfo.end;
+  if (SET.stopMode === 'now' || stopReq || counting) { stop(); return; }
+  stopReq = true; updatePlayBtn();
+}
+/* 再生中は画面が消えないようにする */
+let wakeLock = null;
+async function keepAwake(on) {
+  try {
+    if (on && !wakeLock && 'wakeLock' in navigator) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    else if (!on && wakeLock) { const w = wakeLock; wakeLock = null; await w.release(); }
+  } catch (e) { wakeLock = null; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && playing) keepAwake(true); });
 function stop() {
   frozenFrac = lastNote ? clamp((audioNow() - lastNote.time) / lastNote.dur, 0, 0.999) : 0;
   playing = false; clearInterval(timer); queue = [];
+  stopReq = false; stopAt = null; countInfo = null;
+  if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; lastNote = null; accents = []; }
+  if (typeof updateBarRhythm === 'function') updateBarRhythm();
   if (bus) { const b = bus; b.gain.setValueAtTime(0, ctx.currentTime); setTimeout(() => b.disconnect(), 300); bus = null; }
+  keepAwake(false);
   updatePlayBtn();
 }
-function togglePlay() { playing ? stop() : start(); }
+function togglePlay() { playing ? requestStop() : start(); }
 /* 再生したまま F モードとほかのモードを行き来するときは、頭から数え直す */
 function restartTimeline() {
   if (bus) { const b = bus; b.gain.setTargetAtTime(0, ctx.currentTime, 0.01); setTimeout(() => b.disconnect(), 300); }
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
-  resetCounters();
+  resetCounters(); countInfo = null;
   nextTime = ctx.currentTime + 0.06;
 }
 
@@ -841,6 +1029,7 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
 let prevStage = 0, returnBanner = null;
 function frame() {
   const now = audioNow();
+  if (playing && stopAt !== null && now >= stopAt) stop();
   if (playing) {
     while (queue.length && queue[0].time <= now) {
       const n = queue.shift(); lastNote = n;
@@ -865,15 +1054,17 @@ function frame() {
   const bg = cx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#0a1020');
   cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
 
-  const stripH = SET.big ? clamp(H * 0.34, 120, 460) : clamp(H * 0.17, 60, 130);
+  // 画面の配置（全モード共通）：上＝拍子の表示、まん中＝絵、その下＝1行の説明、いちばん下＝カウント帯
+  const stripH = SET.big ? clamp(H * (H < 700 ? 0.25 : 0.3), 100, 420) : clamp(H * 0.15, 56, 120);
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
-  const sceneH = H - stripH - bandH;
-  if (hide) drawHidden(stage, sceneH, stripH, bandH);
+  const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
+  const sceneH = H - stripH - bandH - capH, belowY = sceneH + capH;
+  if (hide) drawHidden(stage, belowY, stripH, bandH);
   else if (mode === 'F') {
     const ps = getPolyState(now);
     drawPoly(ps, now, sceneH);
     drawPolyHeader(ps);
-    drawPolyStrip(ps, sceneH + bandH, stripH);
+    drawPolyStrip(ps, belowY + bandH, stripH);
   } else {
     const st = getState(now);
     if (mode === 'A') drawRoll(st, now, sceneH);
@@ -887,15 +1078,50 @@ function frame() {
     else if (mode === 'K') drawDancer(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
-    drawStrip(st, sceneH + bandH, stripH);
+    drawStrip(st, belowY + bandH, stripH);
   }
-  if (bandH) drawBand(sceneH, bandH, stage, hide);
+  if (!hide) drawCaption(sceneH, capH, capFs);
+  placeHelp(hide ? -1 : sceneH + capH / 2);
+  if (bandH) drawBand(belowY, bandH, stage, hide);
+  if (playing && countInfo && now < countInfo.end + 0.05) drawCount(now, sceneH);
   const eb = document.getElementById('emblemReset'), showEb = mode === 'H' && !hide;
   if (eb.hidden === showEb) eb.hidden = !showEb;
   if (showEb) { const tp = Math.round(82 * K) + 'px'; if (eb.style.top !== tp) eb.style.top = tp; }
-  if (!hide) drawTapFx(sceneH);
+  if (!hide) drawTapFx(sceneH, capH, capFs);
   drawReturnBanner(sceneH);
   requestAnimationFrame(frame);
+}
+
+/* ---------- 共通：1行の説明（くわしくは「？」） ---------- */
+function drawCaption(y0, h, fs) {
+  const info = MODE_INFO[mode]; if (!info) return;
+  cx.fillStyle = 'rgba(11,18,34,0.55)'; cx.fillRect(0, y0, W, h);
+  const maxW = W - 2 * 14 * K - 44;   // 右はしの「？」ボタンのぶんをあける
+  let t = info.line, f = fs;
+  cx.font = `700 ${f}px ${FONT}`;
+  if (cx.measureText(t).width > maxW) t = info.short;
+  let w = (cx.font = `700 ${f}px ${FONT}`, cx.measureText(t).width);
+  if (w > maxW) { f = Math.max(14, f * maxW / w); cx.font = `700 ${f}px ${FONT}`; w = cx.measureText(t).width; }
+  while (w > maxW && t.length > 4) { t = t.slice(0, -2) + '…'; w = cx.measureText(t).width; }
+  txt(t, (W - 44) / 2, y0 + h / 2, f, '#e2e8f0', 700);
+}
+let helpTop = null;
+function placeHelp(y) {
+  const b = document.getElementById('helpBtn'), v = y < 0 ? null : Math.round(y - 17);
+  if (v === helpTop) return; helpTop = v;
+  b.hidden = v === null; if (v !== null) b.style.top = v + 'px';
+}
+/* ---------- 共通：再生前のカウント ---------- */
+function drawCount(now, sceneH) {
+  const heads = countInfo.beats.filter(b => b.head), total = heads.length;
+  let cur = null; for (const b of heads) if (b.t <= now) cur = b;
+  const cxC = W / 2, cyC = Math.max(130 * K, sceneH * 0.52), R = Math.min(sceneH * 0.24, W * 0.22, 120 * K);
+  const age = cur ? now - cur.t : 0, pop = cur ? 1 + 0.18 * Math.exp(-age / 0.08) : 1;
+  cx.fillStyle = 'rgba(2,6,23,0.6)'; cx.fillRect(0, 0, W, sceneH);
+  cx.fillStyle = 'rgba(2,6,23,0.72)'; cx.beginPath(); cx.arc(cxC, cyC, R * 1.25, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = hexA(LIME, 0.9); cx.lineWidth = 4 * K; cx.beginPath(); cx.arc(cxC, cyC, R * 1.25 * pop, 0, Math.PI * 2); cx.stroke();
+  txt(cur ? String(cur.n) : '…', cxC, cyC + 2 * K, R * 1.3 * pop, cur ? '#ffffff' : '#94a3b8', 900);
+  txt(`カウント（${total}つ数えたら始まります）`, cxC, cyC + R * 1.25 + 22 * K, Math.max(14, 14 * K), '#cbd5e1', 800);
 }
 
 /* ---------- 共通：見出し ---------- */
@@ -910,11 +1136,12 @@ function drawHeader(st) {
     bg.forEach((L, i) => { if (i) put('+', '#64748b', 4 * K); put(String(L), COLORS[L], 4 * K); });
     x += 6 * K;
   });
-  txt(m.preset.note, pad, y + 24 * K, 13 * K, '#94a3b8', 500, 'left');
-  if (SET.rampOn && playing) txt(bpm < SET.rampEnd ? `テンポアップ中 → 目標 ${SET.rampEnd}` : `目標テンポ ${SET.rampEnd} に到着！`, pad, y + 44 * K, 12 * K, LIME, 700, 'left');
-  txt(`♪ = ${bpm}`, W - pad, y + (x > W - 110 * K ? 24 * K : 0), 18 * K, '#67e8f9', 800, 'right');
-  if (st.has) txt(`${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, W - pad, y + 44 * K, 12 * K, '#94a3b8', 500, 'right');
-  if (pendingMeta) txt(`次の小節から「${pendingMeta.preset.note}」`, W - pad, y + 62 * K, 12 * K, LIME, 700, 'right');
+  if (pendingMeta) txt(`→ 次の小節から「${pendingMeta.preset.note}」`, pad, y + 24 * K, Math.max(13, 13 * K), LIME, 800, 'left');
+  else txt(m.preset.note, pad, y + 24 * K, Math.max(13, 13 * K), '#a3b1c6', 600, 'left');
+  const ramp = SET.rampOn && playing;
+  const tempoY = y + (x > W - 120 * K ? 24 * K : 0);
+  txt(ramp ? `♪ = ${bpm} → ${SET.rampEnd}` : `♪ = ${bpm}`, W - pad, tempoY, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
+  if (st.has && tempoY === y) txt(`${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, W - pad, y + 24 * K, Math.max(13, 12 * K), '#a3b1c6', 600, 'right');
 }
 
 /* ---------- 共通：下のカウント帯（パ・ン・ト・マ・ト ／ 大きな数字） ---------- */
@@ -990,7 +1217,7 @@ function drawBand(y0, h, stage, hide) {
 }
 
 /* ---------- 共通：タップの結果 ---------- */
-function drawTapFx(sceneH) {
+function drawTapFx(sceneH, capH, capFs) {
   const pn = performance.now();
   tapFx = tapFx.filter(f => pn - f.t < 650);
   const f = tapFx[tapFx.length - 1];
@@ -999,13 +1226,13 @@ function drawTapFx(sceneH) {
   // 画面のふちを光らせる
   cx.strokeStyle = hexA(info.color, 0.55 * al); cx.lineWidth = 10 * K;
   cx.strokeRect(5 * K, 5 * K, W - 10 * K, sceneH - 10 * K);
-  const y = sceneH * 0.3 - age * 14 * K, s = (40 - 8 * age) * K;
-  cx.font = `900 ${s}px ${FONT}`;
-  const tw = cx.measureText(info.label).width + 40 * K, hasMs = f.kind === 'e' || f.kind === 'l';
-  rr(W / 2 - tw / 2, y - s * 0.8, tw, s * (hasMs ? 2.1 : 1.6), 16 * K);
-  cx.fillStyle = `rgba(11,18,34,${0.82 * al})`; cx.fill();
-  txt(info.label, W / 2, y, s, hexA(info.color, al), 900);
-  if (hasMs) txt(`${f.err > 0 ? '+' : '−'}${Math.round(Math.abs(f.err) * 1000)} ミリ秒`, W / 2, y + s * 0.85, 14 * K, hexA('#e2e8f0', al), 700);
+  // 結果は、説明の行（絵の下の帯）に出す → 絵や文字と重ならない
+  const y0 = sceneH, h = capH, pop = 1 + 0.25 * Math.max(0, 1 - age * 4);
+  cx.fillStyle = `rgba(11,18,34,${0.97 * al})`; cx.fillRect(0, y0, W, h);
+  cx.fillStyle = hexA(info.color, 0.18 * al); cx.fillRect(0, y0, W, h);
+  const hasMs = f.kind === 'e' || f.kind === 'l', fs = Math.min(h * 0.8, capFs * 1.35) * pop;
+  const lab = hasMs ? `${info.label}　${f.err > 0 ? '+' : '−'}${Math.round(Math.abs(f.err) * 1000)} ミリ秒` : info.label;
+  txt(lab, W / 2, y0 + h / 2, fs, hexA(info.color, al), 900);
 }
 
 /* ---------- 補助を消す練習：かくしている間の画面 ---------- */
@@ -1047,11 +1274,10 @@ function drawReturnBanner(sceneH) {
 /* ---------- モードA：転がる図形 ---------- */
 function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
-  const groundY = ah * 0.8;
-  const Rpx = Math.min(ah * 0.27, W * 0.2), u = Rpx / P.R;
-  const span = W + Rpx, off = 0.5 * Rpx;   // 右はしから出始めたら、左はしから入り始める（途中で消えない）
+  const top = 112 * K, groundY = ah - Math.max(22 * K, ah * 0.07);
+  const Rpx = Math.max(24, Math.min((groundY - top) / 2.15, W * 0.2)), u = Rpx / P.R;
+  const span = 1e9;   // 画面がついていくので、はしで折り返さない
   const X = k => Math.floor(k / N) * P.perim + P.prefix[mod(k, N)];
-  const toS = xu => mod(xu * u + off + W * 0.3, span) - off;   // 再生開始時は画面の左寄りから
   const ease = t => 0.3 * t + 0.7 * t * t;   // 持ち上がりはゆっくり、倒れる瞬間は速く（コトッ）
   const phiAt = (k, p) => -P.edgeAng[mod(k - 1, N)] - P.ext[mod(k, N)] * p;
   const rotRel = (vx, vy, j, phi) => {
@@ -1061,12 +1287,14 @@ function drawRoll(st, now, ah) {
   const centerW = (k, p) => { const r = rotRel(0, 0, mod(k, N), phiAt(k, p)); return [X(k) + r[0], r[1]]; };
   const S = st.has ? Math.max(0, byGroup ? st.step : st.sc) : 0, j = mod(S, N);
   const t = st.has ? clamp(byGroup ? st.gp : st.frac, 0, 1) : 0, p = ease(t), phi = phiAt(S, p);
+  // 画面（カメラ）は図形の進みに合わせて動く → 図形はいつも画面のまん中あたりを転がる
+  const camU = X(S) + P.sides[j] * t;
+  const toS = xu => W * 0.5 + Rpx * 0.9 + (xu - camU) * u;
   const scr = w => [toS(w[0]), groundY - w[1] * u];
-  const SH = [-span, 0, span];
+  const SH = [0];
   const shapeName = { 3: '三角形', 4: '四角形', 5: '五角形', 6: '六角形', 7: '七角形', 8: '八角形' }[N] || `${N}角形`;
 
-  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 8分音符　とがった角 ＝ グループの頭'}`, W / 2, Math.max(ah * 0.15, 96 * K), 13 * K, '#cbd5e1', 700);
-  txt('角が床に「コトッ」とつく瞬間に音が鳴る　／　白い線 ＝ 重心の軌跡', W / 2, ah * 0.94, 12 * K, '#64748b', 500);
+  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 8分音符　とがった角 ＝ グループの頭'}`, W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
 
   // 地面
   cx.strokeStyle = '#334155'; cx.lineWidth = 2 * K;
@@ -1204,9 +1432,11 @@ function drawRoll(st, now, ah) {
 function drawBounce(st, now, ah) {
   const m = st.m, G = m.groups.length;
   const u = W / Math.max(12, Math.min(m.total, 10) * 1.6);
-  const backY = ah * 0.58, frontY = ah * 0.8, tileH = Math.min(ah * 0.09, 36 * K);
-  const hBig = L => ah * 0.34 * (L / 3) ** 2;   // 大きいボール：h ∝ T²
-  const hSmall = ah * 0.075;                      // 小さいボール：8分音符ごと
+  const top = 112 * K, avail = Math.max(120, ah - top), tileH = Math.min(avail * 0.1, 36 * K);
+  const frontY = ah - tileH - 8 * K, backY = frontY - avail * 0.28;
+  const hMax = Math.max(30, backY - top - 42 * K);
+  const hBig = L => hMax * (L / 3) ** 2;          // 大きいボール：h ∝ T²
+  const hSmall = avail * 0.1;                      // 小さいボール：8分音符ごと
   const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
   const Lk = k => m.groups[mod(k, G)];
   const bigY = (L, q) => { const g = q / L; return backY - 4 * hBig(L) * g * (1 - g); };
@@ -1229,7 +1459,7 @@ function drawBounce(st, now, ah) {
     if (m.barStartGroup.includes(gi)) {
       const bi = m.barOfGroup[gi], n = Math.floor(k / G) * m.nBars + bi + 1;
       cx.strokeStyle = 'rgba(148,163,184,0.25)'; cx.lineWidth = 1.5 * K; cx.setLineDash([4 * K, 6 * K]);
-      const ly = Math.max(ah * 0.14, 100 * K);
+      const ly = top - 6 * K;
       cx.beginPath(); cx.moveTo(x0, frontY + tileH); cx.lineTo(x0, ly); cx.stroke(); cx.setLineDash([]);
       if (k >= 0) txt(`${n}小節`, x0 + 4 * K, ly, 11 * K, '#64748b', 600, 'left');
     }
@@ -1259,7 +1489,6 @@ function drawBounce(st, now, ah) {
       txt(SYL[L][s], tx + u / 2, frontY + 4 * K + tileH / 2, Math.min(tileH * 0.55, u * 0.45), lit ? '#0f172a' : col, s === 0 ? 900 : 600);
     }
   }
-  txt('奥の大きいボール ＝ グループ（2 か 3）　／　手前の小さいボール ＝ 8分音符', W / 2, ah * 0.975, 12 * K, '#64748b', 500);
 
   // 大きいボールの着地（強拍）
   for (const a of accents) {
@@ -1308,8 +1537,9 @@ function drawBounce(st, now, ah) {
 /* ---------- モードC：円軌道レーダー ---------- */
 function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
-  const top = 64 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
-  const R = Math.max(40, Math.min(W * 0.4, (ah - top) * 0.44));
+  const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
+  const R = Math.max(40, Math.min(W * 0.4, (ah - top) / 2 - 26 * K));
+  txt(`光の球が1周 ＝ ${m.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
   const A0 = -Math.PI / 2, ang = (v, tt = T) => A0 + 2 * Math.PI * v / tt;
 
   // セクター
@@ -1374,8 +1604,7 @@ function drawOrbit(st, now, ah) {
   cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(cxC, cyC, hub, 0, Math.PI * 2); cx.fill();
   cx.strokeStyle = 'rgba(148,163,184,0.4)'; cx.lineWidth = 2 * K; cx.stroke();
   const L = m.groups[st.g], k = clamp(Math.floor(st.pos - m.starts[st.g]), 0, L - 1);
-  txt(st.has ? SYL[L][k] : '▶', cxC, cyC - 4 * K, hub * 0.8, st.has ? COLORS[L] : '#475569', 900);
-  txt(`1周 ＝ ${m.nBars}小節`, cxC, cyC + hub * 0.62, Math.max(9, 10 * K), '#64748b', 600);
+  txt(st.has ? SYL[L][k] : '▶', cxC, cyC + 1, hub * 1.05, st.has ? COLORS[L] : '#475569', 900);
 }
 
 /* ---------- 共通：顔つきのボール ---------- */
@@ -1509,7 +1738,6 @@ function drawStairs(st, now, ah) {
     const pq = age / 0.7;
     txt(pp.s, bx + (pp.acc ? 0 : 14 * K), yBottom - r * 2.2 - pq * 40 * K, (pp.acc ? 30 : 18) * K, hexA(pp.acc ? '#ffffff' : pp.col, 1 - pq), 900);
   }
-  txt('8分音符ごとに ぴょん、グループの頭で 次の段へ（段の幅 ＝ 2 か 3）', W / 2, ah * 0.97, 12 * K, '#94a3b8', 500);
 }
 function star(x, y, r) {
   cx.beginPath();
@@ -1581,16 +1809,15 @@ try { mirrorView = localStorage.getItem('kr_mirror') === '1'; } catch (e) {}
 function drawConduct(st, now, ah) {
   const m = st.m, bar = st.has ? m.barOfGroup[st.g] : 0;
   const bg = m.bars[bar], G = bg.length, g0 = m.barStartGroup[bar], pg = getPattern(G);
-  const top = 92 * K;
-  const S = Math.max(60, Math.min(W * 0.5, (ah * 0.9 - top) / 1.35));
+  const top = 128 * K;
+  const S = Math.max(60, Math.min(W * 0.5, (ah - 10 * K - top) / 1.35));
   const oy = top + 0.98 * S, ox = W / 2 - 0.04 * S * (mirrorView ? -1 : 1);
   const P = p => [ox + (mirrorView ? -p[0] : p[0]) * S, oy + p[1] * S];
   const lb = st.has ? st.g - g0 : 0;
   const lt = st.has ? clamp(st.gp, 0, 0.9999) : 0;
 
-  txt(`${pg.name}（${bg.join(' ＋ ')}）`, W / 2, top - 22 * K, 16 * K, '#e2e8f0', 800);
-  txt(mirrorView ? '向かい合って見た図（奏者側から）' : '指揮者の後ろから見た図（右手）', W / 2, top - 2 * K, 11 * K, '#94a3b8', 600);
-  txt('打点で鋭く跳ね返る。長い拍（3）は同じ形のまま、ゆっくり動く', W / 2, ah * 0.97, 12 * K, '#64748b', 500);
+  txt(`${pg.name}（${bg.join(' ＋ ')}）`, W / 2, 86 * K, 16 * K, '#e2e8f0', 800);
+  txt(mirrorView ? '向かい合って見た図（奏者側から）' : '指揮者の後ろから見た図（右手）', W / 2, 108 * K, Math.max(12, 12 * K), '#a3b1c6', 600);
 
   // 指揮棒の先の位置
   const tipAt = lp => {
@@ -1844,10 +2071,6 @@ function drawTrain(st, now, ah) {
       } else txt('コトン', x, carTop - 26 * K - q * 16 * K, 13 * K, hexA('#e2e8f0', 0.85 * (1 - q)), 800);
     });
   }
-  if (W < 640) {
-    txt('レールの継ぎ目を「車両の継ぎ目」が通ると ガタン！', W / 2, ah * 0.93, 11 * K, '#94a3b8', 600);
-    txt('車両の中の車輪が通ると コトン', W / 2, ah * 0.975, 11 * K, '#94a3b8', 600);
-  } else txt('レールの継ぎ目を「車両の継ぎ目」が通ると ガタン！ ／ 車両の中の車輪が通ると コトン', W / 2, ah * 0.955, 12 * K, '#94a3b8', 600);
 }
 function drawWheel(x, y, r, s) {
   cx.fillStyle = '#1e293b'; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
@@ -1870,8 +2093,8 @@ function drawEmblem(st, now, ah) {
   const meas = st.has ? st.measure : 0;
   if (key !== emblemKey || emblemBase > meas) { emblemKey = key; emblemBase = 0; }
   if (emblemBase < 0) emblemBase = meas;
-  const top = 92 * K, cxC = W / 2, cyC = top + (ah - top) * 0.47;
-  const R = Math.max(40, Math.min(W * 0.36, (ah - top) * 0.43));
+  const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) * 0.5;
+  const R = Math.max(40, Math.min(W * 0.36, (ah - top) * 0.42));
   const rot = 2 * Math.PI / (3 * T), maxL = 3 * T;            // 1周ごとに回す角度／一周するまでの枚数
   const depth = [1, 0.6, 0.36];
   const pt = (c, n) => {                                       // 位置 c（8分音符）・n 枚目の点
@@ -1945,9 +2168,6 @@ function drawEmblem(st, now, ah) {
   txt(`模様 ${done + 1} 枚目`, W - 14 * K, top + 4 * K, 13 * K, '#e2e8f0', 800, 'right');
   txt(left > 0 ? `あと ${left} 周で模様がひとめぐり` : '模様がひとめぐりしました！', W - 14 * K, top + 22 * K, 11 * K, left > 0 ? '#94a3b8' : LIME, 700, 'right');
   txt(`1周 ＝ ${m.nBars}小節`, W - 14 * K, top + 40 * K, 11 * K, '#64748b', 700, 'right');
-  const lines = ['外側の大きな点 ＝ まとまりの頭（重心）', '内側の点 ＝ サブ拍。トマトはパンより深く入る'];
-  if (W < 640) lines.forEach((s, i) => txt(s, W / 2, ah * (0.93 + i * 0.045), 11 * K, '#94a3b8', 600));
-  else txt(lines.join('　／　'), W / 2, ah * 0.96, 12 * K, '#94a3b8', 600);
 }
 
 /* ---------- モードI：花火 ----------
@@ -2079,9 +2299,6 @@ function drawFireworks(st, now, ah) {
     }
   }
   // 説明
-  const lines = ['大きな花火 ＝ まとまりの頭　小さな火花 ＝ サブ拍', 'トマトの花火は大きく長く光る　ピンクの花火 ＝ 小節の頭'];
-  if (W < 640) lines.forEach((s, i) => txt(s, W / 2, ah * (0.92 + i * 0.045), 11 * K, '#94a3b8', 600));
-  else txt(lines.join('　／　'), W / 2, ah * 0.955, 12 * K, '#94a3b8', 600);
 }
 
 /* ---------- モードJ：歯車 ----------
@@ -2128,7 +2345,7 @@ function toothPoly(x, y, L, s, th) {   // 歯を1本だけ
 function drawGears(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   const M = G * Math.ceil(6 / G);                           // 強拍の歯車の歯の数（グループの数の倍数＝周期ごとに同じ並び）
-  const pad = 12 * K, top = 112 * K, bottom = ah * (narrow ? 0.85 : 0.86), ta = GT.ta;
+  const pad = 12 * K, top = 112 * K, bottom = ah - 8 * K, ta = GT.ta;
   const aW = W - 2 * pad, aH = bottom - top, mx = Math.max(N, M);
   const sHor = Math.min(aW / (2 * N + 2 * M + 2 * ta), aH / (2 * (mx + ta)));
   const sVer = Math.min(aW / (2 * (mx + ta)), (aH - 16 * K) / (2 * N + 2 * M + 2 * ta));
@@ -2259,12 +2476,6 @@ function drawGears(st, now, ah) {
   if (barFlash > 0) txt('小節の頭！ サブ拍の歯車が1回転して、もとの位置にもどった', W / 2, 80 * K, 13 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
   else if (!has) txt('▶ 再生すると、サブ拍の歯車が回りはじめます', W / 2, 80 * K, 13 * K, '#94a3b8', 700);
   else if (moving) txt('歯がかみ合っている間だけ、強拍の歯車が回る', W / 2, 80 * K, 12.5 * K, hexA(COLORS[L], 0.95), 800);
-  const side = vert ? ['上', '下'] : ['左', '右'];
-  const lines = [
-    side[0] + '＝サブ拍の歯車：1拍で1マス進み、1回転でちょうど1小節',
-    '歯は強拍のマスにだけある（歯のあいだ：パン＝2マス、トマト＝3マス）',
-    side[1] + '＝強拍の歯車：歯がかみ合う強拍のときだけ回り、サブ拍では止まる'];
-  lines.forEach((t, i) => txt(t, W / 2, ah * (narrow ? 0.885 + i * 0.04 : 0.9 + i * 0.038), (narrow ? 10 : 11.5) * K, '#94a3b8', 600));
 }
 
 
@@ -2415,10 +2626,6 @@ function drawDancer(st, now, ah) {
   if (has) txt((L === 2 ? 'パン' : 'トマト') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 80 * K, 15 * K, col, 900);
   if (barFlash > 0) txt('小節の頭！ 足あとの並びが、もう一度はじまる', W / 2, 100 * K, 12.5 * K, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
   else if (!has) txt('▶ 再生すると、踊りはじめます', W / 2, 90 * K, 13 * K, '#94a3b8', 700);
-  const lines = narrow
-    ? ['サブ拍はつま先で小刻みに1歩、強拍でぐっと踏み込む', '踏み込む瞬間 ＝ グループの頭。足あとは小節ごとに同じ並び', '5/8・7/8はバルカン半島の民族舞踊でも使われる']
-    : ['サブ拍では、つま先で小刻みに1歩ずつ。強拍（グループの頭）で、ぐっと踏み込む', '大きな色つきの足あと＝強拍。足あとの並びは小節ごとに同じになる（緑のわくを見比べよう）', '5/8・7/8はバルカン半島の民族舞踊でも使われる'];
-  lines.forEach((t, i) => txt(t, W / 2, ah * (narrow ? 0.885 + i * 0.04 : 0.9 + i * 0.04), (narrow ? 10 : 12) * K, i === 2 ? '#fbbf24' : '#94a3b8', 600));
 }
 
 /* 足音：床をふむ「ドン」（グループの頭）と、つま先の「トン」（サブ拍） */
@@ -2522,7 +2729,6 @@ function drawPoly(ps, now, ah) {
   txt(`高い音：1周に ${a} 回（外側の${a}角形）`, lx + 18 * K, ly, 13 * K, PA, 800, 'left');
   cx.fillStyle = PB; cx.beginPath(); cx.arc(lx + 6 * K, ly + 22 * K, 6 * K, 0, Math.PI * 2); cx.fill();
   txt(`低い音：1周に ${b} 回（内側の${b === 2 ? '直線' : b + '角形'}）`, lx + 18 * K, ly + 22 * K, 13 * K, PB, 800, 'left');
-  txt('針が角を通ると音が鳴る。真上で2つの音がそろう', W / 2, ah * 0.97, 12 * K, '#64748b', 500);
 }
 function drawPolyHeader(ps) {
   const pad = 14 * K, y = pad + 16 * K;
@@ -2530,10 +2736,10 @@ function drawPolyHeader(ps) {
   let x = pad;
   const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
   put('ポリリズム', '#e2e8f0', 12 * K); put(String(ps.a), PA, 6 * K); put('対', '#64748b', 6 * K); put(String(ps.b), PB, 0);
-  txt(`同じ時間を ${ps.a} つと ${ps.b} つに分ける`, pad, y + 24 * K, 13 * K, '#94a3b8', 500, 'left');
-  if (SET.rampOn && playing) txt(bpm < SET.rampEnd ? `テンポアップ中 → 目標 ${SET.rampEnd}` : `目標テンポ ${SET.rampEnd} に到着！`, pad, y + 44 * K, 12 * K, LIME, 700, 'left');
-  txt(`♪ = ${bpm}`, W - pad, y, 18 * K, '#67e8f9', 800, 'right');
-  if (ps.has) txt(`${ps.cycle + 1} 周目`, W - pad, y + 24 * K, 12 * K, '#94a3b8', 500, 'right');
+  txt(`同じ時間を ${ps.a} つと ${ps.b} つに分ける`, pad, y + 24 * K, Math.max(13, 13 * K), '#a3b1c6', 600, 'left');
+  const ramp = SET.rampOn && playing;
+  txt(ramp ? `♪ = ${bpm} → ${SET.rampEnd}` : `♪ = ${bpm}`, W - pad, y, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
+  if (ps.has) txt(`${ps.cycle + 1} 周目`, W - pad, y + 24 * K, Math.max(13, 12 * K), '#a3b1c6', 600, 'right');
 }
 /* 下の帯：2段のマス目（上＝高い音、下＝低い音） */
 function drawPolyStrip(ps, y0, h) {
@@ -2565,9 +2771,18 @@ requestAnimationFrame(frame);
    ========================================================= */
 const $ = s => document.querySelector(s);
 function updatePlayBtn() {
-  const b = $('#playBtn');
-  b.textContent = playing ? '❚❚ 一時停止' : '▶ 再生';
-  b.classList.toggle('playing', playing);
+  const b = $('#barPlay');
+  b.textContent = !playing ? '▶ 再生' : stopReq ? '■ 小節の終わりで止まる' : '■ 停止';
+  b.classList.toggle('playing', playing && !stopReq);
+  b.classList.toggle('waiting', playing && stopReq);
+  if (stopReq) b.textContent = window.innerWidth < 600 ? '■ 待つ…' : '■ 小節の終わりで止まる';
+}
+/* 下のバーの「今のリズム」 */
+function updateBarRhythm() {
+  if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
+  const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
+  $('#barR1').textContent = p.bars.map((bg, b) => (b === 0 || sigs[b] !== sigs[b - 1] ? sigs[b] + ' ' : '') + '[' + bg.join('+') + ']').join(' → ');
+  $('#barR2').textContent = pendingMeta ? '次の小節から切りかわります' : p.note + '（押して選ぶ）';
 }
 
 /* ----- リズム・プリセット ----- */
@@ -2615,7 +2830,7 @@ function selectPreset(p) {
     setMode(lastMetaMode);
   } else if (playing) pendingMeta = makeMeta(p);
   else { activeMeta = makeMeta(p); pendingMeta = null; lastNote = null; accents = []; }
-  renderPresets();
+  renderPresets(); updateBarRhythm();
 }
 
 /* ----- モード ----- */
@@ -2626,13 +2841,32 @@ function setMode(md) {
   }
   if (md !== 'F') lastMetaMode = md;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
-  const on = document.querySelector(`.tab[data-mode="${md}"]`);
-  if (on && on.scrollIntoView && window.innerWidth < 700) { try { on.scrollIntoView({ inline: 'nearest', block: 'nearest' }); } catch (e) {} }
-  renderPresets(); renderPolySel();
+  const info = MODE_INFO[md];
+  if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute">▾</span>`;
+  renderPresets(); renderPolySel(); updateBarRhythm();
+}
+function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
+function renderModes() {
+  const nav = $('#modes'), sheet = $('#sheetBody'); nav.innerHTML = ''; sheet.innerHTML = '';
+  MODE_GROUPS.forEach(([g, label]) => {
+    const keys = MODE_ORDER.filter(k => MODE_INFO[k].g === g);
+    const grp = document.createElement('div'); grp.className = 'mgroup'; grp.innerHTML = `<span class="mglabel ${g}">${label}</span>`;
+    const sg = document.createElement('div'); sg.className = 'sheet-grp'; sg.innerHTML = `<span class="mglabel ${g}">${label}</span>`;
+    const grid = document.createElement('div'); grid.className = 'sheet-grid'; sg.appendChild(grid);
+    keys.forEach(k => {
+      const mk = () => {
+        const b = document.createElement('button'); b.className = 'tab'; b.dataset.mode = k;
+        b.innerHTML = `<span class="em">${MODE_INFO[k].em}</span><span>${MODE_INFO[k].name}</span>`;
+        b.onclick = () => { setMode(k); closeModals(); }; return b;
+      };
+      grp.appendChild(mk()); grid.appendChild(mk());
+    });
+    nav.appendChild(grp); sheet.appendChild(sg);
+  });
 }
 
 /* ----- テンポ ----- */
-function showBpm() { $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; }
+function showBpm() { $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; $('#barBpm').textContent = bpm; }
 function setBpm(v) { bpm = clamp(Math.round(v), 80, 300); showBpm(); }
 
 /* ----- 小さな部品：スイッチと選択ボタン ----- */
@@ -2651,7 +2885,6 @@ function refreshPanels() {
   $('#fadeBox').classList.toggle('hide', !SET.fadeOn);
   $('#rampBox').classList.toggle('hide', !SET.rampOn);
   $('#practiceTag').classList.toggle('show', SET.tapOn || SET.fadeOn || SET.rampOn);
-  $('#tapKeyHint').textContent = SET.tapOn ? 'J・F・Enter キー：タップ（画面のタップでも叩けます）' : 'タップ判定をONにすると、J・F・Enter キーでも叩けます';
   $('#rsVal').textContent = SET.rampStart; $('#reVal').textContent = SET.rampEnd;
   $('#subDesc').textContent = subOn ? 'グループ内の細かい拍も鳴らす' : '拍頭（強拍）だけ鳴らす';
   $('#latTag').textContent = latencyMs ? `${latencyMs > 0 ? '+' : ''}${latencyMs}ms` : '';
@@ -2718,7 +2951,7 @@ function renderPolySel() {
     const b = document.createElement('button');
     b.innerHTML = `<span style="color:${PA}">${pr[0]}</span> 対 <span style="color:${PB}">${pr[1]}</span>`;
     b.classList.toggle('on', mode === 'F' && SET.poly[0] === pr[0] && SET.poly[1] === pr[1]);
-    b.onclick = () => { SET.poly = pr.slice(); saveSet(); if (mode !== 'F') setMode('F'); else renderPolySel(); };
+    b.onclick = () => { SET.poly = pr.slice(); saveSet(); if (mode !== 'F') setMode('F'); else { renderPolySel(); updateBarRhythm(); } };
     box.appendChild(b);
   });
 }
@@ -2770,28 +3003,254 @@ $('#buildSave').onclick = () => {
   buildMsg('保存しました！「リズムを選ぶ」に入っています');
 };
 
+/* ----- 授業で使う ----- */
+bindSwitch('#countSw', () => SET.countOn, v => { SET.countOn = v; });
+bindSeg('#stopSel', () => SET.stopMode, v => { SET.stopMode = v; });
+
+/* ----- 引き出し・ポップアップ ----- */
+function openDrawer(secId) {
+  $('#app').classList.add('dr-open');
+  if (secId) { const el = document.getElementById(secId); if (el) { el.open = true; setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 30); } }
+}
+function closeDrawer() { $('#app').classList.remove('dr-open'); }
+const drawerOverlay = () => window.innerWidth < 1100;
+function openModal(id) { closeModals(); $(id).classList.remove('hidden'); }
+function closeModals() { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); }
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m || e.target.hasAttribute('data-close')) closeModals(); });
+});
+$('#drClose').onclick = closeDrawer;
+$('#barSet').onclick = () => $('#app').classList.contains('dr-open') ? closeDrawer() : openDrawer();
+$('#barRhythm').onclick = () => openDrawer(mode === 'F' ? 'secPoly' : 'secRhythm');
+$('#modeCur').onclick = () => openModal('#modeSheet');
+$('#mPrev').onclick = () => stepMode(-1);
+$('#mNext').onclick = () => stepMode(1);
+$('#helpBtn').onclick = e => {
+  e.stopPropagation();
+  const info = MODE_INFO[mode];
+  $('#helpTitle').textContent = `${info.em} ${info.name}`;
+  $('#helpList').innerHTML = info.detail.map(t => `<li>${t}</li>`).join('');
+  $('#helpNote').innerHTML = '<b class="c2">パン</b>＝2拍のまとまり、<b class="c3">トマト</b>＝3拍のまとまり。まとまりの頭（強拍）が「重心」です。';
+  openModal('#helpPop');
+};
+
+/* ----- 全画面（F キー）：操作をかくし、マウスを動かすと出る ----- */
+const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+function syncFs() {
+  const on = !!fsEl() || document.body.classList.contains('pseudo-fs');
+  document.body.classList.toggle('fs', on);
+  $('#barFs').innerHTML = on ? '<span class="ic">⤢</span><span class="tx"> もどす</span>' : '<span class="ic">⛶</span><span class="tx"> 全画面</span>';
+  if (on) { closeDrawer(); pokeUi(); }
+}
+function toggleFs() {
+  if (fsEl()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+  if (document.body.classList.contains('pseudo-fs')) { document.body.classList.remove('pseudo-fs'); syncFs(); return; }
+  const el = document.documentElement, req = el.requestFullscreen || el.webkitRequestFullscreen;
+  const fallback = () => { document.body.classList.add('pseudo-fs'); syncFs(); };   // 全画面が使えない機種（iPhone など）は、操作をかくすだけ
+  if (!req) { fallback(); return; }
+  try { const r = req.call(el); if (r && r.catch) r.catch(fallback); } catch (e) { fallback(); }
+}
+document.addEventListener('fullscreenchange', syncFs);
+document.addEventListener('webkitfullscreenchange', syncFs);
+let uiTimer = null;
+function pokeUi() {
+  if (!document.body.classList.contains('fs')) return;
+  document.body.classList.add('ui-show'); clearTimeout(uiTimer);
+  uiTimer = setTimeout(() => document.body.classList.remove('ui-show'), 2500);
+}
+document.addEventListener('mousemove', pokeUi);
+document.addEventListener('touchstart', pokeUi, { passive: true });
+$('#barFs').onclick = toggleFs;
+$('#fsBtn2').onclick = toggleFs;
+
+/* ----- QRコード（外部の部品を使わずに作る。誤り訂正レベル M、バイトモード） ----- */
+const QR_ECC_M = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28];
+const QR_BLK_M = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49];
+function qrRawModules(v) {
+  let r = (16 * v + 128) * v + 64;
+  if (v >= 2) { const na = Math.floor(v / 7) + 2; r -= (25 * na - 10) * na - 55; if (v >= 7) r -= 36; }
+  return r;
+}
+function qrMul(x, y) { let z = 0; for (let i = 7; i >= 0; i--) { z = (z << 1) ^ ((z >>> 7) * 0x11D); z ^= ((y >>> i) & 1) * x; } return z & 0xFF; }
+function qrDivisor(deg) {
+  const r = new Array(deg).fill(0); r[deg - 1] = 1; let root = 1;
+  for (let i = 0; i < deg; i++) {
+    for (let j = 0; j < deg; j++) { r[j] = qrMul(r[j], root); if (j + 1 < deg) r[j] ^= r[j + 1]; }
+    root = qrMul(root, 0x02);
+  }
+  return r;
+}
+function qrRemainder(data, div) {
+  const r = new Array(div.length).fill(0);
+  for (const b of data) { const f = b ^ r.shift(); r.push(0); div.forEach((c, i) => { r[i] ^= qrMul(c, f); }); }
+  return r;
+}
+function makeQR(text) {
+  const bytes = Array.from(new TextEncoder().encode(text));
+  let ver = 1, cap = 0;
+  for (; ver <= 40; ver++) {
+    cap = Math.floor(qrRawModules(ver) / 8) - QR_ECC_M[ver] * QR_BLK_M[ver];
+    if (4 + (ver < 10 ? 8 : 16) + 8 * bytes.length <= cap * 8) break;
+  }
+  if (ver > 40) throw new Error('too long');
+  // データのビット列
+  const bits = [], put = (v, n) => { for (let i = n - 1; i >= 0; i--) bits.push((v >>> i) & 1); };
+  put(4, 4); put(bytes.length, ver < 10 ? 8 : 16); bytes.forEach(b => put(b, 8));
+  put(0, Math.min(4, cap * 8 - bits.length)); while (bits.length % 8) bits.push(0);
+  const data = []; for (let i = 0; i < bits.length; i += 8) { let b = 0; for (let j = 0; j < 8; j++) b = (b << 1) | bits[i + j]; data.push(b); }
+  for (let p = 0xEC; data.length < cap; p ^= 0xEC ^ 0x11) data.push(p);
+  // 誤り訂正を付けて並べかえる
+  const nb = QR_BLK_M[ver], el = QR_ECC_M[ver], raw = Math.floor(qrRawModules(ver) / 8), nShort = nb - raw % nb, shortLen = Math.floor(raw / nb);
+  const div = qrDivisor(el), blocks = [];
+  for (let i = 0, k = 0; i < nb; i++) {
+    const dat = data.slice(k, k + shortLen - el + (i < nShort ? 0 : 1)); k += dat.length;
+    const ecc = qrRemainder(dat, div); if (i < nShort) dat.push(0); blocks.push(dat.concat(ecc));
+  }
+  const cw = [];
+  for (let i = 0; i < blocks[0].length; i++) blocks.forEach((b, j) => { if (i !== shortLen - el || j >= nShort) cw.push(b[i]); });
+  // 模様を置く
+  const N = ver * 4 + 17, mod = [], fn = [];
+  for (let y = 0; y < N; y++) { mod.push(new Array(N).fill(false)); fn.push(new Array(N).fill(false)); }
+  const setF = (x, y, d) => { mod[y][x] = d; fn[y][x] = true; };
+  for (let i = 0; i < N; i++) { setF(6, i, i % 2 === 0); setF(i, 6, i % 2 === 0); }
+  const finder = (x, y) => { for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const xx = x + dx, yy = y + dy, d = Math.max(Math.abs(dx), Math.abs(dy)); if (xx >= 0 && xx < N && yy >= 0 && yy < N) setF(xx, yy, d !== 2 && d !== 4); } };
+  finder(3, 3); finder(N - 4, 3); finder(3, N - 4);
+  if (ver > 1) {
+    const na = Math.floor(ver / 7) + 2, step = ver === 32 ? 26 : Math.ceil((ver * 4 + 4) / (na * 2 - 2)) * 2, pos = [6];
+    for (let p = N - 7; pos.length < na; p -= step) pos.splice(1, 0, p);
+    pos.forEach((a, i) => pos.forEach((b, j) => {
+      if ((i === 0 && j === 0) || (i === 0 && j === na - 1) || (i === na - 1 && j === 0)) return;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) setF(a + dx, b + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+    }));
+  }
+  const format = mask => {
+    const d = (0 << 3) | mask; let r = d;   // M＝0
+    for (let i = 0; i < 10; i++) r = (r << 1) ^ ((r >>> 9) * 0x537);
+    const b = ((d << 10) | r) ^ 0x5412, g = i => ((b >>> i) & 1) === 1;
+    for (let i = 0; i <= 5; i++) setF(8, i, g(i));
+    setF(8, 7, g(6)); setF(8, 8, g(7)); setF(7, 8, g(8));
+    for (let i = 9; i < 15; i++) setF(14 - i, 8, g(i));
+    for (let i = 0; i < 8; i++) setF(N - 1 - i, 8, g(i));
+    for (let i = 8; i < 15; i++) setF(8, N - 15 + i, g(i));
+    setF(8, N - 8, true);
+  };
+  format(0);
+  if (ver >= 7) {
+    let r = ver; for (let i = 0; i < 12; i++) r = (r << 1) ^ ((r >>> 11) * 0x1F25);
+    const b = (ver << 12) | r;
+    for (let i = 0; i < 18; i++) { const bit = ((b >>> i) & 1) === 1, a = N - 11 + i % 3, c = Math.floor(i / 3); setF(a, c, bit); setF(c, a, bit); }
+  }
+  let bi = 0;
+  for (let right = N - 1; right >= 1; right -= 2) {
+    if (right === 6) right = 5;
+    for (let v = 0; v < N; v++) for (let j = 0; j < 2; j++) {
+      const x = right - j, up = ((right + 1) & 2) === 0, y = up ? N - 1 - v : v;
+      if (!fn[y][x] && bi < cw.length * 8) { mod[y][x] = ((cw[bi >>> 3] >>> (7 - (bi & 7))) & 1) === 1; bi++; }
+    }
+  }
+  const maskFn = [(x, y) => (x + y) % 2 === 0, (x, y) => y % 2 === 0, (x, y) => x % 3 === 0, (x, y) => (x + y) % 3 === 0,
+    (x, y) => (Math.floor(x / 3) + Math.floor(y / 2)) % 2 === 0, (x, y) => x * y % 2 + x * y % 3 === 0,
+    (x, y) => (x * y % 2 + x * y % 3) % 2 === 0, (x, y) => ((x + y) % 2 + x * y % 3) % 2 === 0];
+  const applyMask = m => { for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (!fn[y][x] && maskFn[m](x, y)) mod[y][x] = !mod[y][x]; };
+  const penalty = () => {   // 読み取りやすさの目安（同じ色が長く続く・2×2のかたまり・白黒のかたより）
+    let p = 0, dark = 0;
+    for (let y = 0; y < N; y++) for (let dir = 0; dir < 2; dir++) {
+      let run = 1;
+      for (let x = 1; x < N; x++) {
+        const a = dir ? mod[x - 1][y] : mod[y][x - 1], b = dir ? mod[x][y] : mod[y][x];
+        if (a === b) { run++; if (run === 5) p += 3; else if (run > 5) p++; } else run = 1;
+      }
+    }
+    for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) { const c = mod[y][x]; if (c === mod[y][x + 1] && c === mod[y + 1][x] && c === mod[y + 1][x + 1]) p += 3; }
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (mod[y][x]) dark++;
+    return p + Math.floor(Math.abs(dark * 20 - N * N * 10) / (N * N)) * 10;
+  };
+  let best = 0, bestP = Infinity;
+  for (let m = 0; m < 8; m++) { applyMask(m); format(m); const pp = penalty(); if (pp < bestP) { bestP = pp; best = m; } applyMask(m); }
+  applyMask(best); format(best);
+  return { size: N, mod };
+}
+function drawQR(canvas, text) {
+  const q = makeQR(text), quiet = 4, n = q.size + quiet * 2, px = Math.max(2, Math.floor(440 / n));
+  canvas.width = canvas.height = n * px;
+  const g = canvas.getContext('2d');
+  g.fillStyle = '#ffffff'; g.fillRect(0, 0, n * px, n * px); g.fillStyle = '#000000';
+  for (let y = 0; y < q.size; y++) for (let x = 0; x < q.size; x++) if (q.mod[y][x]) g.fillRect((x + quiet) * px, (y + quiet) * px, px, px);
+}
+
+/* ----- この設定を配る（URL と QR コード） ----- */
+function shareUrl() {
+  const q = new URLSearchParams();
+  q.set('m', mode); q.set('t', bpm);
+  const pi = PRESETS.findIndex(p => presetKey(p) === presetKey(selected));
+  if (pi >= 0) q.set('p', pi); else q.set('c', selected.bars[0].join(''));
+  if (mode === 'F') q.set('y', SET.poly.join('x'));
+  return location.href.split('#')[0] + '#' + q.toString();
+}
+function applyHash() {
+  if (!location.hash || location.hash.length < 3) return;
+  const q = new URLSearchParams(location.hash.slice(1));
+  const p = q.get('p'), c = q.get('c'), y = q.get('y'), m = q.get('m'), t = +q.get('t');
+  if (p !== null && PRESETS[+p]) selectPreset(PRESETS[+p]);
+  else if (c && /^[23]{2,6}$/.test(c)) selectPreset(customPreset(c.split('').map(Number)));
+  if (y && /^\d+x\d+$/.test(y)) { const pr = y.split('x').map(Number); if (POLY_PAIRS.some(a => a[0] === pr[0] && a[1] === pr[1])) SET.poly = pr; }
+  if (m && MODE_INFO[m]) setMode(m);
+  if (t >= 80 && t <= 300) setBpm(t);
+}
+$('#shareBtn').onclick = () => {
+  const url = shareUrl();
+  $('#shareUrl').value = url; $('#shareMsg').textContent = '';
+  openModal('#sharePop');
+  try { drawQR($('#qr'), url); $('#qr').style.display = ''; } catch (e) { $('#qr').style.display = 'none'; }
+};
+$('#shareCopy').onclick = async () => {
+  const url = $('#shareUrl').value;
+  try { await navigator.clipboard.writeText(url); $('#shareMsg').textContent = 'コピーしました！'; }
+  catch (e) { $('#shareUrl').select(); try { document.execCommand('copy'); $('#shareMsg').textContent = 'コピーしました！'; } catch (e2) { $('#shareMsg').textContent = 'URLを長押ししてコピーしてください'; } }
+};
+
+/* ----- リズムを順に切り替える（［ ］キー） ----- */
+function stepPreset(d) {
+  if (mode === 'F') {
+    const i = POLY_PAIRS.findIndex(a => a[0] === SET.poly[0] && a[1] === SET.poly[1]);
+    SET.poly = POLY_PAIRS[mod(i + d, POLY_PAIRS.length)].slice(); saveSet(); renderPolySel(); updateBarRhythm(); return;
+  }
+  const list = PRESETS.concat(customs.map(customPreset)), i = list.findIndex(p => presetKey(p) === presetKey(selected));
+  selectPreset(list[mod(i + d, list.length)]);
+}
+
 /* ----- 再生・タップ・キー操作 ----- */
-$('#playBtn').onclick = togglePlay;
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => setMode(t.dataset.mode));
+$('#barPlay').onclick = togglePlay;
+$('#barDown').onclick = () => setBpm(bpm - 5);
+$('#barUp').onclick = () => setBpm(bpm + 5);
 $('#bpm').oninput = e => setBpm(+e.target.value);
 $('#bpmDown').onclick = () => setBpm(bpm - 5);
 $('#bpmUp').onclick = () => setBpm(bpm + 5);
 const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
-cv.addEventListener('pointerdown', e => { if (SET.tapOn) { e.preventDefault(); onTap(tapTime(e)); } });
-cv.addEventListener('click', () => { if (!SET.tapOn) togglePlay(); });
+cv.addEventListener('pointerdown', e => { if (SET.tapOn && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+cv.addEventListener('click', () => {
+  if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
+  if (!SET.tapOn) togglePlay();
+});
 $('#emblemReset').onclick = e => { e.stopPropagation(); emblemReset(); };
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tg = e.target || {}, typing = tg.tagName === 'INPUT' && tg.type !== 'range';
+  if (typing) return;
+  if (e.key === 'Escape') { closeModals(); closeDrawer(); return; }
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
-  if (SET.tapOn && (e.code === 'KeyJ' || e.code === 'KeyF' || e.key === 'Enter')) {
-    e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return;
-  }
-  const md = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F', '7': 'G', '8': 'H', '9': 'I', '0': 'J', '-': 'K', '^': 'L', '=': 'L' }[e.key];
-  if (md && document.querySelector(`.tab[data-mode="${md}"]`)) setMode(md);
+  if (SET.tapOn && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
+  if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) toggleFs(); return; }
+  if (tg.type === 'range' && e.key.startsWith('Arrow')) return;   // スライダーを操作中
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); stepMode(e.key === 'ArrowRight' ? 1 : -1); return; }
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setBpm(bpm + (e.key === 'ArrowUp' ? 5 : -5)); return; }
+  if (e.key === '[' || e.key === ']' || e.key === '「' || e.key === '」') { e.preventDefault(); stepPreset(e.key === ']' || e.key === '」' ? 1 : -1); }
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
+window.addEventListener('resize', updatePlayBtn);
 
-renderPresets(); renderPolySel(); renderBuilder(); refreshPanels(); setBpm(SET.rampOn ? SET.rampStart : 160);
+renderModes(); renderPresets(); renderPolySel(); renderBuilder(); refreshPanels(); setBpm(SET.rampOn ? SET.rampStart : 160);
+setMode(mode); applyHash(); updatePlayBtn();
 </script>
 </body>
 </html>
