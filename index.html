@@ -42,8 +42,12 @@
               display: flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; overflow: hidden; }
   .mode-cur .em { font-size: 20px; }
   .mm-arrow { flex: none; width: 40px; height: 40px; border-radius: 12px; background: #1e293b; font-size: 16px; color: #cbd5e1; }
-  @media (max-width: 1399px) { .brand { display: none; } .tab { padding: 5px 8px; font-size: 14px; gap: 4px; } .tab .em { font-size: 16px; } .modes { gap: 4px 10px; } .mgroup { gap: 4px; } }
-  @media (max-width: 899px) { .modes { display: none; } .mode-mini { display: flex; } }
+  /* モードが多いので、どの画面でも「今のモード＋前後ボタン」にし、押すと一覧が出る */
+  .modes { display: none; }
+  .mode-mini { display: flex; max-width: 560px; }
+  .top-hint { font-size: 13px; color: #94a3b8; white-space: nowrap; }
+  @media (max-width: 899px) { .brand, .top-hint { display: none; } }
+  @media (min-width: 900px) { .modal-box.wide { width: min(860px, 100%); } .modal-box.wide .sheet-grid { grid-template-columns: repeat(5, 1fr); } }
 
   .stage-btn { position: absolute; left: 12px; top: 120px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 800;
                background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
@@ -223,6 +227,7 @@
       <button id="modeCur" class="mode-cur" aria-label="モードを選ぶ"></button>
       <button id="mNext" class="mm-arrow" aria-label="次のモード">▶</button>
     </div>
+    <span class="top-hint">← → キーでも切り替え</span>
   </header>
 
   <div id="body">
@@ -417,7 +422,7 @@
 </div>
 
 <!-- モードの一覧（スマホ） -->
-<div id="modeSheet" class="modal hidden"><div class="modal-box"><h3>モードを選ぶ</h3><div id="sheetBody"></div>
+<div id="modeSheet" class="modal hidden"><div class="modal-box wide"><h3>モードを選ぶ</h3><div id="sheetBody"></div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- くわしい説明 -->
 <div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
@@ -582,6 +587,10 @@ const MODE_INFO = {
   K: { g: 'g3', em: '💃', name: '踊る人', line: 'サブ拍はつま先で小刻みに、強拍でぐっと踏み込む（5/8・7/8はバルカン半島の民族舞踊でも使われる）', short: 'サブ拍は小刻みに、強拍で踏み込む',
        detail: ['サブ拍では、つま先で小刻みに1歩ずつ進む。', '強拍（グループの頭）で、ひざを曲げてぐっと踏み込み、腕を大きくひらく。', '色つきの大きな足あと＝強拍、小さな点＝サブ拍。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
 };
+MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝まとまりの頭', short: '当たる瞬間に音。高いドミノ＝頭',
+  detail: ['8分音符1つ＝ドミノ1枚。1拍かけて倒れ、次のドミノに当たった瞬間に音が鳴る。', 'まとまりの頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯がまとまりの長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
+MODE_INFO.O = { g: 'g3', em: '🤹', name: 'ジャグリング', line: 'パンは低く、トマトは高く投げる。手に落ちる瞬間＝まとまりの頭', short: 'パンは低く、トマトは高く投げる',
+  detail: ['まとまり1つ＝1回の投げ。左右の手で交互に投げる。', '空中にいる時間が長いほど高く上がる（2拍の投げより3拍の投げは約2倍の高さ）。本物のジャグリングと同じしくみ。', 'ボールの道の上の点は8分音符ごとの位置。てっぺん近くでは点の間がせまい＝ゆっくり動く。', '手に落ちる瞬間に音が鳴る。軌道が残り、小節ごとに同じ形がくり返される。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -815,6 +824,11 @@ function logTarget(time, head) {
   if (noteLog.length > 64) noteLog.splice(0, noteLog.length - 64);
 }
 
+/* モードごとの音（ないモードはふつうのクリック） */
+const MODE_SOUND = {
+  G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
+  K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
+};
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
   const m = activeMeta;
@@ -822,8 +836,9 @@ function scheduleMeta() {
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : mode === 'G' ? playClank(nextTime, true) : mode === 'I' ? playFirework(nextTime, true, L, m.barStartSub.includes(curSub)) : mode === 'J' ? playGear(nextTime, true, L, m.barStartSub.includes(curSub)) : mode === 'K' ? playStep(nextTime, true, L, m.barStartSub.includes(curSub)) : playAccent(nextTime); }
-    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : mode === 'G' ? playClank(nextTime, false) : mode === 'I' ? playFirework(nextTime, false, L, false) : mode === 'J' ? playGear(nextTime, false, L, false) : mode === 'K' ? playStep(nextTime, false, L, false) : playClick(nextTime); }
+    const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : ms ? ms(nextTime, true, L, barHead) : playAccent(nextTime); }
+    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
@@ -1076,6 +1091,8 @@ function frame() {
     else if (mode === 'I') drawFireworks(st, now, sceneH);
     else if (mode === 'J') drawGears(st, now, sceneH);
     else if (mode === 'K') drawDancer(st, now, sceneH);
+    else if (mode === 'N') drawDomino(st, now, sceneH);
+    else if (mode === 'O') drawJuggle(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, belowY + bandH, stripH);
@@ -2657,6 +2674,221 @@ function playStep(t, head, L, barHead) {
   }
 }
 
+/* ---------- モード：ドミノ倒し ----------
+   ・8分音符1つ＝ドミノ1枚。まとまりの頭は背の高いドミノ（トマトの頭がいちばん高い）、サブ拍は小さなドミノ
+   ・ドミノは1拍かけて倒れ、次のドミノに当たった瞬間に音が鳴る（＝次の拍）
+   ・地面の色の帯がまとまりの長さ（パン＝2枚、トマト＝3枚）。小節の頭には旗が立つ */
+function drawDomino(st, now, ah) {
+  const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
+  const top = 112 * K, gy = ah - Math.max(48 * K, ah * 0.13);
+  const Hmax = Math.max(40, gy - top - 24 * K);
+  const info = j => {
+    const sj = mod(j, N), g = m.subToGroup[sj], L = m.groups[g], k = sj - m.starts[g], head = k === 0;
+    return { g, L, k, head, bar: head && m.barStartSub.includes(sj), h: head ? Hmax * (L === 3 ? 1 : 0.8) : Hmax * 0.45 };
+  };
+  const u = Math.max(10, Math.min(W * 0.8 / (2 * N / m.nBars + 1.5), Hmax * 0.36));   // ドミノの間隔
+  const w = Math.max(5, Math.min(u * 0.3, 24 * K));                                       // ドミノの厚み
+  const S = has ? st.sc + st.frac : -0.6, k0 = has ? st.sc : 0;
+  const ax = W * 0.6, sx = j => ax + (j - S) * u;
+  const ageS = has ? st.frac * dur : 9;
+  const rest = h => Math.asin(clamp((u - w) / h, 0, 0.98));                              // 次のドミノにもたれた角度
+  // 倒れたドミノは、次のドミノ（それも倒れていれば、その傾き）にもたれる → 右から順に角度を決める
+  const angs = {};
+  const ang = j => angs[j] !== undefined ? angs[j] : 0;
+
+  // 地面
+  cx.strokeStyle = 'rgba(203,213,225,0.5)'; cx.lineWidth = 2 * K;
+  cx.beginPath(); cx.moveTo(0, gy); cx.lineTo(W, gy); cx.stroke();
+  const j0 = Math.max(0, Math.floor(S - ax / u) - 2), j1 = Math.ceil(S + (W - ax) / u) + 2;
+  for (let j = j1 + 1; j >= j0; j--) {
+    const h = info(j).h;
+    if (S < j) { angs[j] = 0; continue; }
+    if (S < j + 1) { const p = S - j; angs[j] = rest(h) * p * p; continue; }
+    const tn = Math.tan(Math.min(1.45, ang(j + 1)));
+    let th = rest(h);
+    for (let it = 0; it < 5; it++) th = Math.asin(clamp(((u - w) + h * Math.cos(th) * tn) / h, 0, 0.995));
+    angs[j] = Math.min(th, 1.45);
+  }
+  // まとまりの帯・言葉・小節のわく
+  const barXs = [];
+  for (let j = j0; j <= j1; j++) {
+    const d = info(j), x = sx(j), col = COLORS[d.L], cur = has && d.g === st.g && Math.floor(j / N) === Math.floor(k0 / N);
+    cx.fillStyle = hexA(col, cur ? 0.9 : 0.35); cx.fillRect(x - u / 2 + 1.5 * K, gy + 5 * K, u - 3 * K, 7 * K);
+    txt(SYL[d.L][d.k], x, gy + 24 * K, Math.max(12, Math.min(u * 0.5, 16 * K)), hexA(col, d.head ? 1 : 0.7), d.head ? 900 : 600);
+    if (d.bar) barXs.push(x - u / 2);
+  }
+  for (let i = 0; i < barXs.length; i++) {
+    const xa = barXs[i], xb = i + 1 < barXs.length ? barXs[i + 1] : xa + (N / m.nBars) * u, y = gy + 40 * K;
+    cx.strokeStyle = 'rgba(163,230,53,0.55)'; cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.moveTo(xa + 2 * K, y - 5 * K); cx.lineTo(xa + 2 * K, y); cx.lineTo(xb - 2 * K, y); cx.lineTo(xb - 2 * K, y - 5 * K); cx.stroke();
+    if (xb - xa > 50 * K) txt('1小節', (xa + xb) / 2, y + 1, Math.max(12, 11 * K), 'rgba(190,242,100,0.9)', 800);
+  }
+
+  // ドミノ（奥から順に：未来 → いま → 倒れたもの）
+  for (let j = j1; j >= j0; j--) {
+    const d = info(j), x = sx(j), th = ang(j), col = COLORS[d.L];
+    const fallen = S >= j + 1, falling = S >= j && !fallen, next = has && j === k0 + 1;
+    const px = x + w / 2;   // 倒れるときの支点（前の下の角）
+    cx.save(); cx.translate(px, gy); cx.rotate(th);
+    rr(-w, -d.h, w, d.h, Math.min(4 * K, w / 3));
+    const gr = cx.createLinearGradient(-w, 0, 0, 0);
+    gr.addColorStop(0, hexA(col, fallen ? 0.45 : 0.95)); gr.addColorStop(1, hexA(col, fallen ? 0.25 : 0.6));
+    if (falling) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
+    cx.fillStyle = d.head ? gr : hexA(col, fallen ? 0.22 : 0.55); cx.fill(); cx.shadowBlur = 0;
+    cx.strokeStyle = d.bar ? LIME : hexA('#f8fafc', fallen ? 0.35 : 0.85); cx.lineWidth = (d.bar ? 2.5 : 1.4) * K; cx.stroke();
+    if (d.head && w > 8) {   // 点（さいころのような目）
+      cx.fillStyle = hexA('#0f172a', 0.7);
+      for (let i = 0; i < d.L; i++) { cx.beginPath(); cx.arc(-w / 2, -d.h * (0.22 + 0.2 * i), Math.min(w * 0.18, 4 * K), 0, Math.PI * 2); cx.fill(); }
+    }
+    if (next && ageS > 0.6 * dur) { cx.strokeStyle = hexA('#ffffff', 0.5); cx.lineWidth = 2 * K; cx.stroke(); }   // 次に当たるドミノ（予告）
+    cx.restore();
+    if (d.bar) {   // 小節の頭の旗
+      const fx = x - w / 2 - 6 * K, ft = gy - d.h - 26 * K;
+      cx.strokeStyle = '#e2e8f0'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(fx, gy); cx.lineTo(fx, ft); cx.stroke();
+      const wave = Math.sin(now * 6 + j) * 2 * K;
+      cx.fillStyle = LIME; cx.beginPath(); cx.moveTo(fx, ft); cx.lineTo(fx - 22 * K, ft + 7 * K + wave); cx.lineTo(fx, ft + 14 * K); cx.closePath(); cx.fill();
+    }
+  }
+
+  // 当たった瞬間の火花（いま倒れ始めたドミノに、前のドミノが当たった）
+  let barFlash = 0;
+  if (has && ageS < 0.3 && k0 >= 1) {
+    const d = info(k0), dp = info(k0 - 1), q = ageS / 0.3, big = d.head ? (d.bar ? 2 : 1.5) : 0.7;
+    const hx = sx(k0) - w / 2, hy = gy - dp.h * Math.cos(rest(dp.h));
+    for (let i = 0; i < 7; i++) {
+      const an = -Math.PI / 2 + (i - 3) * 0.42 - 0.4, d0 = 3 * K, d1 = (6 + 20 * q * big) * K;
+      cx.strokeStyle = hexA(d.bar ? LIME : i % 2 ? '#fde68a' : '#ffffff', 1 - q); cx.lineWidth = (d.head ? 2.2 : 1.4) * K;
+      cx.beginPath(); cx.moveTo(hx + Math.cos(an) * d0, hy + Math.sin(an) * d0); cx.lineTo(hx + Math.cos(an) * d1, hy + Math.sin(an) * d1); cx.stroke();
+    }
+    if (d.head) { cx.strokeStyle = hexA(d.bar ? LIME : COLORS[d.L], 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5; cx.beginPath(); cx.arc(hx, hy, (8 + 34 * q) * K, 0, Math.PI * 2); cx.stroke(); }
+    if (d.bar) barFlash = 1 - q;
+  }
+  if (barFlash > 0) txt('小節の頭！ 同じ並びのドミノが、また倒れはじめる', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、ドミノが倒れはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt('背の高いドミノ ＝ まとまりの頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* ---------- モード：ジャグリング ----------
+   ・まとまり1つ＝1回の投げ。パン（2拍）は低く、トマト（3拍）は高く投げる（空中にいる時間が長いほど高い：高さ ∝ 時間²）
+   ・左右の手で交互に投げる。手に落ちた瞬間（＝まとまりの頭）に音
+   ・ボールの上の点は8分音符ごとの位置。てっぺんでは点の間がせまい（ゆっくり）
+   ・これまでの軌道が残り、小節ごとに同じ形がくり返される */
+function drawJuggle(st, now, ah) {
+  const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has, narrow = W < 640;
+  const top = 116 * K, floorY = ah - 8 * K;
+  const bodyH = Math.max(80, Math.min((ah - top) * 0.46, 230 * K));
+  const hy = floorY - bodyH * 0.62, sep = Math.min(W * 0.2, bodyH * 0.62), cxC = W / 2;
+  const hMax = Math.max(30, hy - top - 30 * K);
+  const hOf = L => hMax * (L / 3) * (L / 3);
+  const n = has ? st.step : 0, g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0;
+  const gp = has ? clamp(st.gp, 0, 0.9999) : 0;
+  const handX = side => cxC + (side ? sep : -sep);
+  const fromSide = nn => mod(nn, 2);                                   // 投げる手（0＝左、1＝右）
+  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
+  const pathPt = (side, Lg, u) => { const xa = handX(side), xb = handX(1 - side); return [xa + (xb - xa) * u, hy - 4 * hOf(Lg) * u * (1 - u)]; };
+  const arcPath = (side, Lg, u0, u1) => { cx.beginPath(); for (let i = 0; i <= 30; i++) { const p = pathPt(side, Lg, u0 + (u1 - u0) * i / 30); i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1]); } };
+
+  // これまでの軌道（1小節ぶんより少し多く）
+  if (has) for (let i = Math.min(n, G * 2); i >= 1; i--) {
+    const nn = n - i, gi = mod(g - i, G), Lg = m.groups[gi], a = 0.6 * (1 - (i - 1) / (G * 2));
+    cx.strokeStyle = hexA(COLORS[Lg], a); cx.lineWidth = (m.barStartGroup.includes(gi) ? 3 : 2) * K;
+    arcPath(fromSide(nn), Lg, 0, 1); cx.stroke();
+    for (let k = 1; k < Lg; k++) { const p = pathPt(fromSide(nn), Lg, k / Lg); cx.fillStyle = hexA('#e2e8f0', a); cx.beginPath(); cx.arc(p[0], p[1], 2.5 * K, 0, Math.PI * 2); cx.fill(); }
+  }
+  // いまの軌道：これから飛ぶ道は点線、8分音符ごとの位置に点
+  const side = fromSide(n), col = COLORS[L];
+  cx.setLineDash([4 * K, 6 * K]); cx.strokeStyle = hexA(col, 0.7); cx.lineWidth = 2 * K; arcPath(side, L, gp, 1); cx.stroke(); cx.setLineDash([]);
+  cx.strokeStyle = col; cx.lineWidth = 3.5 * K; arcPath(side, L, 0, gp); cx.stroke();
+  for (let k = 1; k < L; k++) {
+    const p = pathPt(side, L, k / L), lit = has && kCur >= k;
+    cx.fillStyle = lit ? '#ffffff' : hexA('#e2e8f0', 0.5); cx.beginPath(); cx.arc(p[0], p[1], (lit ? 5 : 3.5) * K, 0, Math.PI * 2); cx.fill();
+    if (lit && kCur === k && ageS < 0.25) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.25); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(p[0], p[1], (6 + 30 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
+  }
+  { const apex = pathPt(side, L, 0.5);
+    txt(`${L === 2 ? 'パン' : 'トマト'}（空中に ${L} 拍）`, apex[0], apex[1] - 22 * K, Math.max(13, 14 * K), col, 900); }
+
+  // 人（シンプルな形）
+  const bob = 3 * K * Math.exp(-ageS / 0.07) + 5 * K * Math.exp(-ageH / 0.1) * (kCur === 0 ? 1 : 0);
+  const sh = floorY - bodyH * 0.82 + bob, hip = floorY - bodyH * 0.42 + bob * 0.6;
+  const NEAR = '#e2e8f0', lw = bodyH * 0.07;
+  const limb = (pts, c, wd) => { cx.strokeStyle = c; cx.lineWidth = wd; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.beginPath(); cx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) cx.lineTo(pts[i], pts[i + 1]); cx.stroke(); };
+  // 手の上下：投げた手はさっと上がり、受けた手はぐっと沈む
+  const catchSide = side;   // いま投げた手 ＝ さっきボールを受けた手
+  const handY = s => {
+    let y = hy;
+    if (has && s === catchSide) y += 12 * K * Math.exp(-ageH / 0.08) - 10 * K * Math.exp(-Math.pow(ageH - 0.09, 2) / 0.003);
+    if (has && s !== catchSide) y += 6 * K * Math.sin(Math.PI * clamp((gp - 0.7) / 0.3, 0, 1));   // 受ける前に少し下げて待つ
+    return y;
+  };
+  limb([cxC - bodyH * 0.08, floorY, cxC, hip, cxC + bodyH * 0.08, floorY], '#7b88a3', lw);
+  limb([cxC, hip, cxC, sh], NEAR, bodyH * 0.16);
+  cx.fillStyle = NEAR; cx.beginPath(); cx.arc(cxC, sh - bodyH * 0.13, bodyH * 0.085, 0, Math.PI * 2); cx.fill();
+  for (const s of [0, 1]) {
+    const hx = handX(s), hyy = handY(s), sx0 = cxC + (s ? 1 : -1) * bodyH * 0.09, ex = (sx0 + hx) / 2 + (s ? 1 : -1) * bodyH * 0.04, ey = (sh + hyy) / 2 + bodyH * 0.14;
+    limb([sx0, sh + 2 * K, ex, ey, hx, hyy], NEAR, bodyH * 0.055);
+    cx.fillStyle = NEAR; cx.beginPath(); cx.ellipse(hx, hyy + 2 * K, bodyH * 0.06, bodyH * 0.04, 0, 0, Math.PI * 2); cx.fill();
+  }
+  // 受けた瞬間の光
+  let barFlash = 0;
+  if (has && ageH < 0.45) {
+    const q = ageH / 0.45, bar = m.barStartGroup.includes(g), hx = handX(catchSide);
+    cx.strokeStyle = hexA(bar ? LIME : col, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+    cx.beginPath(); cx.arc(hx, hy, (10 + 40 * q) * K, 0, Math.PI * 2); cx.stroke();
+    if (bar) barFlash = 1 - q;
+  }
+  // ボール
+  const bp = pathPt(side, L, gp), br = Math.max(7, Math.min(14 * K, bodyH * 0.07));
+  const sq = has ? 1 + 0.25 * Math.exp(-ageH / 0.06) : 1;
+  cx.shadowColor = col; cx.shadowBlur = 20 * K; cx.fillStyle = col;
+  cx.beginPath(); cx.ellipse(bp[0], bp[1] - br * 0.3, br * sq, br / sq, 0, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+  cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(bp[0] - br * 0.3, bp[1] - br * 0.65, br * 0.28, 0, Math.PI * 2); cx.fill();
+
+  if (barFlash > 0) txt('小節の頭！ 同じ投げ方をもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+}
+
+/* ドミノの音：カタッ（サブ拍）／カタン（まとまりの頭、低く重い） */
+function playDomino(t, head, L, barHead) {
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+  s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = head ? 1800 : 3200; f.Q.value = 1.5;
+  ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(head ? 0.6 : 0.35, t + 0.001); ng.gain.exponentialRampToValueAtTime(0.0001, t + (head ? 0.05 : 0.025));
+  s.connect(f); f.connect(ng); ng.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + 0.07);
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(head ? (L === 3 ? 520 : 620) : 1250, t); o.frequency.exponentialRampToValueAtTime(head ? 300 : 900, t + 0.05);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? 0.7 : 0.3, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + (head ? 0.09 : 0.04));
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.12);
+  if (barHead) {
+    const b = ctx.createOscillator(), bg = ctx.createGain();
+    b.type = 'sine'; b.frequency.setValueAtTime(1568, t);
+    bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.18, t + 0.003); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+    b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.4);
+  }
+}
+/* ジャグリングの音：パシッ（手に落ちる＝まとまりの頭）／小さなチッ（サブ拍） */
+function playJuggle(t, head, L, barHead) {
+  if (head) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+    s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 0.8;
+    ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.7, t + 0.002); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    s.connect(f); f.connect(ng); ng.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + 0.08);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(L === 3 ? 200 : 240, t); o.frequency.exponentialRampToValueAtTime(90, t + 0.1);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.14);
+    if (barHead) {
+      const b = ctx.createOscillator(), bg = ctx.createGain();
+      b.type = 'triangle'; b.frequency.setValueAtTime(1318, t);
+      bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.2, t + 0.003); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.35);
+    }
+  } else {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(2200, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
+  }
+}
+
 /* ---------- モードF：同時ポリリズム ----------
    1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
    外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
@@ -2842,7 +3074,7 @@ function setMode(md) {
   if (md !== 'F') lastMetaMode = md;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
   const info = MODE_INFO[md];
-  if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute">▾</span>`;
+  if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）▾</span>`;
   renderPresets(); renderPolySel(); updateBarRhythm();
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
