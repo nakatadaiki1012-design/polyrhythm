@@ -2269,8 +2269,8 @@ function drawGears(st, now, ah) {
 
 
 /* ---------- モードK：踊る人 ----------
-   シルエットの人が、グループごとに1歩ずつ踊る。パン＝短い一歩、トマト＝ためてから大きな一歩。
-   足が床についた瞬間（グループの頭）に音が鳴り、足あとが残る。床は一定の速さで流れ、足あとの並びが小節ごとにくり返される。
+   シルエットの人が、バレエのように踊る。サブ拍ではつま先で小刻みに1歩ずつ進み、強拍（グループの頭）でぐっと踏み込む。
+   足が床についた瞬間に音が鳴り、足あとが残る（強拍＝色つきの大きな足あと）。足あとの並びが小節ごとにくり返される。
    時間はすべて「何番目のサブ拍か（sc）＋拍の中の位置（frac）」から求める。 */
 function ikLimb(hx, hy, fx, fy, len, sgn) {   // 2つの関節（ひざ・ひじ）を持つ手足の形
   let dx = fx - hx, dy = fy - hy, d = Math.hypot(dx, dy);
@@ -2290,48 +2290,52 @@ function footPrint(x, y, w, col, a, dash) {
   cx.restore();
 }
 function drawDancer(st, now, ah) {
-  const m = st.m, G = m.groups.length, dur = 60 / bpm, narrow = W < 640, has = st.has;
-  let g = 0, L = 2, kCur = 0, gp = 0, headSc = 0, Lprev = m.groups[mod(-1, G)], pos = 0;
-  if (has) { g = st.g; L = m.groups[g]; kCur = st.sub - m.starts[g]; gp = (kCur + st.frac) / L; headSc = st.sc - kCur; Lprev = m.groups[mod(g - 1, G)]; pos = st.sc + st.frac; }
-  const col = COLORS[L];
+  const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
+  // 足がつく場所：1拍で1歩。強拍の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
+  const EX = 0.6, cnt = [];
+  { let c = 0; for (let j = 0; j < N; j++) { if (m.starts.includes(j)) c++; cnt.push(c); } }
+  const isHead = j => m.starts.includes(mod(j, N));
+  const X = j => j + EX * (Math.floor(j / N) * G + cnt[mod(j, N)]);
+  let k = 0, f = 0, g = 0, kCur = 0;
+  if (has) { k = st.sc; f = st.frac; g = st.g; kCur = st.sub - m.starts[g]; }
+  const L = m.groups[g], col = COLORS[L];
 
   // 大きさ
-  const hB = Math.min(ah * (narrow ? 0.29 : 0.30), 175 * K), Lt = 0.5 * hB;
-  const fy = ah * (narrow ? 0.55 : 0.55), band = ah * (narrow ? 0.16 : 0.15);
-  const u = Math.max(8, Math.min(0.37 * Lt, 0.66 * W / (2 * (m.total / m.nBars))));   // 1サブ拍ぶんの横の長さ
-  const ax = W * (narrow ? 0.6 : 0.58), cam = has ? pos - 1.25 : 0;
+  const hB = Math.min(ah * 0.3, 175 * K), Lt = 0.5 * hB;
+  const fy = ah * 0.55, band = ah * (narrow ? 0.16 : 0.15);
+  const barUnits = (N + EX * G) / m.nBars, speed = (N + EX * G) / N;
+  const u = Math.max(6, Math.min(0.42 * Lt, 0.66 * W / (2 * barUnits)));   // 1歩ぶんの横の長さ
+  const ax = W * (narrow ? 0.6 : 0.58), cam = (has ? (k + f) * speed : 0) - 0.6;
   const sx = w => ax + (w - cam) * u;
-  const yR = fy + band * 0.3, yL = fy + band * 0.64;                                     // 右足・左足の足あとの高さ
+  const yR = fy + band * 0.3, yL = fy + band * 0.64;
 
   // 床
   const gr = cx.createLinearGradient(0, fy, 0, fy + band);
   gr.addColorStop(0, 'rgba(148,163,184,0.16)'); gr.addColorStop(1, 'rgba(148,163,184,0.04)');
   cx.fillStyle = gr; cx.fillRect(0, fy, W, band);
   cx.strokeStyle = 'rgba(203,213,225,0.55)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(0, fy); cx.lineTo(W, fy); cx.stroke();
-  const w0 = Math.floor(cam - ax / u) - 1, w1 = Math.ceil(cam + (W - ax) / u) + 1;     // サブ拍ごとの目盛り
-  cx.strokeStyle = 'rgba(148,163,184,0.12)'; cx.lineWidth = 1; cx.beginPath();
-  for (let w = Math.max(0, w0); w <= w1; w++) { const x = sx(w); cx.moveTo(x, fy); cx.lineTo(x, fy + band); }
-  cx.stroke();
 
-  // これまでの足あと（今の足から、さかのぼって描く）
+  // これまでの足あと：強拍＝色つきの大きな足あと、サブ拍＝つま先の小さな点
   const barXs = [];
   if (has) {
-    let cur = headSc, gj = g, n = st.step;
-    for (let j = 0; j < 60 && n >= 0 && cur >= 0; j++, n--) {
-      const x = sx(cur); if (x < -40 * K) break;
-      const Lj = m.groups[gj], c = COLORS[Lj], right = (n % 2 === 0), y = right ? yR : yL;
-      const fade = clamp(0.95 - (ax - x) / (ax + 40) * 0.5, 0.35, 0.95);
-      if (m.barStartGroup.includes(gj)) barXs.push(x);
-      footPrint(x, y, (0.34 + 0.12 * Lj) * u, c, fade, false);
-      txt(Lj === 2 ? 'パン' : 'トマト', x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
-      cur -= m.groups[mod(gj - 1, G)]; gj = mod(gj - 1, G);
+    for (let j = k, n = 0; j >= 0 && n < 90; j--, n++) {
+      const x = sx(X(j)); if (x < -40 * K) break;
+      const y = (j % 2 === 0) ? yR : yL, fade = clamp(0.95 - (ax - x) / (ax + 40) * 0.5, 0.35, 0.95);
+      if (m.barStartSub.includes(mod(j, N))) barXs.push(x);
+      if (isHead(j)) {
+        const Lj = m.groups[m.subToGroup[mod(j, N)]], c = COLORS[Lj];
+        footPrint(x, y, Math.min(0.5 * u, 24 * K) + 2 * K, c, fade, false);
+        txt(Lj === 2 ? 'パン' : 'トマト', x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
+      } else {
+        cx.fillStyle = `rgba(226,232,240,${0.55 * fade})`;
+        cx.beginPath(); cx.ellipse(x, y, Math.min(0.15 * u, 7 * K) + 1.5 * K, Math.min(0.1 * u, 5 * K) + 1 * K, 0, 0, Math.PI * 2); cx.fill();
+      }
     }
-    // 次の小節の頭（今の小節のわくの右はし）
-    let nx = headSc, gk = g;
-    for (let i = 0; i < 40; i++) { nx += m.groups[gk]; gk = (gk + 1) % G; if (m.barStartGroup.includes(gk)) break; }
-    barXs.unshift(sx(nx));
-    // 次に足がつく場所（うすい点線）
-    footPrint(sx(headSc + L), (st.step % 2 === 0) ? yL : yR, (0.34 + 0.12 * L) * u, col, 0.5, true);
+    let j = k + 1; for (let i = 0; i < N + 1; i++, j++) if (m.barStartSub.includes(mod(j, N))) break;
+    barXs.unshift(sx(X(j)));
+    // 次に足がつく場所（点線）
+    const nh = isHead(k + 1);
+    footPrint(sx(X(k + 1)), ((k + 1) % 2 === 0) ? yR : yL, nh ? Math.min(0.5 * u, 24 * K) + 2 * K : Math.min(0.2 * u, 9 * K) + 2 * K, nh ? COLORS[m.groups[m.subToGroup[mod(k + 1, N)]]] : '#e2e8f0', 0.5, true);
   }
   // 小節の頭の線とわく
   for (const x of barXs) {
@@ -2345,65 +2349,75 @@ function drawDancer(st, now, ah) {
     if (xb - xa > 46 * K) txt('1小節', (xa + xb) / 2, y + 10 * K, (narrow ? 10 : 11.5) * K, hexA('#a3e635', cur ? 0.95 : 0.5), 800);
   }
 
-  // 床に足がついた瞬間の波
+  // 床に足がついた瞬間の波（強拍は大きく、サブ拍は小さく）
   let barFlash = 0;
   for (const a of accents) {
     if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.7) continue;
     const q = 1 - age / 0.7, isBar = m.barStartGroup.includes(a.g), c = isBar ? '#a3e635' : COLORS[m.groups[a.g]];
     if (isBar) barFlash = Math.max(barFlash, q);
-    const x = sx(a.sc), r = (0.5 + 1.7 * (1 - q)) * u + 4 * K, y = (a.step % 2 === 0) ? yR : yL;
+    const x = sx(X(a.sc)), r = (0.5 + 1.7 * (1 - q)) * u + 4 * K, y = (a.sc % 2 === 0) ? yR : yL;
     cx.strokeStyle = hexA(c, 0.85 * q); cx.lineWidth = (isBar ? 3.5 : 2.5) * K * q + 0.5;
     cx.beginPath(); cx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2); cx.stroke();
   }
+  const ageS = has ? f * dur : 9;
+  if (has && !isHead(k) && ageS < 0.2) {
+    const q = 1 - ageS / 0.2, x = sx(X(k)), y = (k % 2 === 0) ? yR : yL, r = (0.25 + 0.5 * (1 - q)) * u + 3 * K;
+    cx.strokeStyle = `rgba(226,232,240,${0.6 * q})`; cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2); cx.stroke();
+  }
 
-  // 人（足の位置を先に決めてから、体をそれに合わせる）
-  const Ps = headSc, Pw0 = headSc - Lprev, Pw1 = headSc + L;
-  // 足の動き：はじめの（L−1）拍は、床をふんだまま「ため」て、最後の1拍で一気に次の一歩をふみ出す
-  const tame = (L - 1) / L;
-  const s = has ? clamp((gp - tame) / (1 - tame), 0, 1) : 0, se = s * s * (3 - 2 * s), burst = Math.sin(Math.PI * s);
-  // 拍ごとの弾み：拍の頭で体がいちばん沈み、拍のあいだに伸びる（グループの頭・小節の頭ほど大きく）
-  const barNow = has && m.barStartSub.includes(st.sub);
-  const ph = has ? st.frac : 0, dip = Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph), 1.7);
-  const amp = !has ? 0 : kCur === 0 ? (barNow ? 0.22 : L === 3 ? 0.18 : 0.13) : 0.075;
-  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
-  const fling = has && kCur === 0 ? Math.exp(-ageH / 0.16) * (L === 3 ? 1.5 : 0.9) * (barNow ? 1.25 : 1) : 0;   // 足がついた瞬間に、腕を振り上げる
-  const tapLift = has && s === 0 ? Math.pow(1 - dip, 1.2) * 0.1 * Lt : 0;                                       // ためている間も、つま先で拍をとる
-  let fS, fW, liftW;
-  if (has) { fS = sx(Ps); fW = sx(Pw0 + (Pw1 - Pw0) * se); liftW = Math.max(Math.pow(burst, 0.8) * (L === 3 ? 0.38 : 0.2) * Lt, tapLift); }
-  else { fS = ax + 0.35 * u * 2; fW = ax - 0.35 * u * 2; liftW = 0; }
-  const stride = Math.abs(fW - fS), hxp = (fS + fW) / 2;
-  const hh = Math.sqrt(Math.max(0, Math.pow(0.97 * Lt, 2) - stride * stride / 4));
-  const ctm = has ? (gp < tame ? gp / tame : 1 - clamp((gp - tame) / 0.25, 0, 1)) : 0, crouch = ctm * ctm * (3 - 2 * ctm) * (L === 3 ? 0.22 : 0.08) * Lt;
-  const hyp = fy - hh + crouch + amp * Lt * dip;
-  const lean = has ? (-0.12 * ctm * (L === 3 ? 1 : 0.4) + 0.2 * burst * (L === 3 ? 1 : 0.6) + 0.1 * dip * (amp / 0.1)) : 0.05;
+  // ===== 人 =====
+  const headNow = has && isHead(k), nextHead = has && isHead(k + 1), barNow = has && m.barStartSub.includes(mod(k, N));
+  // 足：今ついている足（stance）と、次へ運ぶ足（swing）。サブ拍はつま先で小刻みに、強拍の前は高く上げて踏み込む
+  const s = has ? clamp((f - (nextHead ? 0.18 : 0.08)) / (nextHead ? 0.8 : 0.84), 0, 1) : 0, se = s * s * (3 - 2 * s), arcS = Math.sin(Math.PI * s);
+  const xS = has ? sx(X(k)) : ax + 0.3 * u, xW = has ? sx(X(k - 1) + (X(k + 1) - X(k - 1)) * se) : ax - 0.3 * u;
+  const lift = arcS * (nextHead ? 0.3 : 0.08) * Lt;
+  const pl = headNow ? Math.pow(1 - clamp(f / 0.9, 0, 1), 1.5) : 0;                 // 強拍：ひざを深く曲げて踏み込む（プリエ）
+  const plDepth = (L === 3 ? 0.3 : 0.25) * (barNow ? 1.15 : 1) * Lt;
+  const prep = nextHead ? Math.sin(Math.PI * clamp((f - 0.15) / 0.75, 0, 1)) : 0;   // 踏み込む前に、すっと伸び上がる
+  const subDip = has && !headNow ? 0.045 * Lt * Math.exp(-ageS / 0.07) : 0;
+  const fl = 0.075 * hB, toeH = 0.8 * fl;
+  const relS = has ? (headNow ? 1 - pl : 1) : 0.6;                                     // 1＝つま先立ち、0＝かかとまでつく
+  const ankS = [xS - fl * (1 - 0.55 * relS) * 0.6, fy - toeH * relS - 1.5 * K];
+  const ankW = [xW - fl * 0.35, fy - toeH - lift];
+  const d = Math.abs(ankW[0] - ankS[0]);
+  const hh = Math.sqrt(Math.max(0, Math.pow(0.97 * Lt, 2) - d * d / 4));
+  const hxp = (ankS[0] + ankW[0]) / 2 + fl * 0.3;
+  const hyp = ankS[1] - hh + pl * plDepth - prep * 0.05 * Lt + subDip;
+  const lean = has ? 0.03 + pl * 0.2 - prep * 0.05 : 0.02;
   const T = 0.34 * hB, shx = hxp + Math.sin(lean) * T, shy = hyp - Math.cos(lean) * T;
-  const headR = 0.085 * hB, nod = 0.03 * hB * dip * (amp / 0.1);
-  const hdx = shx + Math.sin(lean) * (0.07 * hB + headR), hdy = shy - Math.cos(lean) * (0.07 * hB + headR) + nod;
+  const headR = 0.08 * hB, hdx = shx + Math.sin(lean) * (0.075 * hB + headR), hdy = shy - Math.cos(lean) * (0.075 * hB + headR) - prep * 0.01 * hB;
 
-  // 床のかげ
-  cx.fillStyle = 'rgba(0,0,0,0.3)'; cx.beginPath(); cx.ellipse(hxp, fy + 5 * K, (0.3 * hB) * (1 - liftW / Lt * 0.4) * (1 + 0.15 * dip), 5 * K, 0, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(0,0,0,0.3)'; cx.beginPath(); cx.ellipse(hxp, fy + 5 * K, 0.28 * hB * (1 + 0.2 * pl), 5 * K, 0, 0, Math.PI * 2); cx.fill();
 
-  const NEAR = '#e2e8f0', FAR = '#7b88a3', lw = 0.085 * hB, aw = 0.062 * hB, al = 0.36 * hB, fl = 0.075 * hB;
+  const NEAR = '#e2e8f0', FAR = '#7b88a3', lw = 0.08 * hB, aw = 0.055 * hB, al = 0.36 * hB;
   const limb = (p, c, w) => { cx.strokeStyle = c; cx.lineWidth = w; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.beginPath(); cx.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) cx.lineTo(p[i], p[i + 1]); cx.stroke(); };
-  const leg = (fx, fyy, c) => { const k = ikLimb(hxp, hyp, fx, fyy, Lt, 1); limb([hxp, hyp, k.kx, k.ky, k.fx, k.fy, k.fx + fl, k.fy], c, lw); };
-  const sw = has ? (se - 0.5) * 2 : 0, raise = has ? (L === 3 ? 1 : 0.4) * burst : 0, pump = has ? (1 - dip) * (kCur === 0 ? 0.5 : 0.8) : 0;
-  const arm = (ang, c) => { const hx2 = shx + Math.sin(ang) * al * 0.93, hy2 = shy + Math.cos(ang) * al * 0.93; const k = ikLimb(shx, shy, hx2, hy2, al, -1); limb([shx, shy, k.kx, k.ky, k.fx, k.fy], c, aw); };
-  const aA = 0.35 * sw + raise * 1.5 + 0.15 + pump * 0.9 + fling * 1.7, aB = -0.35 * sw + raise * 1.2 + 0.05 + pump * 0.7 + fling * 1.4;
-  arm(aB, FAR); leg(fW, fy - liftW, FAR);
-  limb([hxp, hyp, shx, shy], NEAR, 0.2 * hB);
+  const leg = (an, rel, c) => {   // rel：つま先の向き（1＝下へのばす、0＝床にぺたり）
+    const kk = ikLimb(hxp, hyp, an[0], an[1], Lt, 1);
+    limb([hxp, hyp, kk.kx, kk.ky, kk.fx, kk.fy, kk.fx + fl * (1 - 0.45 * rel), kk.fy + toeH * rel + (1 - rel) * 1.5 * K], c, lw);
+  };
+  const arm = (ang, c) => { const hx2 = shx + Math.sin(ang) * al * 0.92, hy2 = shy + Math.cos(ang) * al * 0.92; const kk = ikLimb(shx, shy, hx2, hy2, al, -1); limb([shx, shy, kk.kx, kk.ky, kk.fx, kk.fy], c, aw); };
+  // 腕：サブ拍はやわらかく横にひろげたまま、強拍で大きくひらく（前の腕は上へ、うしろの腕はうしろへ）
+  const open = headNow ? Math.pow(Math.sin(Math.PI * clamp(f * 1.05, 0, 1)), 0.6) * (L === 3 ? 1 : 0.75) * (barNow ? 1.15 : 1) : 0;
+  const breathe = has ? 0.1 * Math.sin(2 * Math.PI * f) : 0;
+  const aA = 1.25 + breathe - prep * 0.35 + open * 1.25, aB = 1.0 - breathe - prep * 0.25 - open * 1.7;
+  arm(aB, FAR); leg(ankW, 1, FAR);
+  limb([hxp, hyp, shx, shy], NEAR, 0.18 * hB);
   cx.fillStyle = NEAR; cx.beginPath(); cx.arc(hdx, hdy, headR, 0, Math.PI * 2); cx.fill();
-  limb([hxp - Math.cos(lean) * 0.1 * hB, hyp + Math.sin(lean) * 0.1 * hB, hxp + Math.cos(lean) * 0.1 * hB, hyp - Math.sin(lean) * 0.1 * hB], col, 0.07 * hB);   // 帯（今のグループの色）
-  leg(fS, fy, NEAR); arm(aA, NEAR);
+  { // 腰の帯（今のグループの色）。強拍で光る
+    if (headNow) { cx.shadowColor = col; cx.shadowBlur = 16 * K * (0.4 + pl); }
+    limb([hxp - Math.cos(lean) * 0.1 * hB, hyp + Math.sin(lean) * 0.1 * hB, hxp + Math.cos(lean) * 0.1 * hB, hyp - Math.sin(lean) * 0.1 * hB], col, 0.07 * hB);
+    cx.shadowBlur = 0; }
+  leg(ankS, relS, NEAR); arm(aA, NEAR);
 
   // 文字
-  const nm = !has ? '' : L === 2 ? 'パン ＝ 短い一歩' : 'トマト ＝ ためて、大きな一歩';
-  if (has) txt(nm, W / 2, 80 * K, 15 * K, col, 900);
+  if (has) txt((L === 2 ? 'パン' : 'トマト') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 80 * K, 15 * K, col, 900);
   if (barFlash > 0) txt('小節の頭！ 足あとの並びが、もう一度はじまる', W / 2, 100 * K, 12.5 * K, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
   else if (!has) txt('▶ 再生すると、踊りはじめます', W / 2, 90 * K, 13 * K, '#94a3b8', 700);
   const lines = narrow
-    ? ['パンは短い一歩、トマトは「ため」てから大きな一歩', '足が床につく瞬間 ＝ グループの頭。足あとは小節ごとに同じ並び', '5/8・7/8はバルカン半島の民族舞踊でも使われる']
-    : ['パンは短い一歩、トマトは「ため」てから大きな一歩。足が床につく瞬間が「グループの頭」', '足あとは小節ごとに同じ並びになる（緑の線のわくを見比べよう）', '5/8・7/8はバルカン半島の民族舞踊でも使われる'];
+    ? ['サブ拍はつま先で小刻みに1歩、強拍でぐっと踏み込む', '踏み込む瞬間 ＝ グループの頭。足あとは小節ごとに同じ並び', '5/8・7/8はバルカン半島の民族舞踊でも使われる']
+    : ['サブ拍では、つま先で小刻みに1歩ずつ。強拍（グループの頭）で、ぐっと踏み込む', '大きな色つきの足あと＝強拍。足あとの並びは小節ごとに同じになる（緑のわくを見比べよう）', '5/8・7/8はバルカン半島の民族舞踊でも使われる'];
   lines.forEach((t, i) => txt(t, W / 2, ah * (narrow ? 0.885 + i * 0.04 : 0.9 + i * 0.04), (narrow ? 10 : 12) * K, i === 2 ? '#fbbf24' : '#94a3b8', 600));
 }
 
