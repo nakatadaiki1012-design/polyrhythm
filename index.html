@@ -4,127 +4,306 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>KineticRhythm</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
+  /* ===== 基本（ネットなしでも崩れないよう、見た目はすべてこのファイルの中に書いています） ===== */
+  *, *::before, *::after { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; background: #0f172a; }
   body {
-    font-family: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
-    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; color: #e2e8f0;
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", "Meiryo", sans-serif;
+    -webkit-tap-highlight-color: transparent; overscroll-behavior: none; color: #e2e8f0; line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
   }
+  button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }
+  button:disabled { opacity: .35; cursor: not-allowed; }
+  b { font-weight: 800; }
+  small { font-size: .7em; }
+
+  /* ===== 画面のならび ===== */
   #app { display: flex; flex-direction: column; min-height: 100%; }
   #main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
   #stage { position: relative; flex: 1; min-height: 56vh; }
-  #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; }
-  #panel { flex: none; }
+  #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  #panel { flex: none; padding: 16px; background: #0b1222; }
   @media (min-width: 1024px), (min-width: 700px) and (orientation: landscape) {
     #app { flex-direction: row; height: 100vh; height: 100dvh; }
     #stage { min-height: 0; }
-    #panel { width: 340px; overflow-y: auto; border-left: 1px solid #1e293b; }
+    #panel { width: 350px; overflow-y: auto; border-left: 1px solid #1e293b; }
   }
-  @media (min-width: 1700px) { #panel { width: 420px; font-size: 1.1rem; } }
+  @media (min-width: 1700px) { #panel { width: 430px; font-size: 1.1rem; } }
 
-  .tab { color: #94a3b8; border: 1px solid #1e293b; background: #0b1222; transition: all .15s; }
+  /* ===== 上のバー ===== */
+  .top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 12px 8px; }
+  .brand { margin-right: auto; }
+  .brand-name { font-size: 18px; font-weight: 800; letter-spacing: .03em; }
+  .brand-sub { font-size: 11px; color: #94a3b8; }
+  @media (min-width: 640px) { .brand-name { font-size: 20px; } .brand-sub { font-size: 12px; } }
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tab { padding: 7px 11px; border-radius: 8px; font-size: 14px; font-weight: 700;
+         color: #94a3b8; border: 1px solid #1e293b; background: #0b1222; transition: all .15s; }
   .tab.on { color: #0f172a; background: #22d3ee; border-color: #22d3ee; box-shadow: 0 0 18px rgba(34,211,238,.45); }
-  .preset { background: #111c33; border: 1px solid #1e293b; transition: all .15s; }
-  .preset:hover { border-color: #334155; }
-  .preset.on { border-color: #a3e635; box-shadow: 0 0 0 1px #a3e635 inset, 0 0 16px rgba(163,230,53,.25); background: #15233a; }
+
+  /* ===== 色 ===== */
+  .c-cyan { color: #67e8f9; } .c-lime { color: #bef264; } .c-amber { color: #fcd34d; }
+  .c2 { color: #22d3ee; } .c3 { color: #fbbf24; } .c-mute { color: #64748b; } .c-white { color: #f1f5f9; }
+
+  /* ===== 操作パネル ===== */
+  .btn-play { display: block; width: 100%; padding: 16px 0; border-radius: 16px; font-size: 20px; font-weight: 800;
+              color: #0f172a; background: #a3e635; box-shadow: 0 0 22px rgba(163,230,53,.4); transition: transform .1s, background .15s; }
+  .btn-play:active { transform: scale(.98); }
+  .btn-play.playing { background: #fbbf24; box-shadow: 0 0 22px rgba(251,191,36,.45); }
+  .hint { font-size: 11px; color: #64748b; line-height: 1.6; }
+  .center { text-align: center; }
+  .blk { margin-top: 16px; }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .row + .row, .row + .sub-box, .sub-box + .row { margin-top: 12px; }
+  .row.base { align-items: baseline; margin-bottom: 8px; }
+  .lbl { font-size: 14px; font-weight: 700; color: #cbd5e1; }
+  .lbl2 { font-size: 12px; font-weight: 700; color: #94a3b8; flex: none; }
+  .val-big { font-size: 24px; font-weight: 800; color: #67e8f9; }
+  .val-big small { font-size: 12px; color: #94a3b8; margin-left: 4px; }
+  .val { font-size: 14px; font-weight: 800; }
+  .sq { width: 40px; height: 40px; flex: none; border-radius: 8px; background: #1e293b; font-size: 18px; font-weight: 700; }
+  .sq:active { background: #334155; }
+  .btn { padding: 8px 12px; border-radius: 10px; background: #1e293b; font-size: 13px; font-weight: 700; border: 1px solid #334155; }
+  .btn:active { background: #334155; }
+  .btn.main { background: #a3e635; color: #0f172a; border-color: #a3e635; }
+  .btn.small { padding: 5px 10px; font-size: 12px; }
+  .btn.wide { flex: 1; }
+
+  details.sec { margin-top: 16px; border-top: 1px solid #1e293b; padding-top: 12px; }
+  details.sec > summary { list-style: none; cursor: pointer; font-size: 15px; font-weight: 800; color: #e2e8f0;
+                          display: flex; align-items: center; gap: 8px; padding: 2px 0 10px; }
+  details.sec > summary::-webkit-details-marker { display: none; }
+  details.sec > summary::before { content: "▶"; font-size: 10px; color: #64748b; transition: transform .15s; }
+  details.sec[open] > summary::before { transform: rotate(90deg); }
+  details.sec > summary .tag { margin-left: auto; font-size: 11px; font-weight: 700; color: #0f172a; background: #a3e635;
+                               padding: 1px 8px; border-radius: 999px; display: none; }
+  details.sec > summary .tag.show { display: inline-block; }
+
+  .sub-box { padding: 10px 12px; border-radius: 12px; background: #0f1a30; border: 1px solid #1e293b; }
+  .sub-box.hide { display: none; }
+  .sub-box .row + .row { margin-top: 10px; }
+
   .sw { width: 52px; height: 30px; border-radius: 999px; background: #334155; position: relative; transition: background .15s; flex: none; }
   .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #e2e8f0; transition: transform .15s; }
   .sw.on { background: #a3e635; }
   .sw.on::after { transform: translateX(22px); }
-  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: #1e293b; outline: none; }
+
+  .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 3px; border-radius: 10px; background: #0b1222; border: 1px solid #1e293b; }
+  .seg button { padding: 5px 10px; border-radius: 7px; font-size: 12px; font-weight: 700; color: #94a3b8; }
+  .seg button.on { background: #22d3ee; color: #0f172a; }
+  .seg.full { display: flex; }
+  .seg.full button { flex: 1; }
+
+  .stepper { display: inline-flex; align-items: center; gap: 6px; }
+  .stepper .sq { width: 34px; height: 34px; font-size: 16px; }
+  .stepper .val { min-width: 44px; text-align: center; color: #67e8f9; }
+
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; border-radius: 999px; background: #1e293b; outline: none; margin: 0; }
   input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%; background: #22d3ee; box-shadow: 0 0 12px rgba(34,211,238,.6); cursor: pointer; }
   input[type=range]::-moz-range-thumb { width: 24px; height: 24px; border: 0; border-radius: 50%; background: #22d3ee; cursor: pointer; }
   #vol::-webkit-slider-thumb { background: #fbbf24; box-shadow: 0 0 12px rgba(251,191,36,.6); }
   #vol::-moz-range-thumb { background: #fbbf24; }
-  #playBtn.playing { background: #fbbf24; box-shadow: 0 0 22px rgba(251,191,36,.45); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .span2 { grid-column: span 2; }
+  .cat { grid-column: span 2; font-size: 11px; font-weight: 700; color: #64748b; margin-top: 4px; }
+  .preset { position: relative; background: #111c33; border: 1px solid #1e293b; border-radius: 12px; padding: 9px 10px; text-align: left; transition: all .15s; }
+  .preset:hover { border-color: #334155; }
+  .preset.on { border-color: #a3e635; box-shadow: 0 0 0 1px #a3e635 inset, 0 0 16px rgba(163,230,53,.25); background: #15233a; }
+  .p-title { font-size: 14px; font-weight: 800; }
+  .p-note { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .p-del { position: absolute; top: 4px; right: 6px; width: 24px; height: 24px; border-radius: 6px; color: #94a3b8; font-size: 14px; line-height: 24px; text-align: center; }
+  .p-del:hover { background: #334155; color: #f1f5f9; }
+
+  .cards { display: flex; flex-wrap: wrap; gap: 6px; min-height: 56px; padding: 8px; border-radius: 12px; background: #0b1222; border: 1px dashed #334155; }
+  .card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+          min-width: 64px; height: 52px; padding: 0 22px 0 12px; border-radius: 10px; font-weight: 800; }
+  .card .cw { font-size: 14px; line-height: 1.1; }
+  .card .cn { font-size: 11px; opacity: .8; }
+  .card.k2 { background: rgba(34,211,238,.16); border: 2px solid #22d3ee; color: #67e8f9; }
+  .card.k3 { background: rgba(251,191,36,.16); border: 2px solid #fbbf24; color: #fcd34d; min-width: 84px; }
+  .card .x { position: absolute; top: 2px; right: 4px; font-size: 13px; color: #cbd5e1; padding: 0 3px; }
+  .cards .empty { font-size: 12px; color: #64748b; align-self: center; }
+  .build-info { font-size: 13px; font-weight: 800; margin-top: 8px; }
+  .build-msg { font-size: 12px; color: #bef264; min-height: 18px; margin-top: 4px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+
+  .score { font-size: 13px; font-weight: 700; line-height: 1.8; }
+  .score span { white-space: nowrap; }
+  .score .pf { color: #a3e635; } .score .er { color: #60a5fa; } .score .lt { color: #fb7185; } .score .ex { color: #94a3b8; }
+  .note-box { font-size: 12px; color: #94a3b8; line-height: 1.7; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div id="app">
   <!-- ===== 左（上）：ビジュアル ===== -->
   <div id="main">
-    <div class="flex flex-wrap items-center gap-2 px-3 pt-3 pb-2">
-      <div class="mr-auto">
-        <div class="text-lg sm:text-xl font-extrabold tracking-wide"><span class="text-cyan-300">Kinetic</span><span class="text-lime-300">Rhythm</span></div>
-        <div class="text-[11px] sm:text-xs text-slate-400">変拍子の「重心」と「周期」を、動きと音で体感する</div>
+    <div class="top">
+      <div class="brand">
+        <div class="brand-name"><span class="c-cyan">Kinetic</span><span class="c-lime">Rhythm</span></div>
+        <div class="brand-sub">変拍子の「重心」と「周期」を、動きと音で体感する</div>
       </div>
-      <div class="flex gap-1.5" id="tabs">
-        <button class="tab on px-3 py-2 rounded-lg text-sm font-bold" data-mode="A">A 多角形</button>
-        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="B">B ボール</button>
-        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="C">C 円軌道</button>
-        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="D">D 指揮</button>
-        <button class="tab px-3 py-2 rounded-lg text-sm font-bold" data-mode="E">E 階段</button>
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-mode="A">A 多角形</button>
+        <button class="tab" data-mode="B">B ボール</button>
+        <button class="tab" data-mode="C">C 円軌道</button>
+        <button class="tab" data-mode="D">D 指揮</button>
+        <button class="tab" data-mode="E">E 階段</button>
+        <button class="tab" data-mode="F">F ポリリズム</button>
       </div>
     </div>
     <div id="stage"><canvas id="cv"></canvas></div>
   </div>
 
   <!-- ===== 右（下）：操作パネル ===== -->
-  <aside id="panel" class="p-4 space-y-5 bg-[#0b1222]">
-    <button id="playBtn" class="w-full py-4 rounded-2xl text-xl font-extrabold text-slate-900 bg-lime-400 shadow-[0_0_22px_rgba(163,230,53,.4)] active:scale-[.98] transition">▶ 再生</button>
-    <div class="text-[11px] text-slate-500 -mt-3 text-center">スペースキーでも再生／停止　・　1〜5 キーでモード切替</div>
+  <aside id="panel">
+    <button id="playBtn" class="btn-play">▶ 再生</button>
+    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　1〜6 キー：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
 
-    <div>
-      <div class="flex items-baseline justify-between mb-2">
-        <span class="text-sm font-bold text-slate-300">テンポ（8分音符）</span>
-        <span class="font-extrabold text-2xl text-cyan-300"><span id="bpmVal">160</span><span class="text-xs text-slate-400 ml-1">BPM</span></span>
+    <div class="blk">
+      <div class="row base">
+        <span class="lbl">テンポ（8分音符）</span>
+        <span class="val-big"><span id="bpmVal">160</span><small>BPM</small></span>
       </div>
-      <div class="flex items-center gap-2">
-        <button id="bpmDown" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">−</button>
+      <div class="row">
+        <button id="bpmDown" class="sq">−</button>
         <input id="bpm" type="range" min="80" max="300" step="1" value="160">
-        <button id="bpmUp" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">＋</button>
+        <button id="bpmUp" class="sq">＋</button>
       </div>
     </div>
 
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <div class="text-sm font-bold text-slate-300">サブ拍クリック</div>
-        <div class="text-[11px] text-slate-500" id="subDesc">グループ内の細かい拍も鳴らす</div>
-      </div>
-      <button id="subSw" class="sw on" aria-label="サブ拍クリック"></button>
-    </div>
-
-    <div class="flex items-center justify-between gap-3">
-      <div>
-        <div class="text-sm font-bold text-slate-300">指揮の図を左右反転</div>
-        <div class="text-[11px] text-slate-500" id="mirDesc">指揮者の後ろから見た向き</div>
-      </div>
-      <button id="mirSw" class="sw" aria-label="指揮の図を左右反転"></button>
-    </div>
-
-    <div>
-      <div class="flex items-baseline justify-between mb-2">
-        <span class="text-sm font-bold text-slate-300">音量</span>
-        <span class="text-sm text-amber-300 font-bold" id="volVal">70</span>
-      </div>
-      <input id="vol" type="range" min="0" max="100" step="1" value="70">
-    </div>
-
-    <div>
-      <div class="flex items-baseline justify-between mb-2">
-        <span class="text-sm font-bold text-slate-300">映像と音のズレ補正</span>
-        <span class="text-sm text-lime-300 font-bold"><span id="latVal">0</span> ms</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <button id="latDown" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">−</button>
-        <input id="lat" type="range" min="-250" max="350" step="5" value="0">
-        <button id="latUp" class="w-10 h-10 rounded-lg bg-slate-800 text-lg font-bold">＋</button>
-      </div>
-      <div class="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
-        映像が音より<b class="text-slate-300">早い</b>と感じたら＋（Bluetoothスピーカーなど）。<br>
-        映像が音より<b class="text-slate-300">遅い</b>と感じたら−（プロジェクター・テレビなど）。
-      </div>
-    </div>
-
-    <div>
-      <div class="text-sm font-bold text-slate-300 mb-1">リズム・プリセット</div>
-      <div id="presets" class="grid grid-cols-2 gap-2"></div>
-      <div class="text-[11px] text-slate-500 mt-2 leading-relaxed">
-        <span class="text-cyan-300 font-bold">2</span>＝「パン」　<span class="text-amber-300 font-bold">3</span>＝「トマト」。<br>
+    <!-- リズムを選ぶ -->
+    <details class="sec" open>
+      <summary>リズムを選ぶ</summary>
+      <div id="presets" class="grid2"></div>
+      <div class="hint" style="margin-top:8px">
+        <b class="c2">2</b>＝「パン」　<b class="c3">3</b>＝「トマト」。<br>
         再生中に切り替えると、次の小節の頭から変わります。
       </div>
-    </div>
+    </details>
+
+    <!-- 練習する -->
+    <details class="sec" open>
+      <summary>練習する<span class="tag" id="practiceTag">ON</span></summary>
+
+      <div class="row">
+        <div><div class="lbl">タップ判定</div><div class="hint">拍に合わせて叩くと「ぴったり／早い／遅い」</div></div>
+        <button id="tapSw" class="sw" aria-label="タップ判定"></button>
+      </div>
+      <div class="sub-box hide" id="tapBox">
+        <div class="row"><span class="lbl2">叩く拍</span>
+          <div class="seg" id="tapTarget"><button data-v="all">全部の拍</button><button data-v="head">まとまりの頭だけ</button></div>
+        </div>
+        <div class="hint" style="margin-top:8px">画面をタップ、または J・F・Enter キーで叩きます。<br>（タップ判定がONの間、画面タップでは停止しません）</div>
+        <div class="row" style="margin-top:8px">
+          <div class="score" id="tapScore"></div>
+          <button id="tapReset" class="btn small">記録を消す</button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div><div class="lbl">補助を少しずつ消す</div><div class="hint">映像 → サブ拍 → 強拍 の順に消えて、また戻る</div></div>
+        <button id="fadeSw" class="sw" aria-label="補助を少しずつ消す"></button>
+      </div>
+      <div class="sub-box hide" id="fadeBox">
+        <div class="hint">① 全部あり → ② 映像なし → ③ サブ拍なし → ④ 音もなし → ① 音が戻る（くり返し）</div>
+        <div class="row"><span class="lbl2">1段階の長さ</span>
+          <div class="seg" id="fadeN"><button data-v="1">1小節</button><button data-v="2">2小節</button><button data-v="4">4小節</button></div>
+        </div>
+        <div class="row"><span class="lbl2">音なしの長さ</span>
+          <div class="seg" id="fadeS"><button data-v="2">2小節</button><button data-v="4">4小節</button><button data-v="8">8小節</button></div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div><div class="lbl">テンポ自動アップ</div><div class="hint">ゆっくり始めて、少しずつ速くする</div></div>
+        <button id="rampSw" class="sw" aria-label="テンポ自動アップ"></button>
+      </div>
+      <div class="sub-box hide" id="rampBox">
+        <div class="row"><span class="lbl2">はじめのテンポ</span>
+          <span class="stepper"><button class="sq" id="rsDown">−</button><span class="val" id="rsVal">100</span><button class="sq" id="rsUp">＋</button></span>
+        </div>
+        <div class="row"><span class="lbl2">目標のテンポ</span>
+          <span class="stepper"><button class="sq" id="reDown">−</button><span class="val" id="reVal">180</span><button class="sq" id="reUp">＋</button></span>
+        </div>
+        <div class="row"><span class="lbl2">上げる幅</span>
+          <div class="seg" id="rampStep"><button data-v="2">+2</button><button data-v="5">+5</button><button data-v="10">+10</button></div>
+        </div>
+        <div class="row"><span class="lbl2">何小節ごと</span>
+          <div class="seg" id="rampEvery"><button data-v="1">1</button><button data-v="2">2</button><button data-v="4">4</button><button data-v="8">8</button></div>
+        </div>
+        <div class="hint" style="margin-top:8px">再生ボタンを押すと「はじめのテンポ」から始まり、目標に着いたらそのまま続きます。</div>
+      </div>
+    </details>
+
+    <!-- リズムを作る -->
+    <details class="sec">
+      <summary>リズムを作る</summary>
+      <div class="hint" style="margin-bottom:8px">カードを並べて、オリジナルの変拍子を作ります。カードをタップすると パン⇔トマト が入れかわり、× で消せます。</div>
+      <div class="cards" id="cards"></div>
+      <div class="build-info" id="buildInfo"></div>
+      <div class="btns">
+        <button class="btn wide" id="add2"><span class="c2">＋ パン（2）</span></button>
+        <button class="btn wide" id="add3"><span class="c3">＋ トマト（3）</span></button>
+      </div>
+      <div class="btns">
+        <button class="btn main wide" id="buildPlay">このリズムで鳴らす</button>
+        <button class="btn wide" id="buildSave">保存する</button>
+        <button class="btn" id="buildClear">ぜんぶ消す</button>
+      </div>
+      <div class="build-msg" id="buildMsg"></div>
+      <div class="hint">まとまりは2〜6個、合計16拍まで。保存したリズムは「リズムを選ぶ」に出てきて、次に開いたときも残ります。</div>
+    </details>
+
+    <!-- ポリリズム -->
+    <details class="sec">
+      <summary>ポリリズム（F モード）</summary>
+      <div class="hint" style="margin-bottom:8px">2つのリズムを同時に鳴らします。<b style="color:#f472b6">高い音</b>と<b style="color:#38bdf8">低い音</b>が、1周の中で同じ時間をちがう数で分けます。</div>
+      <div class="seg full" id="polySel"></div>
+      <div class="hint" style="margin-top:8px">選ぶと F モードに切りかわります。サブ拍クリックをONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+    </details>
+
+    <!-- 表示と音 -->
+    <details class="sec" open>
+      <summary>表示と音</summary>
+      <div class="row">
+        <div><div class="lbl">大きな数字（投影用）</div><div class="hint">「1・2／1・2・3」を後ろの席からも読める大きさに</div></div>
+        <button id="bigSw" class="sw" aria-label="大きな数字"></button>
+      </div>
+      <div class="row">
+        <span class="lbl">音の種類</span>
+        <div class="seg" id="soundSel"><button data-v="click">クリック</button><button data-v="voice">声（パ・ン…）</button></div>
+      </div>
+      <div class="row">
+        <div><div class="lbl">サブ拍クリック</div><div class="hint" id="subDesc">グループ内の細かい拍も鳴らす</div></div>
+        <button id="subSw" class="sw on" aria-label="サブ拍クリック"></button>
+      </div>
+      <div class="row">
+        <div><div class="lbl">指揮の図を左右反転</div><div class="hint" id="mirDesc">指揮者の後ろから見た向き</div></div>
+        <button id="mirSw" class="sw" aria-label="指揮の図を左右反転"></button>
+      </div>
+      <div class="blk">
+        <div class="row base"><span class="lbl">音量</span><span class="val c-amber" id="volVal">70</span></div>
+        <input id="vol" type="range" min="0" max="100" step="1" value="70">
+      </div>
+    </details>
+
+    <!-- ズレ補正 -->
+    <details class="sec">
+      <summary>映像と音のズレ補正<span class="tag" id="latTag"></span></summary>
+      <div class="row base"><span class="lbl">補正の量</span><span class="val c-lime"><span id="latVal">0</span> ms</span></div>
+      <div class="row">
+        <button id="latDown" class="sq">−</button>
+        <input id="lat" type="range" min="-250" max="350" step="5" value="0">
+        <button id="latUp" class="sq">＋</button>
+      </div>
+      <div class="hint" style="margin-top:6px">
+        映像が音より<b class="c-white">早い</b>と感じたら＋（Bluetoothスピーカーなど）。<br>
+        映像が音より<b class="c-white">遅い</b>と感じたら−（プロジェクター・テレビなど）。<br>
+        この補正はタップ判定にも使われます。
+      </div>
+    </details>
   </aside>
 </div>
 
@@ -229,14 +408,41 @@ function makeMeta(p) {
 }
 
 /* =========================================================
+   設定（次に開いたときも残す）
+   ========================================================= */
+const SET = {
+  tapOn: false, tapHead: false,
+  fadeOn: false, fadeN: 2, fadeS: 4,
+  rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
+  big: false, voice: false, subOn: true, poly: [3, 2],
+};
+try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
+function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
+
+let customs = [];   // 自分で作ったリズム（まとまりの並び）
+try { customs = JSON.parse(localStorage.getItem('kr_custom') || '[]').filter(a => Array.isArray(a) && a.length >= 2); } catch (e) {}
+function saveCustoms() { try { localStorage.setItem('kr_custom', JSON.stringify(customs)); } catch (e) {} }
+function customPreset(groups) {
+  const total = groups.reduce((s, L) => s + L, 0);
+  return { cat: 'custom', sig: `${total}/8`, bars: [groups.slice()], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
+}
+const presetKey = p => JSON.stringify([p.sigs || p.sig, p.bars]);
+
+const POLY_PAIRS = [[3, 2], [4, 3], [5, 4], [5, 3], [5, 2]];
+const PA = '#f472b6', PB = '#38bdf8';   // ポリリズム：高い音／低い音
+
+/* =========================================================
    状態
    ========================================================= */
 let selected = PRESETS[4];   // 最初は 5/8 [2+3]
 let activeMeta = makeMeta(selected), pendingMeta = null;
-let bpm = 160, subOn = true, volume = 0.7, mode = 'A', playing = false;
+let bpm = 160, subOn = SET.subOn, volume = 0.7, mode = 'A', lastMetaMode = 'A', playing = false;
 let ctx = null, master = null, bus = null, timer = null;
 let nextTime = 0, curSub = 0, measure = 0, stepCounter = 0, subCounter = 0;
-let queue = [], lastNote = null, frozenFrac = 0, accents = [];
+let barCount = 0, curStage = 0;                       // 何小節目か／補助を消す練習の段階
+let polyK = 0, polyCycle = -1, polyTc = 1, polyCur = SET.poly.slice();
+let queue = [], lastNote = null, frozenFrac = 0, accents = [], polyHits = [], noteLog = [];
+let uiBpmDirty = false;
 
 /* =========================================================
    音響エンジン（ルックアヘッド・スケジューラー）
@@ -263,70 +469,253 @@ function playAccent(t) {        // 強拍：880Hz → 110Hz の急速ピッチ�
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
   o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.1);
 }
-function playClick(t) {         // 弱拍：1200Hz の乾いたクリック（ディケイ 0.02秒）
+function playClick(t, level = 1) {   // 弱拍：1200Hz の乾いたクリック（ディケイ 0.02秒）
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = 'square'; o.frequency.setValueAtTime(1200, t);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.22, t + 0.001);
+  g.gain.exponentialRampToValueAtTime(0.22 * level, t + 0.001);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
   o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
+}
+/* ポリリズムの2つの音色 */
+function playPolyHigh(t, down) {     // 高い音：木をたたいたような音
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(1700, t); o.frequency.exponentialRampToValueAtTime(1050, t + 0.05);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(down ? 0.9 : 0.6, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.09);
+}
+function playPolyLow(t, down) {      // 低い音：太鼓のような音
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.13);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(down ? 1.0 : 0.85, t + 0.003);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.18);
+}
+
+/* ----- 声らしい音（パ・ン・ト・マ）を合成 -----
+   声の高さの元になる音を、母音の響き（フォルマント）に合わせたフィルターに通して「ア」「オ」を作り、
+   子音は短いノイズ（パ・ト）や鼻にかかった音（マ・ン）で表す */
+let noiseBuf = null;
+function getNoise() {
+  if (!noiseBuf) {
+    const len = Math.floor(ctx.sampleRate * 0.5);
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuf;
+}
+function vBurst(t, len, type, freq, amp) {
+  const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  s.buffer = getNoise(); f.type = type; f.frequency.value = freq; f.Q.value = 0.7;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(amp, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  s.connect(f); f.connect(g); g.connect(bus);
+  s.start(t, Math.random() * 0.3); s.stop(t + len + 0.02);
+}
+const FORMANTS = { a: [[800, 1], [1250, 0.55], [2600, 0.18]], o: [[480, 1], [850, 0.5], [2500, 0.12]] };
+function vVowel(t, v, len, f0, amp) {
+  const o = ctx.createOscillator(), out = ctx.createGain();
+  o.type = 'sawtooth';
+  o.frequency.setValueAtTime(f0 * 1.05, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.9, t + len);
+  FORMANTS[v].forEach(([F, a]) => {
+    const bp = ctx.createBiquadFilter(), g = ctx.createGain();
+    bp.type = 'bandpass'; bp.frequency.value = F; bp.Q.value = F / 110;
+    g.gain.value = a * 3.2;
+    o.connect(bp); bp.connect(g); g.connect(out);
+  });
+  out.gain.setValueAtTime(0.0001, t);
+  out.gain.exponentialRampToValueAtTime(amp, t + 0.012);
+  out.gain.setTargetAtTime(amp * 0.7, t + 0.03, 0.04);
+  out.gain.setTargetAtTime(0.0001, t + len * 0.7, len * 0.1);
+  out.connect(bus); o.start(t); o.stop(t + len + 0.1);
+}
+function vNasal(t, len, f0, amp) {
+  const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f0 * 0.92, t + len);
+  lp.type = 'lowpass'; lp.frequency.value = 380; lp.Q.value = 1.2;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(amp, t + 0.012);
+  g.gain.setTargetAtTime(0.0001, t + len * 0.75, len * 0.1);
+  o.connect(lp); lp.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.08);
+}
+function playSyl(t, syl, acc, beatDur) {
+  const len = clamp(beatDur * 0.72, 0.07, 0.22), f0 = acc ? 215 : 172, amp = acc ? 0.95 : 0.5;
+  if (syl === 'パ') { vBurst(t, 0.012, 'lowpass', 1600, 0.6 * amp); vVowel(t + 0.006, 'a', len, f0, amp); }
+  else if (syl === 'ト') { vBurst(t, 0.016, 'highpass', 3800, 0.55 * amp); vVowel(t + 0.012, 'o', len, f0, 0.6 * amp); }
+  else if (syl === 'マ') { vNasal(t, 0.05, f0, 0.45 * amp); vVowel(t + 0.035, 'a', len - 0.02, f0, 0.85 * amp); }
+  else vNasal(t, len, f0, 0.5 * amp);   // ン
+}
+
+/* ----- 補助を少しずつ消す練習：小節ごとの段階 -----
+   0：全部あり　1：映像なし　2：サブ拍なし（映像もなし）　3：音もなし */
+function stageForBar(b) {
+  if (!SET.fadeOn) return 0;
+  const N = SET.fadeN, S = SET.fadeS, r = mod(b, 3 * N + S);
+  return r < N ? 0 : r < 2 * N ? 1 : r < 3 * N ? 2 : 3;
+}
+function onBarStart() {
+  // テンポ自動アップ
+  if (SET.rampOn && barCount > 0 && barCount % SET.rampEvery === 0 && bpm < SET.rampEnd) {
+    bpm = Math.min(SET.rampEnd, bpm + SET.rampStep); uiBpmDirty = true;
+  }
+  curStage = stageForBar(barCount);
+  barCount++;
+}
+function logTarget(time, head) {
+  noteLog.push({ time, head, hit: false });
+  if (noteLog.length > 64) noteLog.splice(0, noteLog.length - 64);
+}
+
+function scheduleMeta() {
+  if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
+  const m = activeMeta;
+  if (m.barStartSub.includes(curSub)) onBarStart();
+  const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
+  const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
+  if (stg < 3) {
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : playAccent(nextTime); }
+    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : playClick(nextTime); }
+  }
+  if (isAcc) stepCounter++;
+  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
+  logTarget(nextTime, isAcc);
+  nextTime += dur; curSub++;
+  if (curSub >= m.total) { curSub = 0; measure++; }
+}
+
+function schedulePoly() {
+  if (polyK === 0) {
+    polyCur = SET.poly.slice(); onBarStart(); polyCycle++;
+    polyTc = Math.max(polyCur[0], polyCur[1]) * 2 * 60 / bpm;   // 多い方の1拍 ＝ 8分音符2つぶん
+  }
+  const [a, b] = polyCur, ab = a * b, dur = polyTc / ab, stg = curStage;
+  const hitA = polyK % b === 0, hitB = polyK % a === 0, down = polyK === 0;
+  if (stg < 3) {
+    if (hitA) playPolyHigh(nextTime, down);
+    if (hitB) playPolyLow(nextTime, down);
+    if (!hitA && !hitB && subOn && stg < 2) playClick(nextTime, 0.45);
+  }
+  queue.push({ kind: 'poly', time: nextTime, k: polyK, a, b, ab, hitA, hitB, isAcc: down, dur, cycle: polyCycle, bar: barCount - 1, stage: stg });
+  if (hitA || hitB) logTarget(nextTime, down);
+  nextTime += dur; polyK = (polyK + 1) % ab;
 }
 
 function scheduler() {
   while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
-    if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
-    const m = activeMeta, g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
-    if (isAcc) { playAccent(nextTime); stepCounter++; }
-    else if (subOn) playClick(nextTime);
-    queue.push({ time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure });
-    nextTime += dur; curSub++;
-    if (curSub >= m.total) { curSub = 0; measure++; }
+    if (mode === 'F') schedulePoly(); else scheduleMeta();
   }
 }
 
 /* 画面描画用の「いま」＝ スピーカーから実際に音が出ている時刻
    ・getOutputTimestamp で「いま耳に届いている音」の時刻を正確に取得（currentTime は数ms〜数十msの段差で進むため）
    ・描いた絵は次のフレームで画面に出るので、1フレームぶん先を描く
-   ・ユーザーのズレ補正（Bluetooth・プロジェクターなど）を足す */
+   ・ユーザーのズレ補正（Bluetooth・プロジェクターなど）を足す。この補正はタップ判定にも使う */
 let latencyMs = 0;
 try { latencyMs = +(localStorage.getItem('kr_latency') || 0) || 0; } catch (e) {}
-function audioNow() {
-  if (!ctx) return performance.now() / 1000;
+function heardTime(perfT) {   // perfT（ミリ秒）の瞬間に、耳に届いていた音の時刻
   let t;
   if (ctx.getOutputTimestamp) {
     const ts = ctx.getOutputTimestamp();
-    if (ts && ts.contextTime > 0 && ts.performanceTime > 0) {
-      t = ts.contextTime + (performance.now() - ts.performanceTime) / 1000;
-    }
+    if (ts && ts.contextTime > 0 && ts.performanceTime > 0) t = ts.contextTime + (perfT - ts.performanceTime) / 1000;
   }
-  if (t === undefined) t = ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0);
-  return t + 1 / 60 - latencyMs / 1000;
+  if (t === undefined) t = ctx.currentTime - (ctx.outputLatency || ctx.baseLatency || 0) - (performance.now() - perfT) / 1000;
+  return t - latencyMs / 1000;
+}
+function audioNow() {
+  if (!ctx) return performance.now() / 1000;
+  return heardTime(performance.now()) + 1 / 60;
 }
 
+function resetCounters() {
+  curSub = 0; measure = 0; stepCounter = 0; subCounter = 0; barCount = 0; curStage = 0;
+  polyK = 0; polyCycle = -1;
+  queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0;
+}
 function start() {
   initAudio(); if (ctx.state !== 'running') ctx.resume();
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
-  curSub = 0; measure = 0; stepCounter = 0; subCounter = 0; queue = []; lastNote = null; accents = [];
+  if (SET.rampOn) setBpm(SET.rampStart);
+  resetCounters();
   nextTime = ctx.currentTime + 0.08;
   playing = true; scheduler(); timer = setInterval(scheduler, LOOKAHEAD_MS);
   updatePlayBtn();
 }
 function stop() {
-  frozenFrac = getState(audioNow()).frac || 0;
+  frozenFrac = lastNote ? clamp((audioNow() - lastNote.time) / lastNote.dur, 0, 0.999) : 0;
   playing = false; clearInterval(timer); queue = [];
   if (bus) { const b = bus; b.gain.setValueAtTime(0, ctx.currentTime); setTimeout(() => b.disconnect(), 300); bus = null; }
   updatePlayBtn();
 }
 function togglePlay() { playing ? stop() : start(); }
+/* 再生したまま F モードとほかのモードを行き来するときは、頭から数え直す */
+function restartTimeline() {
+  if (bus) { const b = bus; b.gain.setTargetAtTime(0, ctx.currentTime, 0.01); setTimeout(() => b.disconnect(), 300); }
+  bus = ctx.createGain(); bus.connect(master);
+  if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
+  resetCounters();
+  nextTime = ctx.currentTime + 0.06;
+}
 
 /* 描画用の現在位置（すべてオーディオ時刻から計算） */
 function getState(now) {
-  if (!lastNote) return { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, sc: 0, measure: 0, sub: 0, frac: 0, has: false };
+  if (!lastNote || lastNote.kind !== 'meta') return { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, sc: 0, measure: 0, sub: 0, frac: 0, has: false };
   const n = lastNote, m = n.meta;
   const frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
   const pos = n.sub + frac, gs = m.starts[n.g], len = m.groups[n.g];
   return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true };
+}
+function getPolyState(now) {
+  if (!lastNote || lastNote.kind !== 'poly') {
+    const [a, b] = SET.poly; return { a, b, ab: a * b, k: 0, phase: 0, cycle: 0, has: false };
+  }
+  const n = lastNote, frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
+  return { a: n.a, b: n.b, ab: n.ab, k: n.k, phase: (n.k + frac) / n.ab, cycle: n.cycle, has: true };
+}
+
+/* =========================================================
+   タップ判定
+   ========================================================= */
+const TAPK = {
+  p: { label: 'ぴったり！', color: '#a3e635' },
+  e: { label: '早い', color: '#60a5fa' },
+  l: { label: '遅い', color: '#fb7185' },
+  x: { label: 'たたきすぎ', color: '#94a3b8' },
+};
+let tapStats = { p: 0, e: 0, l: 0, x: 0 }, hiddenStats = null, tapFx = [], tapHist = [];
+function onTap(perfT) {
+  if (!SET.tapOn) return;
+  if (!playing) { start(); return; }
+  const t = heardTime(perfT);
+  const cands = noteLog.filter(n => !SET.tapHead || n.head);
+  if (!cands.length) return;
+  let bi = 0;
+  for (let i = 1; i < cands.length; i++) if (Math.abs(cands[i].time - t) < Math.abs(cands[bi].time - t)) bi = i;
+  const best = cands[bi], prev = cands[bi - 1], next = cands[bi + 1];
+  let gap = Math.min(prev ? best.time - prev.time : Infinity, next ? next.time - best.time : Infinity);
+  if (!isFinite(gap)) gap = 0.4;
+  const err = t - best.time;
+  let kind;
+  if (best.hit) kind = 'x';
+  else {
+    best.hit = true;
+    const win = clamp(gap * 0.12, 0.025, 0.05);   // 「ぴったり」の幅：25〜50ミリ秒（テンポに合わせて変える）
+    kind = Math.abs(err) <= win ? 'p' : err < 0 ? 'e' : 'l';
+  }
+  tapStats[kind]++; updateScore();
+  const hidden = SET.fadeOn && lastNote && lastNote.stage >= 1;
+  if (hidden) { if (hiddenStats) hiddenStats[kind]++; }
+  else {
+    tapFx.push({ t: performance.now(), kind, err });
+    if (kind !== 'x') { tapHist.push(clamp(err / gap, -0.5, 0.5)); if (tapHist.length > 10) tapHist.shift(); }
+  }
 }
 
 /* =========================================================
@@ -354,29 +743,55 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
   cx.font = `${weight} ${size}px ${FONT}`; cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
 }
 
+let prevStage = 0, returnBanner = null;
 function frame() {
   const now = audioNow();
   if (playing) {
     while (queue.length && queue[0].time <= now) {
       const n = queue.shift(); lastNote = n;
-      if (n.isAcc) accents.push({ t: n.time, step: n.step, sc: n.sc, g: n.g, meta: n.meta });
+      if (n.kind === 'meta' && n.isAcc) accents.push({ t: n.time, step: n.step, sc: n.sc, g: n.g, meta: n.meta });
+      if (n.kind === 'poly' && (n.hitA || n.hitB)) polyHits.push({ t: n.time, k: n.k, hitA: n.hitA, hitB: n.hitB, a: n.a, b: n.b });
     }
   }
   if (accents.length) accents = accents.filter(a => now - a.t < 1.5);
-  const st = getState(now);
+  if (polyHits.length) polyHits = polyHits.filter(a => now - a.t < 1.0);
+  if (uiBpmDirty) { uiBpmDirty = false; showBpm(); }
+
+  // 補助を消す練習：段階の切りかわり
+  const stage = playing && lastNote ? lastNote.stage : 0;
+  if (stage !== prevStage) {
+    if (prevStage === 0 && stage >= 1) { hiddenStats = { p: 0, e: 0, l: 0, x: 0 }; returnBanner = null; }
+    if (stage === 0 && prevStage >= 1) returnBanner = { t: performance.now(), stats: hiddenStats };
+    prevStage = stage;
+  }
+  const hide = SET.fadeOn && playing && stage >= 1;
 
   cx.clearRect(0, 0, W, H);
   const bg = cx.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#0f172a'); bg.addColorStop(1, '#0a1020');
   cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
 
-  const stripH = clamp(H * 0.17, 60, 130), sceneH = H - stripH;
-  if (mode === 'A') drawRoll(st, now, sceneH);
-  else if (mode === 'B') drawBounce(st, now, sceneH);
-  else if (mode === 'C') drawOrbit(st, now, sceneH);
-  else if (mode === 'D') drawConduct(st, now, sceneH);
-  else drawStairs(st, now, sceneH);
-  drawHeader(st);
-  drawStrip(st, sceneH, stripH);
+  const stripH = SET.big ? clamp(H * 0.34, 120, 460) : clamp(H * 0.17, 60, 130);
+  const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
+  const sceneH = H - stripH - bandH;
+  if (hide) drawHidden(stage, sceneH, stripH, bandH);
+  else if (mode === 'F') {
+    const ps = getPolyState(now);
+    drawPoly(ps, now, sceneH);
+    drawPolyHeader(ps);
+    drawPolyStrip(ps, sceneH + bandH, stripH);
+  } else {
+    const st = getState(now);
+    if (mode === 'A') drawRoll(st, now, sceneH);
+    else if (mode === 'B') drawBounce(st, now, sceneH);
+    else if (mode === 'C') drawOrbit(st, now, sceneH);
+    else if (mode === 'D') drawConduct(st, now, sceneH);
+    else drawStairs(st, now, sceneH);
+    drawHeader(st);
+    drawStrip(st, sceneH + bandH, stripH);
+  }
+  if (bandH) drawBand(sceneH, bandH, stage, hide);
+  if (!hide) drawTapFx(sceneH);
+  drawReturnBanner(sceneH);
   requestAnimationFrame(frame);
 }
 
@@ -393,26 +808,33 @@ function drawHeader(st) {
     x += 6 * K;
   });
   txt(m.preset.note, pad, y + 24 * K, 13 * K, '#94a3b8', 500, 'left');
+  if (SET.rampOn && playing) txt(bpm < SET.rampEnd ? `テンポアップ中 → 目標 ${SET.rampEnd}` : `目標テンポ ${SET.rampEnd} に到着！`, pad, y + 44 * K, 12 * K, LIME, 700, 'left');
   txt(`♪ = ${bpm}`, W - pad, y + (x > W - 110 * K ? 24 * K : 0), 18 * K, '#67e8f9', 800, 'right');
   if (st.has) txt(`${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, W - pad, y + 44 * K, 12 * K, '#94a3b8', 500, 'right');
   if (pendingMeta) txt(`次の小節から「${pendingMeta.preset.note}」`, W - pad, y + 62 * K, 12 * K, LIME, 700, 'right');
 }
 
-/* ---------- 共通：下のカウント帯（パ・ン・ト・マ・ト） ---------- */
+/* ---------- 共通：下のカウント帯（パ・ン・ト・マ・ト ／ 大きな数字） ---------- */
 function drawStrip(st, y0, h) {
-  const m = st.m, T = m.total, G = m.groups.length, B = m.nBars;
-  const pad = 14 * K, gap = (T > 8 ? 3 : 5) * K, ggap = (T > 8 ? 10 : 16) * K, bgap = 26 * K;
-  const bw = (W - 2 * pad - (T - G) * gap - (G - B) * ggap - (B - 1) * bgap) / T, bh = h * 0.6, by = y0 + (h - bh) / 2;
+  const m = st.m, T = m.total, G = m.groups.length, B = m.nBars, big = SET.big;
+  const pad = 14 * K, gap = (T > 8 ? 3 : 5) * K, ggap = (big ? (T > 8 ? 22 : 34) : (T > 8 ? 10 : 16)) * K, bgap = (big ? 34 : 26) * K;
+  const bw = (W - 2 * pad - (T - G) * gap - (G - B) * ggap - (B - 1) * bgap) / T;
+  const bh = h * (big ? 0.8 : 0.6), by = y0 + (h - bh) / 2;
   let x = pad;
   m.groups.forEach((L, g) => {
     for (let k = 0; k < L; k++) {
       const i = m.starts[g] + k, on = st.has && st.sub === i, col = COLORS[L];
       rr(x, by, bw, bh, 8 * K);
-      if (on) { cx.shadowColor = col; cx.shadowBlur = 20 * K; }
+      if (on) { cx.shadowColor = col; cx.shadowBlur = (big ? 34 : 20) * K; }
       cx.fillStyle = on ? col : hexA(col, k === 0 ? 0.2 : 0.1); cx.fill(); cx.shadowBlur = 0;
       cx.lineWidth = (k === 0 ? 3 : 1.2) * K; cx.strokeStyle = hexA(col, k === 0 ? 0.95 : 0.45); cx.stroke();
-      txt(SYL[L][k], x + bw / 2, by + bh / 2, Math.min(bh * 0.5, bw * 0.55), on ? '#0f172a' : col, k === 0 ? 900 : 600);
-      if (k === 0) txt('>', x + 8 * K, by + 10 * K, 11 * K, on ? '#0f172a' : col, 900);
+      if (big) {   // 投影用：まとまりの中で何拍目か
+        txt(String(k + 1), x + bw / 2, by + bh * 0.44, Math.min(bh * 0.62, bw * 0.9), on ? '#0f172a' : col, 900);
+        txt(SYL[L][k], x + bw / 2, by + bh * 0.85, Math.min(bh * 0.15, bw * 0.4), on ? '#0f172a' : hexA(col, 0.8), 700);
+      } else {
+        txt(SYL[L][k], x + bw / 2, by + bh / 2, Math.min(bh * 0.5, bw * 0.55), on ? '#0f172a' : col, k === 0 ? 900 : 600);
+        if (k === 0) txt('>', x + 8 * K, by + 10 * K, 11 * K, on ? '#0f172a' : col, 900);
+      }
       if (k < L - 1) { x += bw + gap; continue; }
       const nextBar = g + 1 < G && m.barOfGroup[g + 1] !== m.barOfGroup[g];
       if (nextBar) {
@@ -420,9 +842,103 @@ function drawStrip(st, y0, h) {
         cx.strokeStyle = 'rgba(226,232,240,0.5)'; cx.lineWidth = 2 * K;
         cx.beginPath(); cx.moveTo(lx, by - 4 * K); cx.lineTo(lx, by + bh + 4 * K); cx.stroke();
         x += bw + bgap;
-      } else x += bw + ggap;
+      } else {
+        if (big && g + 1 < G) txt('／', x + bw + ggap / 2, by + bh * 0.44, Math.min(bh * 0.4, ggap * 1.2), '#64748b', 700);
+        x += bw + ggap;
+      }
     }
   });
+}
+
+/* ---------- 共通：練習の帯（段階の表示とタップの記録） ---------- */
+const STAGE_NAMES = ['① 全部あり', '② 映像なし', '③ サブ拍なし', '④ 音なし'];
+function drawBand(y0, h, stage, hide) {
+  const pad = 14 * K, cy = y0 + h / 2;
+  cx.fillStyle = 'rgba(11,18,34,0.8)'; cx.fillRect(0, y0, W, h);
+  let x = pad;
+  if (SET.fadeOn) {
+    txt('練習', x, cy, 11 * K, '#64748b', 800, 'left'); x += 32 * K;
+    STAGE_NAMES.forEach((s, i) => {
+      cx.font = `800 ${10.5 * K}px ${FONT}`;
+      const w = cx.measureText(s).width + 12 * K, on = playing && i === stage;
+      rr(x, cy - 9 * K, w, 18 * K, 9 * K);
+      cx.fillStyle = on ? (i === 3 ? '#f472b6' : LIME) : 'rgba(51,65,85,0.6)'; cx.fill();
+      txt(s, x + w / 2, cy + 0.5, 10.5 * K, on ? '#0f172a' : '#94a3b8', 800);
+      x += w + 4 * K;
+    });
+  }
+  if (SET.tapOn) {
+    const mw = Math.min(200 * K, W - x - 2 * pad - 80 * K), mx = W - pad - 34 * K - mw;
+    if (mw > 60) {
+      txt('早い', mx - 6 * K, cy, 10 * K, '#60a5fa', 800, 'right');
+      txt('遅い', mx + mw + 6 * K, cy, 10 * K, '#fb7185', 800, 'left');
+      cx.strokeStyle = '#334155'; cx.lineWidth = 3 * K; cx.lineCap = 'round';
+      cx.beginPath(); cx.moveTo(mx, cy); cx.lineTo(mx + mw, cy); cx.stroke();
+      cx.fillStyle = hexA(LIME, 0.35); cx.fillRect(mx + mw / 2 - mw * 0.06, cy - 6 * K, mw * 0.12, 12 * K);
+      cx.strokeStyle = LIME; cx.lineWidth = 2 * K;
+      cx.beginPath(); cx.moveTo(mx + mw / 2, cy - 8 * K); cx.lineTo(mx + mw / 2, cy + 8 * K); cx.stroke();
+      if (!hide) tapHist.forEach((e, i) => {
+        const a = (i + 1) / tapHist.length, col = Math.abs(e) <= 0.06 ? LIME : e < 0 ? '#60a5fa' : '#fb7185';
+        cx.fillStyle = hexA(col, 0.25 + 0.75 * a);
+        cx.beginPath(); cx.arc(mx + mw / 2 + e * mw, cy, (i === tapHist.length - 1 ? 5 : 3.5) * K, 0, Math.PI * 2); cx.fill();
+      });
+    }
+  }
+}
+
+/* ---------- 共通：タップの結果 ---------- */
+function drawTapFx(sceneH) {
+  const pn = performance.now();
+  tapFx = tapFx.filter(f => pn - f.t < 650);
+  const f = tapFx[tapFx.length - 1];
+  if (!f) return;
+  const age = (pn - f.t) / 650, info = TAPK[f.kind], al = 1 - age * age;
+  // 画面のふちを光らせる
+  cx.strokeStyle = hexA(info.color, 0.55 * al); cx.lineWidth = 10 * K;
+  cx.strokeRect(5 * K, 5 * K, W - 10 * K, sceneH - 10 * K);
+  const y = sceneH * 0.3 - age * 14 * K, s = (40 - 8 * age) * K;
+  cx.font = `900 ${s}px ${FONT}`;
+  const tw = cx.measureText(info.label).width + 40 * K, hasMs = f.kind === 'e' || f.kind === 'l';
+  rr(W / 2 - tw / 2, y - s * 0.8, tw, s * (hasMs ? 2.1 : 1.6), 16 * K);
+  cx.fillStyle = `rgba(11,18,34,${0.82 * al})`; cx.fill();
+  txt(info.label, W / 2, y, s, hexA(info.color, al), 900);
+  if (hasMs) txt(`${f.err > 0 ? '+' : '−'}${Math.round(Math.abs(f.err) * 1000)} ミリ秒`, W / 2, y + s * 0.85, 14 * K, hexA('#e2e8f0', al), 700);
+}
+
+/* ---------- 補助を消す練習：かくしている間の画面 ---------- */
+function drawHidden(stage, sceneH, stripH, bandH) {
+  const cyy = sceneH * 0.48;
+  const msg = [
+    null,
+    ['② 映像なし', '音だけを聞いて、拍を感じよう'],
+    ['③ サブ拍なし', 'まとまりの頭の音だけ。あいだは頭の中で数えよう'],
+    ['④ 音なし', '頭の中で数え続けよう。音が戻ったとき、ぴったり合うかな？'],
+  ][stage];
+  const col = stage === 3 ? '#f472b6' : LIME;
+  txt(msg[0], W / 2, cyy - 30 * K, 44 * K, col, 900);
+  txt(msg[1], W / 2, cyy + 22 * K, Math.min(17 * K, W / 26), '#cbd5e1', 700);
+  if (SET.tapOn) txt('タップは続けてOK（結果は音が戻ったら表示）', W / 2, cyy + 56 * K, 13 * K, '#94a3b8', 600);
+  txt('補助を少しずつ消す練習中', 14 * K, 30 * K, 13 * K, '#64748b', 700, 'left');
+  const y0 = sceneH + bandH;
+  rr(14 * K, y0 + stripH * 0.2, W - 28 * K, stripH * 0.6, 10 * K);
+  cx.strokeStyle = 'rgba(51,65,85,0.7)'; cx.lineWidth = 1.5 * K; cx.setLineDash([6 * K, 6 * K]); cx.stroke(); cx.setLineDash([]);
+  txt('（カウントはかくしています）', W / 2, y0 + stripH / 2, 13 * K, '#475569', 700);
+}
+function drawReturnBanner(sceneH) {
+  if (!returnBanner) return;
+  const age = (performance.now() - returnBanner.t) / 3200;
+  if (age > 1) { returnBanner = null; return; }
+  const al = age < 0.8 ? 1 : 1 - (age - 0.8) / 0.2, s = returnBanner.stats;
+  const showStats = SET.tapOn && s && (s.p + s.e + s.l + s.x) > 0;
+  const bw = Math.min(W - 28 * K, 520 * K), bh = (showStats ? 112 : 76) * K, bx = W / 2 - bw / 2, by = sceneH * 0.62 - bh / 2;
+  rr(bx, by, bw, bh, 16 * K);
+  cx.fillStyle = `rgba(11,18,34,${0.9 * al})`; cx.fill();
+  cx.strokeStyle = hexA(LIME, 0.8 * al); cx.lineWidth = 2 * K; cx.stroke();
+  txt('音が戻りました！ ズレていなかった？', W / 2, by + 30 * K, Math.min(22 * K, bw / 17), hexA(LIME, al), 900);
+  if (showStats) {
+    txt('かくれていた間のタップ', W / 2, by + 60 * K, 12 * K, hexA('#94a3b8', al), 700);
+    txt(`ぴったり ${s.p} ・ 早い ${s.e} ・ 遅い ${s.l}${s.x ? ` ・ たたきすぎ ${s.x}` : ''}`, W / 2, by + 86 * K, Math.min(18 * K, bw / 20), hexA('#f1f5f9', al), 800);
+  } else txt('補助が全部もどりました', W / 2, by + 56 * K, 13 * K, hexA('#94a3b8', al), 700);
 }
 
 /* ---------- モードA：転がる図形 ---------- */
@@ -430,7 +946,7 @@ function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
   const groundY = ah * 0.8;
   const Rpx = Math.min(ah * 0.27, W * 0.2), u = Rpx / P.R;
-  const span = W + 4 * Rpx + 40 * K, off = 2 * Rpx + 20 * K;
+  const span = W + Rpx, off = 0.5 * Rpx;   // 右はしから出始めたら、左はしから入り始める（途中で消えない）
   const X = k => Math.floor(k / N) * P.perim + P.prefix[mod(k, N)];
   const toS = xu => mod(xu * u + off + W * 0.3, span) - off;   // 再生開始時は画面の左寄りから
   const ease = t => 0.3 * t + 0.7 * t * t;   // 持ち上がりはゆっくり、倒れる瞬間は速く（コトッ）
@@ -901,6 +1417,7 @@ function star(x, y, r) {
 /* ---------- モードD：指揮の図形 ----------
    基本の形（右手・指揮者の後ろから見た図）
      2つ振り：下 → 上　／　3つ振り：下 → 外（右）→ 上　／　4つ振り：下 → 内（左）→ 外（右）→ 上
+     5つ振り：下 → 内 → 内 → 外 → 上　／　6つ振り：下 → 内 → 内 → 外 → 外 → 上（自分で作ったリズム用）
    ・打点（ictus）はほぼ同じ高さ（打点の面）に並び、打点ではボールが床で跳ねるように鋭く向きを変える
    ・跳ね返りは振り下ろしの 1/3〜1/2 ほど。最後の拍だけ大きく跳ねて最初の高さへ戻る
    ・5/8・7/8 などの長い拍（3）は、形は同じで動きをゆっくりにする（グループの数で2つ振り・3つ振りを選ぶ）
@@ -912,6 +1429,10 @@ const PATTERNS = {
        way: [[[-0.12, -0.28], [0.2, -0.26]], [[0.74, -0.28], [0.52, -0.32]], [[0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]]] },
   4: { name: '4つ振り', dirs: ['下', '内', '外', '上'], ict: [[0, 0], [-0.58, 0], [0.62, 0], [0.3, -0.04]],
        way: [[[0.12, -0.28], [-0.25, -0.26]], [[-0.66, -0.28], [-0.4, -0.3], [0.05, -0.24]], [[0.74, -0.28], [0.52, -0.32]], [[0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]]] },
+  5: { name: '5つ振り', dirs: ['下', '内', '内', '外', '上'], ict: [[0, 0], [-0.4, 0], [-0.72, 0], [0.62, 0], [0.3, -0.04]],
+       way: [[[0.1, -0.26], [-0.2, -0.24]], [[-0.46, -0.2], [-0.62, -0.18]], [[-0.8, -0.26], [-0.4, -0.3], [0.12, -0.22]], [[0.74, -0.28], [0.52, -0.32]], [[0.38, -0.5], [0.14, -0.85], [-0.06, -0.48]]] },
+  6: { name: '6つ振り', dirs: ['下', '内', '内', '外', '外', '上'], ict: [[0, 0], [-0.38, 0], [-0.7, 0], [0.5, 0], [0.82, 0], [0.24, -0.04]],
+       way: [[[0.1, -0.26], [-0.2, -0.24]], [[-0.44, -0.2], [-0.6, -0.18]], [[-0.78, -0.26], [-0.4, -0.3], [0.18, -0.22]], [[0.58, -0.2], [0.72, -0.18]], [[0.9, -0.26], [0.62, -0.32]], [[0.32, -0.5], [0.12, -0.85], [-0.06, -0.48]]] },
 };
 const SEG_SAMPLES = 20;
 function crOpen(pts) {   // centripetal Catmull-Rom（両端は補助点）
@@ -940,7 +1461,7 @@ function buildPattern(n) {
   return { name: pat.name, dirs: pat.dirs, ict: pat.ict, beats };
 }
 const PAT_CACHE = {};
-const getPattern = n => PAT_CACHE[clamp(n, 2, 4)] || (PAT_CACHE[clamp(n, 2, 4)] = buildPattern(clamp(n, 2, 4)));
+const getPattern = n => PAT_CACHE[clamp(n, 2, 6)] || (PAT_CACHE[clamp(n, 2, 6)] = buildPattern(clamp(n, 2, 6)));
 function patAt(bt, u) {   // u：0〜1 の道のり
   const target = clamp(u, 0, 1) * bt.cum[bt.cum.length - 1];
   let i = 1; while (i < bt.cum.length - 1 && bt.cum[i] < target) i++;
@@ -992,7 +1513,7 @@ function drawConduct(st, now, ah) {
   // 打点の面
   cx.setLineDash([3 * K, 7 * K]); cx.strokeStyle = 'rgba(148,163,184,0.3)'; cx.lineWidth = 1.5 * K;
   cx.beginPath(); cx.moveTo(ox - 0.95 * S, oy); cx.lineTo(ox + 0.95 * S, oy); cx.stroke(); cx.setLineDash([]);
-  txt('打点の面', ox - sgn * 0.95 * S, oy + 14 * K, 10 * K, '#64748b', 600, mirrorView ? 'right' : 'left');
+  if (G <= 4) txt('打点の面', ox + sgn * 0.95 * S, oy - 9 * K, 10 * K, '#64748b', 600, mirrorView ? 'left' : 'right');
 
   // 図形（拍ごとに色分け）＋ 向きの矢印
   pg.beats.forEach((bt, b) => {
@@ -1044,6 +1565,114 @@ function drawConduct(st, now, ah) {
   cx.shadowBlur = 0;
 }
 
+/* ---------- モードF：同時ポリリズム ----------
+   1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
+   外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
+   針が角を通るときに音が鳴り、真上（1周の始まり）で2つがそろう。 */
+function polyVerts(n, R, cxC, cyC) {
+  const v = [];
+  for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + 2 * Math.PI * i / n; v.push([cxC + Math.cos(a) * R, cyC + Math.sin(a) * R]); }
+  return v;
+}
+function drawPoly(ps, now, ah) {
+  const { a, b } = ps, top = 84 * K;
+  const R = Math.max(40, Math.min(W * 0.32, (ah - top) * 0.37));
+  const cxC = W / 2, cyC = top + (ah - top) * 0.48;
+  const ang = -Math.PI / 2 + 2 * Math.PI * ps.phase;
+  const VA = polyVerts(a, R, cxC, cyC), VB = polyVerts(b, R * 0.58, cxC, cyC);
+
+  // 外側の円（1周 ＝ 1サイクル）
+  cx.strokeStyle = 'rgba(148,163,184,0.18)'; cx.lineWidth = 2 * K;
+  cx.beginPath(); cx.arc(cxC, cyC, R * 1.12, 0, Math.PI * 2); cx.stroke();
+  // 細かい拍（2つをそろえる目盛り）
+  for (let k = 0; k < ps.ab; k++) {
+    const t = -Math.PI / 2 + 2 * Math.PI * k / ps.ab, r0 = R * 1.08, r1 = R * 1.16;
+    cx.strokeStyle = 'rgba(148,163,184,0.35)'; cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.moveTo(cxC + Math.cos(t) * r0, cyC + Math.sin(t) * r0); cx.lineTo(cxC + Math.cos(t) * r1, cyC + Math.sin(t) * r1); cx.stroke();
+  }
+  // 針が通ったあとの光（扇形）
+  if (ps.has) {
+    const g = cx.createRadialGradient(cxC, cyC, 0, cxC, cyC, R * 1.12);
+    g.addColorStop(0, 'rgba(226,232,240,0)'); g.addColorStop(1, 'rgba(226,232,240,0.12)');
+    cx.fillStyle = g; cx.beginPath(); cx.moveTo(cxC, cyC); cx.arc(cxC, cyC, R * 1.12, -Math.PI / 2, ang); cx.closePath(); cx.fill();
+  }
+  // 図形
+  const drawShape = (V, col, n, which) => {
+    cx.beginPath(); V.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); if (n > 2) cx.closePath();
+    cx.fillStyle = hexA(col, 0.12); if (n > 2) cx.fill();
+    cx.strokeStyle = hexA(col, 0.85); cx.lineWidth = 4 * K; cx.lineJoin = 'round'; cx.stroke();
+    V.forEach((p, i) => {
+      const hit = polyHits.find(h => (which === 'A' ? h.hitA && h.k / b === i : h.hitB && h.k / a === i) && h.a === a && h.b === b);
+      const age = hit ? now - hit.t : 9, glow = age >= 0 && age < 0.35 ? 1 - age / 0.35 : 0;
+      if (glow) {
+        cx.strokeStyle = hexA(col, glow); cx.lineWidth = 3 * K;
+        cx.beginPath(); cx.arc(p[0], p[1], 14 * K + (1 - glow) * 30 * K, 0, Math.PI * 2); cx.stroke();
+        cx.shadowColor = col; cx.shadowBlur = 24 * K;
+      }
+      cx.fillStyle = glow ? '#ffffff' : col;
+      cx.beginPath(); cx.arc(p[0], p[1], (i === 0 ? 10 : 8) * K * (1 + glow * 0.4), 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      txt(String(i + 1), p[0], p[1] + 0.5, 10 * K, '#0f172a', 900);
+    });
+  };
+  drawShape(VB, PB, b, 'B');
+  drawShape(VA, PA, a, 'A');
+  // 針
+  const ex = cxC + Math.cos(ang) * R * 1.12, ey = cyC + Math.sin(ang) * R * 1.12;
+  cx.strokeStyle = 'rgba(255,255,255,0.85)'; cx.lineWidth = 3 * K; cx.lineCap = 'round';
+  cx.shadowColor = '#ffffff'; cx.shadowBlur = 16 * K;
+  cx.beginPath(); cx.moveTo(cxC, cyC); cx.lineTo(ex, ey); cx.stroke();
+  cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(ex, ey, 8 * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+  cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(cxC, cyC, 7 * K, 0, Math.PI * 2); cx.fill();
+  // そろう瞬間
+  const down = polyHits.find(h => h.k === 0), dAge = down ? now - down.t : 9;
+  if (dAge >= 0 && dAge < 0.6) {
+    const q = dAge / 0.6, top0 = cyC - R * 1.12;
+    cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K;
+    cx.beginPath(); cx.arc(cxC, top0, 16 * K + q * 60 * K, 0, Math.PI * 2); cx.stroke();
+    txt('そろった！', cxC, top0 - 30 * K - q * 16 * K, 16 * K, hexA(LIME, 1 - q), 900);
+  }
+  // 凡例
+  const lx = 14 * K, ly = top + 6 * K;
+  cx.fillStyle = PA; cx.beginPath(); cx.arc(lx + 6 * K, ly, 6 * K, 0, Math.PI * 2); cx.fill();
+  txt(`高い音：1周に ${a} 回（外側の${a}角形）`, lx + 18 * K, ly, 13 * K, PA, 800, 'left');
+  cx.fillStyle = PB; cx.beginPath(); cx.arc(lx + 6 * K, ly + 22 * K, 6 * K, 0, Math.PI * 2); cx.fill();
+  txt(`低い音：1周に ${b} 回（内側の${b === 2 ? '直線' : b + '角形'}）`, lx + 18 * K, ly + 22 * K, 13 * K, PB, 800, 'left');
+  txt('針が角を通ると音が鳴る。真上で2つの音がそろう', W / 2, ah * 0.97, 12 * K, '#64748b', 500);
+}
+function drawPolyHeader(ps) {
+  const pad = 14 * K, y = pad + 16 * K;
+  cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${26 * K}px ${FONT}`;
+  let x = pad;
+  const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
+  put('ポリリズム', '#e2e8f0', 12 * K); put(String(ps.a), PA, 6 * K); put('対', '#64748b', 6 * K); put(String(ps.b), PB, 0);
+  txt(`同じ時間を ${ps.a} つと ${ps.b} つに分ける`, pad, y + 24 * K, 13 * K, '#94a3b8', 500, 'left');
+  if (SET.rampOn && playing) txt(bpm < SET.rampEnd ? `テンポアップ中 → 目標 ${SET.rampEnd}` : `目標テンポ ${SET.rampEnd} に到着！`, pad, y + 44 * K, 12 * K, LIME, 700, 'left');
+  txt(`♪ = ${bpm}`, W - pad, y, 18 * K, '#67e8f9', 800, 'right');
+  if (ps.has) txt(`${ps.cycle + 1} 周目`, W - pad, y + 24 * K, 12 * K, '#94a3b8', 500, 'right');
+}
+/* 下の帯：2段のマス目（上＝高い音、下＝低い音） */
+function drawPolyStrip(ps, y0, h) {
+  const { a, b, ab } = ps, big = SET.big, pad = 14 * K, lw = 30 * K, gap = (ab > 16 ? 1.5 : 3) * K;
+  const cw = (W - 2 * pad - lw - (ab - 1) * gap) / ab;
+  const rowH = h * 0.36, y1 = y0 + h * 0.11, y2 = y1 + rowH + h * 0.06;
+  const rows = [[y1, PA, k => k % b === 0, k => k / b + 1, '高'], [y2, PB, k => k % a === 0, k => k / a + 1, '低']];
+  rows.forEach(([yy, col, on, num, name]) => {
+    txt(name, pad + lw / 2 - 4 * K, yy + rowH / 2, Math.min(15 * K, rowH * 0.5), col, 900);
+    for (let k = 0; k < ab; k++) {
+      const x = pad + lw + k * (cw + gap), cur = ps.has && ps.k === k, hit = on(k);
+      rr(x, yy, cw, rowH, Math.min(6 * K, cw / 3));
+      if (hit) {
+        if (cur) { cx.shadowColor = col; cx.shadowBlur = 20 * K; }
+        cx.fillStyle = cur ? col : hexA(col, 0.35); cx.fill(); cx.shadowBlur = 0;
+        const fs = Math.min(rowH * (big ? 0.7 : 0.55), cw * (big ? 1.4 : 0.9));
+        if (fs > 7) txt(String(num(k)), x + cw / 2, yy + rowH / 2 + 0.5, fs, cur ? '#0f172a' : '#f8fafc', 900);
+      } else {
+        cx.fillStyle = cur ? 'rgba(226,232,240,0.35)' : 'rgba(51,65,85,0.35)'; cx.fill();
+      }
+    }
+  });
+}
+
 requestAnimationFrame(frame);
 
 /* =========================================================
@@ -1055,61 +1684,126 @@ function updatePlayBtn() {
   b.textContent = playing ? '❚❚ 一時停止' : '▶ 再生';
   b.classList.toggle('playing', playing);
 }
+
+/* ----- リズム・プリセット ----- */
 function presetLabel(p) {
   const sigs = p.sigs || p.bars.map(() => p.sig);
   return p.bars.map((bg, b) => {
-    const nums = bg.map(L => `<span style="color:${COLORS[L]}">${L}</span>`).join('<span class="text-slate-500">+</span>');
-    return (b === 0 || sigs[b] !== sigs[b - 1] ? `<span class="text-slate-100">${sigs[b]}</span> ` : '') + `[${nums}]`;
-  }).join('<span class="text-slate-500"> → </span>');
+    const nums = bg.map(L => `<span class="c${L}">${L}</span>`).join('<span class="c-mute">+</span>');
+    return (b === 0 || sigs[b] !== sigs[b - 1] ? `<span class="c-white">${sigs[b]}</span> ` : '') + `[${nums}]`;
+  }).join('<span class="c-mute"> → </span>');
+}
+function presetButton(p, extraClass, onDelete) {
+  const b = document.createElement('button');
+  b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' ? ' on' : '');
+  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${p.note}</div>`;
+  b.onclick = () => selectPreset(p);
+  if (onDelete) {
+    const d = document.createElement('span');
+    d.className = 'p-del'; d.textContent = '×'; d.title = 'このリズムを消す';
+    d.onclick = e => { e.stopPropagation(); onDelete(); };
+    b.appendChild(d);
+  }
+  return b;
 }
 function renderPresets() {
   const box = $('#presets'); box.innerHTML = '';
+  const head = t => { const h = document.createElement('div'); h.className = 'cat'; h.textContent = t; box.appendChild(h); };
   CATS.forEach(([cat, title]) => {
-    const h = document.createElement('div');
-    h.className = 'col-span-2 text-[11px] font-bold text-slate-500 mt-1'; h.textContent = title; box.appendChild(h);
-    PRESETS.filter(p => p.cat === cat).forEach(p => {
-      const b = document.createElement('button');
-      b.className = 'preset rounded-xl p-2.5 text-left' + (p.bars.length > 1 ? ' col-span-2' : '') + (p === selected ? ' on' : '');
-      b.innerHTML = `<div class="font-extrabold text-sm">${presetLabel(p)}</div><div class="text-[11px] text-slate-400 mt-0.5">${p.note}</div>`;
-      b.onclick = () => selectPreset(p);
-      box.appendChild(b);
-    });
+    head(title);
+    PRESETS.filter(p => p.cat === cat).forEach(p => box.appendChild(presetButton(p, p.bars.length > 1 ? ' span2' : '')));
   });
+  if (customs.length) {
+    head('自分で作ったリズム');
+    customs.forEach((gs, i) => {
+      const p = customPreset(gs);
+      box.appendChild(presetButton(p, gs.length > 3 ? ' span2' : '', () => {
+        if (confirm('このリズムを消しますか？')) { customs.splice(i, 1); saveCustoms(); renderPresets(); }
+      }));
+    });
+  }
 }
 function selectPreset(p) {
   selected = p;
-  if (playing) pendingMeta = makeMeta(p);
+  if (mode === 'F') {   // ポリリズム中に選んだら、元のモードに戻して鳴らす
+    activeMeta = makeMeta(p); pendingMeta = null;
+    setMode(lastMetaMode);
+  } else if (playing) pendingMeta = makeMeta(p);
   else { activeMeta = makeMeta(p); pendingMeta = null; lastNote = null; accents = []; }
   renderPresets();
 }
-function setMode(md) {
-  mode = md;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
-}
-function setBpm(v) { bpm = clamp(Math.round(v), 80, 300); $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; }
 
-$('#playBtn').onclick = togglePlay;
-document.querySelectorAll('.tab').forEach(t => t.onclick = () => setMode(t.dataset.mode));
-$('#bpm').oninput = e => setBpm(+e.target.value);
-$('#bpmDown').onclick = () => setBpm(bpm - 5);
-$('#bpmUp').onclick = () => setBpm(bpm + 5);
-$('#subSw').onclick = () => {
-  subOn = !subOn; $('#subSw').classList.toggle('on', subOn);
+/* ----- モード ----- */
+function setMode(md) {
+  const was = mode; mode = md;
+  if ((was === 'F') !== (md === 'F')) {
+    if (playing) restartTimeline(); else { lastNote = null; accents = []; polyHits = []; }
+  }
+  if (md !== 'F') lastMetaMode = md;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
+  renderPresets(); renderPolySel();
+}
+
+/* ----- テンポ ----- */
+function showBpm() { $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; }
+function setBpm(v) { bpm = clamp(Math.round(v), 80, 300); showBpm(); }
+
+/* ----- 小さな部品：スイッチと選択ボタン ----- */
+function bindSwitch(id, get, set) {
+  const el = $(id), show = () => el.classList.toggle('on', !!get());
+  el.onclick = () => { set(!get()); show(); saveSet(); refreshPanels(); };
+  show();
+}
+function bindSeg(id, get, set) {
+  const el = $(id), show = () => el.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === String(get())));
+  el.querySelectorAll('button').forEach(b => b.onclick = () => { set(b.dataset.v); show(); saveSet(); refreshPanels(); });
+  show();
+}
+function refreshPanels() {
+  $('#tapBox').classList.toggle('hide', !SET.tapOn);
+  $('#fadeBox').classList.toggle('hide', !SET.fadeOn);
+  $('#rampBox').classList.toggle('hide', !SET.rampOn);
+  $('#practiceTag').classList.toggle('show', SET.tapOn || SET.fadeOn || SET.rampOn);
+  $('#tapKeyHint').textContent = SET.tapOn ? 'J・F・Enter キー：タップ（画面のタップでも叩けます）' : 'タップ判定をONにすると、J・F・Enter キーでも叩けます';
+  $('#rsVal').textContent = SET.rampStart; $('#reVal').textContent = SET.rampEnd;
   $('#subDesc').textContent = subOn ? 'グループ内の細かい拍も鳴らす' : '拍頭（強拍）だけ鳴らす';
-};
+  $('#latTag').textContent = latencyMs ? `${latencyMs > 0 ? '+' : ''}${latencyMs}ms` : '';
+  $('#latTag').classList.toggle('show', !!latencyMs);
+}
+
+/* ----- タップ判定 ----- */
+bindSwitch('#tapSw', () => SET.tapOn, v => { SET.tapOn = v; tapFx = []; });
+bindSeg('#tapTarget', () => SET.tapHead ? 'head' : 'all', v => { SET.tapHead = v === 'head'; });
+function updateScore() {
+  const s = tapStats, n = s.p + s.e + s.l;
+  $('#tapScore').innerHTML = `<span class="pf">ぴったり ${s.p}</span>　<span class="er">早い ${s.e}</span>　<span class="lt">遅い ${s.l}</span>` +
+    (s.x ? `　<span class="ex">たたきすぎ ${s.x}</span>` : '') +
+    (n ? `<br><span class="c-mute">ぴったり率 ${Math.round(100 * s.p / n)}%</span>` : '');
+}
+$('#tapReset').onclick = () => { tapStats = { p: 0, e: 0, l: 0, x: 0 }; tapHist = []; updateScore(); };
+updateScore();
+
+/* ----- 補助を少しずつ消す ----- */
+bindSwitch('#fadeSw', () => SET.fadeOn, v => { SET.fadeOn = v; if (!v) returnBanner = null; });
+bindSeg('#fadeN', () => SET.fadeN, v => { SET.fadeN = +v; });
+bindSeg('#fadeS', () => SET.fadeS, v => { SET.fadeS = +v; });
+
+/* ----- テンポ自動アップ ----- */
+bindSwitch('#rampSw', () => SET.rampOn, v => { SET.rampOn = v; });
+bindSeg('#rampStep', () => SET.rampStep, v => { SET.rampStep = +v; });
+bindSeg('#rampEvery', () => SET.rampEvery, v => { SET.rampEvery = +v; });
+const stepRamp = (key, d) => { SET[key] = clamp(SET[key] + d, 80, 300); saveSet(); refreshPanels(); };
+$('#rsDown').onclick = () => stepRamp('rampStart', -5); $('#rsUp').onclick = () => stepRamp('rampStart', 5);
+$('#reDown').onclick = () => stepRamp('rampEnd', -5); $('#reUp').onclick = () => stepRamp('rampEnd', 5);
+
+/* ----- 表示と音 ----- */
+bindSwitch('#bigSw', () => SET.big, v => { SET.big = v; });
+bindSeg('#soundSel', () => SET.voice ? 'voice' : 'click', v => { SET.voice = v === 'voice'; });
+bindSwitch('#subSw', () => subOn, v => { subOn = v; SET.subOn = v; });
 $('#vol').oninput = e => {
   volume = (+e.target.value) / 100; $('#volVal').textContent = e.target.value;
   if (master) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.02);
 };
-function setLat(v) {
-  latencyMs = clamp(Math.round(v / 5) * 5, -250, 350);
-  $('#lat').value = latencyMs; $('#latVal').textContent = (latencyMs > 0 ? '+' : '') + latencyMs;
-  try { localStorage.setItem('kr_latency', latencyMs); } catch (e) {}
-}
-$('#lat').oninput = e => setLat(+e.target.value);
-$('#latDown').onclick = () => setLat(latencyMs - 10);
-$('#latUp').onclick = () => setLat(latencyMs + 10);
-setLat(latencyMs);
 function setMirror(v) {
   mirrorView = v; $('#mirSw').classList.toggle('on', v);
   $('#mirDesc').textContent = v ? '向かい合って見た向き（生徒側）' : '指揮者の後ろから見た向き';
@@ -1117,13 +1811,99 @@ function setMirror(v) {
 }
 $('#mirSw').onclick = () => setMirror(!mirrorView);
 setMirror(mirrorView);
-cv.addEventListener('click', togglePlay);
+
+/* ----- ズレ補正 ----- */
+function setLat(v) {
+  latencyMs = clamp(Math.round(v / 5) * 5, -250, 350);
+  $('#lat').value = latencyMs; $('#latVal').textContent = (latencyMs > 0 ? '+' : '') + latencyMs;
+  try { localStorage.setItem('kr_latency', latencyMs); } catch (e) {}
+  refreshPanels();
+}
+$('#lat').oninput = e => setLat(+e.target.value);
+$('#latDown').onclick = () => setLat(latencyMs - 10);
+$('#latUp').onclick = () => setLat(latencyMs + 10);
+setLat(latencyMs);
+
+/* ----- ポリリズムの組み合わせ ----- */
+function renderPolySel() {
+  const box = $('#polySel'); box.innerHTML = '';
+  POLY_PAIRS.forEach(pr => {
+    const b = document.createElement('button');
+    b.innerHTML = `<span style="color:${PA}">${pr[0]}</span> 対 <span style="color:${PB}">${pr[1]}</span>`;
+    b.classList.toggle('on', mode === 'F' && SET.poly[0] === pr[0] && SET.poly[1] === pr[1]);
+    b.onclick = () => { SET.poly = pr.slice(); saveSet(); if (mode !== 'F') setMode('F'); else renderPolySel(); };
+    box.appendChild(b);
+  });
+}
+
+/* ----- リズムを作る ----- */
+let buildCards = [2, 2, 2, 3];
+try { const b = JSON.parse(localStorage.getItem('kr_build') || 'null'); if (Array.isArray(b)) buildCards = b.filter(L => L === 2 || L === 3).slice(0, 6); } catch (e) {}
+const MAX_CARDS = 6, MAX_TOTAL = 16;
+function buildMsg(s) { $('#buildMsg').textContent = s; clearTimeout(buildMsg.t); buildMsg.t = setTimeout(() => { $('#buildMsg').textContent = ''; }, 3000); }
+function renderBuilder() {
+  try { localStorage.setItem('kr_build', JSON.stringify(buildCards)); } catch (e) {}
+  const box = $('#cards'); box.innerHTML = '';
+  if (!buildCards.length) box.innerHTML = '<span class="empty">下のボタンでカードを足してください</span>';
+  buildCards.forEach((L, i) => {
+    const c = document.createElement('button');
+    c.className = 'card k' + L; c.title = 'タップで パン⇔トマト を入れかえ';
+    c.innerHTML = `<span class="cw">${L === 2 ? 'パン' : 'トマト'}</span><span class="cn">${L}</span><span class="x" title="消す">×</span>`;
+    c.onclick = e => {
+      if (e.target.classList.contains('x')) { buildCards.splice(i, 1); renderBuilder(); return; }
+      const nL = L === 2 ? 3 : 2, tot = buildCards.reduce((s, v) => s + v, 0) - L + nL;
+      if (tot > MAX_TOTAL) { buildMsg(`合計は${MAX_TOTAL}拍までです`); return; }
+      buildCards[i] = nL; renderBuilder();
+    };
+    box.appendChild(c);
+  });
+  const tot = buildCards.reduce((s, v) => s + v, 0);
+  $('#buildInfo').innerHTML = buildCards.length
+    ? `<span class="c-white">${tot}/8</span> [${buildCards.map(L => `<span class="c${L}">${L}</span>`).join('<span class="c-mute">+</span>')}]`
+    : '<span class="c-mute">（まだカードがありません）</span>';
+  $('#add2').disabled = buildCards.length >= MAX_CARDS || tot + 2 > MAX_TOTAL;
+  $('#add3').disabled = buildCards.length >= MAX_CARDS || tot + 3 > MAX_TOTAL;
+  $('#buildPlay').disabled = $('#buildSave').disabled = buildCards.length < 2;
+}
+$('#add2').onclick = () => { buildCards.push(2); renderBuilder(); };
+$('#add3').onclick = () => { buildCards.push(3); renderBuilder(); };
+$('#buildClear').onclick = () => { buildCards = []; renderBuilder(); };
+$('#buildPlay').onclick = () => {
+  if (buildCards.length < 2) return;
+  selectPreset(customPreset(buildCards));
+  if (!playing) start();
+  buildMsg('このリズムを鳴らしています（保存するときは「保存する」）');
+};
+$('#buildSave').onclick = () => {
+  if (buildCards.length < 2) return;
+  const key = buildCards.join(',');
+  if (customs.some(g => g.join(',') === key)) { buildMsg('同じリズムがもう保存されています'); selectPreset(customPreset(buildCards)); return; }
+  customs.unshift(buildCards.slice()); if (customs.length > 12) customs.length = 12;
+  saveCustoms(); selectPreset(customPreset(buildCards));
+  buildMsg('保存しました！「リズムを選ぶ」に入っています');
+};
+
+/* ----- 再生・タップ・キー操作 ----- */
+$('#playBtn').onclick = togglePlay;
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => setMode(t.dataset.mode));
+$('#bpm').oninput = e => setBpm(+e.target.value);
+$('#bpmDown').onclick = () => setBpm(bpm - 5);
+$('#bpmUp').onclick = () => setBpm(bpm + 5);
+const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
+cv.addEventListener('pointerdown', e => { if (SET.tapOn) { e.preventDefault(); onTap(tapTime(e)); } });
+cv.addEventListener('click', () => { if (!SET.tapOn) togglePlay(); });
 document.addEventListener('keydown', e => {
-  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); }
-  else if (e.key === '1') setMode('A'); else if (e.key === '2') setMode('B'); else if (e.key === '3') setMode('C'); else if (e.key === '4') setMode('D'); else if (e.key === '5') setMode('E');
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
+  if (SET.tapOn && (e.code === 'KeyJ' || e.code === 'KeyF' || e.key === 'Enter')) {
+    e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return;
+  }
+  const md = { '1': 'A', '2': 'B', '3': 'C', '4': 'D', '5': 'E', '6': 'F' }[e.key];
+  if (md) setMode(md);
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
-renderPresets(); setBpm(160);
+
+renderPresets(); renderPolySel(); renderBuilder(); refreshPanels(); setBpm(SET.rampOn ? SET.rampStart : 160);
 </script>
 </body>
 </html>
