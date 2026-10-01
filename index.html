@@ -1828,7 +1828,7 @@ function drawConduct(st, now, ah) {
   const bg = m.bars[bar], G = bg.length, g0 = m.barStartGroup[bar], pg = getPattern(G);
   const top = 124 * K;
   const S = Math.max(50, Math.min(W * 0.42, (ah - 44 * K - top) / 1.62));
-  const oy = top + 1.6 * S, ox = W / 2 - 0.04 * S * (mirrorView ? -1 : 1);
+  const oy = top + 1.6 * S + Math.max(0, (ah - 44 * K - top - 1.62 * S) / 2), ox = W / 2 - 0.04 * S * (mirrorView ? -1 : 1);
   const P = p => [ox + (mirrorView ? -p[0] : p[0]) * S, oy + p[1] * S];
   const lb = st.has ? st.g - g0 : 0;
   const lt = st.has ? clamp(st.gp, 0, 0.9999) : 0;
@@ -1860,7 +1860,7 @@ function drawConduct(st, now, ah) {
   // 打点の面
   cx.setLineDash([3 * K, 7 * K]); cx.strokeStyle = 'rgba(148,163,184,0.3)'; cx.lineWidth = 1.5 * K;
   cx.beginPath(); cx.moveTo(ox - 0.95 * S, oy); cx.lineTo(ox + 0.95 * S, oy); cx.stroke(); cx.setLineDash([]);
-  txt('打点の面', ox - sgn * 0.99 * S, oy, Math.max(11, 10 * K), '#64748b', 600, mirrorView ? 'left' : 'right');
+  if (G <= 3) txt('打点の面', ox - sgn * 0.95 * S, oy - 11 * K, Math.max(11, 10 * K), '#64748b', 600, mirrorView ? 'right' : 'left');
 
   // 図形（拍ごとに色分け）＋ 向きの矢印
   pg.beats.forEach((bt, b) => {
@@ -1886,7 +1886,8 @@ function drawConduct(st, now, ah) {
     cx.fillStyle = hexA(col, cur ? 0.5 : 0.22); cx.strokeStyle = col; cx.lineWidth = 2.5 * K;
     cx.beginPath(); cx.arc(q[0], q[1], 14 * K, 0, Math.PI * 2); cx.fill(); cx.stroke();
     txt(String(b + 1), q[0], q[1] + 1, 14 * K, '#f8fafc', 900);
-    txt(`${pg.dirs[b]}（${L}）`, q[0], q[1] + 28 * K, 12 * K, hexA(col, 0.95), 800);
+    if (I[1] < -0.1) txt(`${pg.dirs[b]}（${L}）`, q[0] + (mirrorView ? -20 : 20) * K, q[1], 12 * K, hexA(col, 0.95), 800, mirrorView ? 'right' : 'left');   // 上にある打点は、横に書く
+    else txt(`${pg.dirs[b]}（${L}）`, q[0], q[1] + 28 * K, 12 * K, hexA(col, 0.95), 800);
   });
   // 打点の光
   for (const a of accents) {
