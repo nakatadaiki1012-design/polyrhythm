@@ -161,6 +161,7 @@
         <button class="tab" data-mode="F">F ポリリズム</button>
         <button class="tab" data-mode="G">G 電車</button>
         <button class="tab" data-mode="H">H 紋章</button>
+        <button class="tab" data-mode="I">I 花火</button>
       </div>
     </div>
     <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button></div>
@@ -169,7 +170,7 @@
   <!-- ===== 右（下）：操作パネル ===== -->
   <aside id="panel">
     <button id="playBtn" class="btn-play">▶ 再生</button>
-    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　数字キー 1〜8：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
+    <div class="hint center" style="margin-top:6px">スペースキー：再生／停止　・　数字キー 1〜9：モード切替<br><span id="tapKeyHint">タップ判定をONにすると、J・F・Enter キーでも叩けます</span></div>
 
     <div class="blk">
       <div class="row base">
@@ -510,6 +511,32 @@ function playClank(t, strong) {
     r.connect(rg); rg.connect(bus); r.start(t); r.stop(t + 0.06);
   }
 }
+/* 花火の音：ドン（まとまりの頭）／パチッ（サブ拍）。トマトは余韻を長く */
+function playFirework(t, head, L, barHead) {
+  if (head) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), tail = L === 3 ? 0.55 : 0.32;
+    o.type = 'sine'; o.frequency.setValueAtTime(barHead ? 120 : 105, t); o.frequency.exponentialRampToValueAtTime(38, t + tail);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(barHead ? 1.0 : 0.85, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + tail);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + tail + 0.05);
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+    s.buffer = getNoise(); f.type = 'lowpass'; f.frequency.setValueAtTime(2400, t); f.frequency.exponentialRampToValueAtTime(300, t + tail);
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(0.5, t + 0.003);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + tail * 0.8);
+    s.connect(f); f.connect(ng); ng.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + tail);
+  } else {
+    for (let i = 0; i < 3; i++) {   // パチパチッ
+      const tt = t + i * 0.018, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = getNoise(); f.type = 'highpass'; f.frequency.value = 3000 + i * 900;
+      g.gain.setValueAtTime(0.0001, tt);
+      g.gain.exponentialRampToValueAtTime(i ? 0.18 : 0.32, tt + 0.001);
+      g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.012);
+      s.connect(f); f.connect(g); g.connect(bus); s.start(tt, Math.random() * 0.3); s.stop(tt + 0.03);
+    }
+  }
+}
 /* ポリリズムの2つの音色 */
 function playPolyHigh(t, down) {     // 高い音：木をたたいたような音
   const o = ctx.createOscillator(), g = ctx.createGain();
@@ -613,8 +640,8 @@ function scheduleMeta() {
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : mode === 'G' ? playClank(nextTime, true) : playAccent(nextTime); }
-    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : mode === 'G' ? playClank(nextTime, false) : playClick(nextTime); }
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : mode === 'G' ? playClank(nextTime, true) : mode === 'I' ? playFirework(nextTime, true, L, m.barStartSub.includes(curSub)) : playAccent(nextTime); }
+    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : mode === 'G' ? playClank(nextTime, false) : mode === 'I' ? playFirework(nextTime, false, L, false) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
@@ -820,6 +847,7 @@ function frame() {
     else if (mode === 'D') drawConduct(st, now, sceneH);
     else if (mode === 'G') drawTrain(st, now, sceneH);
     else if (mode === 'H') drawEmblem(st, now, sceneH);
+    else if (mode === 'I') drawFireworks(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, sceneH + bandH, stripH);
@@ -1883,6 +1911,140 @@ function drawEmblem(st, now, ah) {
   const lines = ['外側の大きな点 ＝ まとまりの頭（重心）', '内側の点 ＝ サブ拍。トマトはパンより深く入る'];
   if (W < 640) lines.forEach((s, i) => txt(s, W / 2, ah * (0.93 + i * 0.045), 11 * K, '#94a3b8', 600));
   else txt(lines.join('　／　'), W / 2, ah * 0.96, 12 * K, '#94a3b8', 600);
+}
+
+/* ---------- モードI：花火 ----------
+   ・まとまりの頭で大きな花火が開く（ちょうど拍の瞬間に開くよう、少し前から玉を打ち上げる）
+   ・サブ拍では、いま開いている花火のまわりに小さな火花
+   ・トマトの花火はパンより大きく、余韻（光っている時間）が長い。小節の頭はピンクの二重の花火
+   ・花火の開く場所は小節ごとに同じ → くり返し（周期）が見える
+   火の粉は毎フレーム「開いてからの時間」で位置を計算するので、どの端末でも同じ動きになる */
+const FW = {
+  2: { life: 1.15, size: 0.15, n: 46, cols: ['#67e8f9', '#22d3ee', '#e0f2fe'] },
+  3: { life: 2.3, size: 0.21, n: 64, cols: ['#fcd34d', '#fbbf24', '#fff7ed'] },
+  bar: { cols: ['#f472b6', '#f9a8d4', '#ffffff'], inner: '#a3e635' },
+};
+function drawFireworks(st, now, ah) {
+  const m = st.m, T = m.total, dur = 60 / bpm;
+  const S = st.has ? st.sc + st.frac : 0;                       // いま何個目の8分音符か（小数つき）
+  const horizon = ah * 0.8, base = Math.min(W, ah);
+  const rise = Math.min(0.7, Math.max(0.35, dur * 1.6));        // 打ち上げにかかる時間
+  const g0 = 34 * K;                                            // 重力（火の粉が下がる量）
+
+  // 空
+  const sky = cx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, '#020617'); sky.addColorStop(1, '#111a3a');
+  cx.fillStyle = sky; cx.fillRect(0, 0, W, horizon);
+  for (let i = 0; i < 60; i++) {
+    const tw = 0.3 + 0.3 * Math.sin(now * 1.3 + i * 2.1);
+    cx.fillStyle = `rgba(226,232,240,${tw * (0.4 + 0.6 * hash01(i + 5))})`;
+    cx.fillRect(hash01(i) * W, hash01(i + 50) * horizon * 0.8, 1.5 * K, 1.5 * K);
+  }
+
+  // 花火の場所：まとまりの位置で横に並べる（毎小節同じ場所）
+  const spot = p => {
+    const c = mod(p, T), g = m.subToGroup[c], L = m.groups[g];
+    const x = W * 0.12 + (W * 0.76) * ((m.starts[g] + L / 2) / T) + (hash01(Math.floor(p / T) * 7 + g) - 0.5) * W * 0.04;
+    const y = horizon * (L === 3 ? 0.3 : 0.44) + (hash01(g * 13 + 1) - 0.5) * horizon * 0.06;
+    return { x, y, g, L, bar: m.barStartSub.includes(m.starts[g]) };
+  };
+
+  // 空の明るさ（直前の大きな花火）
+  const lastHead = (() => { for (let p = Math.floor(S); p > S - 8; p--) if (m.starts.includes(mod(p, T))) return p; return null; })();
+  if (st.has && lastHead !== null) {
+    const age = (S - lastHead) * dur, sp = spot(lastHead);
+    if (age >= 0 && age < 0.5) {
+      const fl = cx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, base * 0.9);
+      fl.addColorStop(0, hexA(sp.bar ? FW.bar.cols[0] : FW[sp.L].cols[0], 0.22 * (1 - age / 0.5)));
+      fl.addColorStop(1, 'rgba(0,0,0,0)');
+      cx.fillStyle = fl; cx.fillRect(0, 0, W, horizon);
+    }
+  }
+
+  // 花火を描く（水面に映すためにもう一度使う）
+  const drawAll = (alphaMul) => {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    if (!st.has) { cx.restore(); return; }
+    const pMin = Math.floor(S - 2.6 / dur) - 1, pMax = Math.ceil(S + rise / dur) + 1;
+    for (let p = pMin; p <= pMax; p++) {
+      if (p < 0) continue;
+      const c = mod(p, T), head = m.starts.includes(c), dt = (S - p) * dur;   // dt：開いてからの時間（マイナスは開く前）
+      const sp = spot(p);
+      if (head && dt < 0 && dt > -rise) {                       // 打ち上げ中の玉
+        const q = 1 + dt / rise, e = 1 - Math.pow(1 - q, 2.2);
+        const x = sp.x + (hash01(p) - 0.5) * 10 * K, y = horizon - (horizon - sp.y) * e;
+        for (let i = 0; i < 6; i++) {
+          const yy = y + i * 9 * K * (1 - q * 0.5);
+          cx.fillStyle = `rgba(254,240,138,${alphaMul * (0.8 - i * 0.13)})`;
+          cx.beginPath(); cx.arc(x + Math.sin(p + i) * 1.5 * K, yy, (2.6 - i * 0.3) * K, 0, Math.PI * 2); cx.fill();
+        }
+      }
+      if (dt < 0) continue;
+      if (head) {                                               // 大きな花火
+        const F = FW[sp.L], life = F.life, R = base * F.size * (sp.bar ? 1.12 : 1);
+        if (dt > life) continue;
+        const cols = sp.bar ? FW.bar.cols : F.cols, tau = 0.22;
+        const rings = sp.bar ? [[1, F.n], [0.55, Math.round(F.n * 0.6)]] : [[1, F.n]];
+        rings.forEach(([rs, n], ri) => {
+          for (let i = 0; i < n; i++) {
+            const a = (i / n) * Math.PI * 2 + hash01(p * 31 + i) * 0.12, v = rs * (0.82 + 0.18 * hash01(p * 17 + i));
+            const disp = t => R * v * (1 - Math.exp(-t / tau));
+            const x1 = sp.x + Math.cos(a) * disp(dt), y1 = sp.y + Math.sin(a) * disp(dt) + g0 * dt * dt;
+            const t0 = Math.max(0, dt - 0.07), x0 = sp.x + Math.cos(a) * disp(t0), y0 = sp.y + Math.sin(a) * disp(t0) + g0 * t0 * t0;
+            let al = Math.pow(1 - dt / life, 1.4);
+            if (sp.L === 3 && dt > 0.6) al *= 0.55 + 0.45 * Math.sin(now * 40 + i * 1.7);   // トマト：きらきら長く残る
+            const col = ri === 1 ? FW.bar.inner : cols[i % cols.length];
+            cx.strokeStyle = hexA(col, al * alphaMul); cx.lineWidth = (ri ? 2 : 2.6) * K; cx.lineCap = 'round';
+            cx.beginPath(); cx.moveTo(x0, y0); cx.lineTo(x1, y1); cx.stroke();
+          }
+        });
+        if (dt < 0.12) {                                        // 開いた瞬間の光
+          cx.fillStyle = `rgba(255,255,255,${alphaMul * (1 - dt / 0.12)})`;
+          cx.beginPath(); cx.arc(sp.x, sp.y, R * 0.25 * (1 + dt * 4), 0, Math.PI * 2); cx.fill();
+        }
+      } else if (dt < 0.45) {                                   // サブ拍：小さな火花
+        const n = 12, q = dt / 0.45, R2 = base * 0.05;
+        const ox = sp.x + (hash01(p * 3) - 0.5) * base * 0.18, oy = sp.y + (hash01(p * 5) - 0.3) * base * 0.12;
+        for (let i = 0; i < n; i++) {
+          const a = i / n * Math.PI * 2 + p, d = R2 * (1 - Math.exp(-dt / 0.08));
+          cx.fillStyle = hexA(i % 2 ? '#ffffff' : (sp.bar ? '#f9a8d4' : FW[sp.L].cols[0]), (1 - q) * alphaMul);
+          cx.beginPath(); cx.arc(ox + Math.cos(a) * d, oy + Math.sin(a) * d + 10 * K * dt, 1.8 * K, 0, Math.PI * 2); cx.fill();
+        }
+      }
+    }
+    cx.restore();
+  };
+  drawAll(1);
+
+  // 町と川（水面に花火が映る）
+  cx.fillStyle = '#030712'; cx.fillRect(0, horizon, W, ah - horizon);
+  cx.save(); cx.beginPath(); cx.rect(0, horizon + 4 * K, W, ah - horizon); cx.clip();
+  cx.translate(0, 2 * horizon + 8 * K); cx.scale(1, -1); cx.globalAlpha = 0.28; drawAll(1); cx.restore();
+  for (let i = 0; i < 9; i++) {                                // 水面のゆらぎ
+    cx.fillStyle = 'rgba(148,163,184,0.06)';
+    cx.fillRect(0, horizon + (8 + i * 9) * K, W, 1 * K);
+  }
+  const bw0 = 38 * K;
+  for (let i = 0; i * bw0 < W + bw0; i++) {
+    const h = (12 + 46 * hash01(i + 400)) * K, x = i * bw0 - 6 * K;
+    cx.fillStyle = '#060b18'; cx.fillRect(x, horizon - h, bw0 * (0.75 + 0.3 * hash01(i + 9)), h + 3 * K);
+    for (let wy = horizon - h + 6 * K; wy < horizon - 4 * K; wy += 9 * K)
+      if (hash01(i * 17 + Math.round(wy)) > 0.7) { cx.fillStyle = 'rgba(253,224,71,0.45)'; cx.fillRect(x + 6 * K, wy, 3 * K, 4 * K); }
+  }
+
+  // 開いた花火の名前（パン！／トマト！）
+  if (st.has && lastHead !== null) {
+    const age = (S - lastHead) * dur, sp = spot(lastHead);
+    if (age >= 0 && age < 0.8) {
+      const q = age / 0.8;
+      txt(sp.L === 2 ? 'パン！' : 'トマト！', sp.x, sp.y + base * FW[sp.L].size * 1.15 + q * 10 * K, (18 - 3 * q) * K,
+        hexA(sp.bar ? '#f9a8d4' : FW[sp.L].cols[0], 1 - q), 900);
+    }
+  }
+  // 説明
+  const lines = ['大きな花火 ＝ まとまりの頭　小さな火花 ＝ サブ拍', 'トマトの花火は大きく長く光る　ピンクの花火 ＝ 小節の頭'];
+  if (W < 640) lines.forEach((s, i) => txt(s, W / 2, ah * (0.92 + i * 0.045), 11 * K, '#94a3b8', 600));
+  else txt(lines.join('　／　'), W / 2, ah * 0.955, 12 * K, '#94a3b8', 600);
 }
 
 /* ---------- モードF：同時ポリリズム ----------
