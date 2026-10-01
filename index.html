@@ -595,6 +595,10 @@ MODE_INFO.P = { g: 'g2', em: '💧', name: 'しずく', line: 'しずくが水�
   detail: ['8分音符の数だけ、しずくが落ちる場所が横に並ぶ（1周期ぶん）。', 'しずくは上から落ちてきて、ちょうど拍の瞬間に水面に着く。落ちてくる間が「予告」。', 'まとまりの頭は大きなしずく。トマトの波紋はパンより大きく、長く広がる。', '毎小節、同じ場所に同じしずくが落ちるので、波紋の模様がくり返される。'] };
 MODE_INFO.Q = { g: 'g3', em: '🍮', name: 'ゼリー', line: 'サクランボが乗った瞬間にゼリーがぷるん。トマトのゼリーは大きく長くゆれる', short: '乗った瞬間にぷるん。トマトは長くゆれる',
   detail: ['まとまり1つ＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー。', 'サクランボがゼリーからゼリーへ跳びうつり、乗った瞬間（まとまりの頭）にゼリーがつぶれて、ぷるんぷるんとゆれる。', 'トマトのゼリーは大きく、長くゆれる。サブ拍では小さく「ぷるっ」。', '小節の頭のゼリーには緑の印。サクランボは毎小節、同じ道を跳ぶ。'] };
+MODE_INFO.R = { g: 'g2', em: '🕰️', name: '振り子', line: '振り子が鐘に当たる瞬間＝まとまりの頭。ひもが長いトマトは、ゆっくり振れる', short: '鐘に当たる瞬間＝頭。トマトはゆっくり',
+  detail: ['左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘がある。', 'まとまりの頭で振り子が鐘に当たり、その勢いでそのまとまりの振り子が飛び出す（ニュートンのゆりかごと同じ）。', '行って戻る時間はひもの長さで決まる。トマトのひもはパンの2.25倍で、時間は1.5倍（2拍と3拍）。本物の振り子と同じしくみ。', '弧の上の点は8分音符ごとの位置。'] };
+MODE_INFO.S = { g: 'g3', em: '🎮', name: 'ノーツ', line: '流れてくる大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）', short: '丸が線に重なった瞬間にタップ！',
+  detail: ['右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面をタップ（または J・Enter キー）。', '大きな丸＝まとまりの頭（パ＝パン、ト＝トマト）。うしろの帯の長さ＝まとまりの長さ。小さな点＝サブ拍。', 'このモードでは、タップ判定の設定がOFFでも叩ける（判定はまとまりの頭だけ）。映像と音のズレ補正も判定に使う。', '「ぴったり」が続くと連続の数が増える。見のがしや早すぎ・遅すぎで、とぎれる。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -823,8 +827,8 @@ function onBarStart() {
   curStage = stageForBar(barCount);
   barCount++;
 }
-function logTarget(time, head) {
-  noteLog.push({ time, head, hit: false });
+function logTarget(time, head, sc) {
+  noteLog.push({ time, head, hit: false, sc });
   if (noteLog.length > 64) noteLog.splice(0, noteLog.length - 64);
 }
 
@@ -832,7 +836,7 @@ function logTarget(time, head) {
 const MODE_SOUND = {
   G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
   K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
-  P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b),
+  P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b), R: (t, h, L, b) => playPendulum(t, h, L, b),
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
@@ -847,7 +851,7 @@ function scheduleMeta() {
   }
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
-  logTarget(nextTime, isAcc);
+  logTarget(nextTime, isAcc, subCounter - 1);
   nextTime += dur; curSub++;
   if (curSub >= m.total) { curSub = 0; measure++; }
 }
@@ -993,11 +997,12 @@ const TAPK = {
   x: { label: 'たたきすぎ', color: '#94a3b8' },
 };
 let tapStats = { p: 0, e: 0, l: 0, x: 0 }, hiddenStats = null, tapFx = [], tapHist = [];
+const tapActive = () => SET.tapOn || mode === 'S';   // 流れるノーツでは、いつでも叩ける
 function onTap(perfT) {
-  if (!SET.tapOn) return;
+  if (!tapActive()) return;
   if (!playing) { start(); return; }
   const t = heardTime(perfT);
-  const cands = noteLog.filter(n => !SET.tapHead || n.head);
+  const cands = noteLog.filter(n => !(SET.tapHead || mode === 'S') || n.head);
   if (!cands.length) return;
   let bi = 0;
   for (let i = 1; i < cands.length; i++) if (Math.abs(cands[i].time - t) < Math.abs(cands[bi].time - t)) bi = i;
@@ -1013,6 +1018,8 @@ function onTap(perfT) {
     kind = Math.abs(err) <= win ? 'p' : err < 0 ? 'e' : 'l';
   }
   tapStats[kind]++; updateScore();
+  if (kind !== 'x') best.res = kind;
+  if (kind === 'p') { noteCombo++; noteBest = Math.max(noteBest, noteCombo); } else { if (noteCombo > 0) noteMissT = performance.now(); noteCombo = 0; }
   const hidden = SET.fadeOn && lastNote && lastNote.stage >= 1;
   if (hidden) { if (hiddenStats) hiddenStats[kind]++; }
   else {
@@ -1100,6 +1107,8 @@ function frame() {
     else if (mode === 'O') drawJuggle(st, now, sceneH);
     else if (mode === 'P') drawDrops(st, now, sceneH);
     else if (mode === 'Q') drawJelly(st, now, sceneH);
+    else if (mode === 'R') drawPendulum(st, now, sceneH);
+    else if (mode === 'S') drawNotes(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, belowY + bandH, stripH);
@@ -3124,6 +3133,166 @@ function playJelly(t, head, L, barHead) {
   }
 }
 
+/* ---------- モード：振り子 ----------
+   ・左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘（かね）がある
+   ・まとまりの頭で、振り子が鐘に当たって「カーン」。当たった勢いで、そのまとまりの振り子が飛び出し、
+     外へ振れて戻ってくる（ニュートンのゆりかごと同じ）。戻ってきて鐘に当たる瞬間が、次のまとまりの頭
+   ・振り子が行って戻る時間は、ひもの長さで決まる（ひもが2.25倍長いと、時間は1.5倍＝2拍と3拍）。本物の振り子と同じしくみ
+   ・弧の上の点は8分音符ごとの位置 */
+function drawPendulum(st, now, ah) {
+  const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has;
+  const top = 118 * K, bobY = ah - Math.max(40 * K, (ah - top) * 0.16);
+  const l3 = Math.max(40, bobY - top - 16 * K), l2 = l3 / 2.25;
+  const br = Math.max(9, Math.min(22 * K, l2 * 0.16)), bellR = br * 1.15, cxC = W / 2;
+  const amp = Math.min(0.75, Math.asin(clamp((W * 0.42 - bellR - br) / l3, 0.2, 0.95)));
+  const pend = { 2: { side: -1, len: l2 }, 3: { side: 1, len: l3 } };
+  pend[2].px = cxC - bellR - br; pend[3].px = cxC + bellR + br;
+  pend[2].py = bobY - l2; pend[3].py = bobY - l3;
+  const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0, gp = has ? clamp(st.gp, 0, 1) : 0;
+  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
+  // いま振れている振り子の角度（外向き）。もう一方は鐘にくっついて止まっている
+  const angOf = Lp => (has && Lp === L) ? amp * Math.sin(Math.PI * gp) : 0;
+  const bobPos = (Lp, a) => { const p = pend[Lp]; return [p.px + p.side * Math.sin(a) * p.len, p.py + Math.cos(a) * p.len]; };
+
+  // 上のはり
+  cx.fillStyle = '#334155'; rr(cxC - W * 0.46, Math.min(pend[3].py, pend[2].py) - 8 * K, W * 0.92, 8 * K, 4 * K); cx.fill();
+  cx.strokeStyle = 'rgba(148,163,184,0.5)'; cx.lineWidth = 3 * K;
+  cx.beginPath(); cx.moveTo(pend[2].px, pend[3].py - 4 * K); cx.lineTo(pend[2].px, pend[2].py); cx.stroke();   // 短い振り子をつるす柱
+  // 弧（振れる道）と8分音符の点
+  for (const Lp of [2, 3]) {
+    const p = pend[Lp], col = COLORS[Lp], act = has && Lp === L;
+    cx.strokeStyle = hexA(col, act ? 0.5 : 0.18); cx.lineWidth = 2 * K; cx.setLineDash([3 * K, 6 * K]);
+    cx.beginPath();
+    for (let i = 0; i <= 30; i++) { const q = bobPos(Lp, amp * i / 30); i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); }
+    cx.stroke(); cx.setLineDash([]);
+    for (let k = 1; k < Lp; k++) {   // 行き（k/L）の位置。戻りは同じ点を通る
+      const q = bobPos(Lp, amp * Math.sin(Math.PI * k / Lp)), lit = act && kCur >= k;
+      cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.5); cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5 : 3.5) * K, 0, Math.PI * 2); cx.fill();
+    }
+    txt(Lp === 2 ? 'パン（ひも 短い）' : 'トマト（ひも 長い）', cxC + p.side * Math.min(W * 0.24, 230 * K), bobY + br + 18 * K, Math.max(12, 13 * K), hexA(col, act ? 1 : 0.7), 800);
+  }
+  // 鐘
+  const bar = has && m.barStartGroup.includes(g), hit = has && ageH < 0.5 ? 1 - ageH / 0.5 : 0;
+  const shake = hit * Math.sin(ageH * 70) * 3 * K;
+  cx.fillStyle = bar && hit ? LIME : '#fbbf24';
+  if (hit) { cx.shadowColor = bar ? LIME : '#fde68a'; cx.shadowBlur = 30 * K * hit; }
+  cx.beginPath(); cx.moveTo(cxC + shake - bellR * 0.35, bobY - bellR * 1.3); cx.quadraticCurveTo(cxC + shake - bellR, bobY - bellR * 1.1, cxC + shake - bellR, bobY + bellR * 0.6);
+  cx.lineTo(cxC + shake + bellR, bobY + bellR * 0.6); cx.quadraticCurveTo(cxC + shake + bellR, bobY - bellR * 1.1, cxC + shake + bellR * 0.35, bobY - bellR * 1.3); cx.closePath(); cx.fill(); cx.shadowBlur = 0;
+  cx.strokeStyle = '#64748b'; cx.lineWidth = 3 * K; cx.beginPath(); cx.moveTo(cxC, bobY + bellR * 0.6); cx.lineTo(cxC, ah - 4 * K); cx.stroke();
+  if (hit) for (let i = 0; i < 3; i++) {   // 音の輪
+    cx.strokeStyle = hexA(bar ? LIME : '#fde68a', hit * (1 - i * 0.3)); cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.arc(cxC, bobY - bellR * 0.3, bellR * (1.4 + i * 0.6) + (1 - hit) * 40 * K, -Math.PI * 0.85, -Math.PI * 0.15); cx.stroke();
+  }
+  // 振り子（ひもと玉）
+  for (const Lp of [2, 3]) {
+    const p = pend[Lp], a = angOf(Lp), q = bobPos(Lp, a), col = COLORS[Lp], act = has && Lp === L;
+    cx.strokeStyle = 'rgba(226,232,240,0.75)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(p.px, p.py); cx.lineTo(q[0], q[1]); cx.stroke();
+    cx.fillStyle = '#94a3b8'; cx.beginPath(); cx.arc(p.px, p.py, 4 * K, 0, Math.PI * 2); cx.fill();
+    if (act) { cx.shadowColor = col; cx.shadowBlur = 22 * K; }
+    const gr = cx.createRadialGradient(q[0] - br * 0.35, q[1] - br * 0.35, br * 0.1, q[0], q[1], br);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, col); gr.addColorStop(1, hexA(col, 0.6));
+    cx.fillStyle = gr; cx.beginPath(); cx.arc(q[0], q[1], br, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+    if (act && kCur > 0 && ageS < 0.2) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], br + (4 + 20 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
+  }
+  if (bar && hit > 0) txt('小節の頭！ 同じ順番で、もう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, hit * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* ---------- モード：流れるノーツ（音ゲー風） ----------
+   ・右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面タップ（または J・Enter キー）で叩く
+   ・大きな丸＝まとまりの頭（パン＝水色、トマト＝黄色）。うしろの帯の長さ＝まとまりの長さ（2か3）。小さな点＝サブ拍
+   ・このモードでは、タップ判定の設定がOFFでも叩ける（判定はまとまりの頭だけ）。ズレ補正も判定に使う
+   ・連続で「ぴったり」が続くと、数が増えていく */
+let noteCombo = 0, noteBest = 0, noteMissT = 0;
+function drawNotes(st, now, ah) {
+  const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
+  const top = 112 * K, laneY = top + (ah - top) * 0.5, laneH = Math.min(110 * K, (ah - top) * 0.36);
+  const lineX = Math.max(70 * K, W * 0.16), u = Math.max(26 * K, Math.min((W - lineX) / 7, 120 * K));
+  const S = has ? st.sc + st.frac : -2;
+  const sx = j => lineX + (j - S) * u;
+  const info = j => { const i = mod(j, N), g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+  // 見のがし：判定ラインを過ぎても叩かれなかった頭のノーツ → 連続がとぎれる
+  if (playing) for (const n of noteLog) {
+    if (!n.head || n.hit || n.miss) continue;
+    if (now - n.time > 0.18) { n.miss = true; if (noteCombo > 0) noteMissT = performance.now(); noteCombo = 0; }
+  }
+  // レーン
+  cx.fillStyle = 'rgba(30,41,59,0.6)'; rr(0, laneY - laneH / 2, W, laneH, 0); cx.fill();
+  cx.strokeStyle = 'rgba(148,163,184,0.25)'; cx.lineWidth = 1.5 * K;
+  cx.beginPath(); cx.moveTo(0, laneY - laneH / 2); cx.lineTo(W, laneY - laneH / 2); cx.moveTo(0, laneY + laneH / 2); cx.lineTo(W, laneY + laneH / 2); cx.stroke();
+  const j0 = Math.floor(S - lineX / u) - 1, j1 = Math.ceil(S + (W - lineX) / u) + 1;
+  // まとまりの帯と小節線
+  for (let j = Math.max(0, j0 - 3); j <= j1; j++) {
+    const d = info(j); if (!d.head) continue;
+    const xa = sx(j), xb = sx(j + d.L), col = COLORS[d.L], past = j + d.L <= S;
+    cx.fillStyle = hexA(col, past ? 0.08 : 0.22); rr(xa, laneY - laneH * 0.18, xb - xa - 4 * K, laneH * 0.36, laneH * 0.18); cx.fill();
+    if (d.bar) {
+      cx.strokeStyle = hexA('#a3e635', past ? 0.25 : 0.6); cx.lineWidth = 2 * K;
+      cx.beginPath(); cx.moveTo(xa, laneY - laneH / 2 - 10 * K); cx.lineTo(xa, laneY + laneH / 2 + 10 * K); cx.stroke();
+      txt('小節', xa + 4 * K, laneY - laneH / 2 - 12 * K, Math.max(11, 11 * K), hexA('#bef264', past ? 0.4 : 0.85), 800, 'left');
+    }
+  }
+  // 判定ライン
+  const lastHit = tapFx.length ? tapFx[tapFx.length - 1] : null, hitAge = lastHit ? (performance.now() - lastHit.t) / 400 : 9;
+  const lc = hitAge < 1 ? TAPK[lastHit.kind].color : '#e2e8f0';
+  cx.strokeStyle = hexA(lc, 0.9); cx.lineWidth = (4 + (hitAge < 1 ? 4 * (1 - hitAge) : 0)) * K;
+  cx.beginPath(); cx.moveTo(lineX, laneY - laneH / 2 - 6 * K); cx.lineTo(lineX, laneY + laneH / 2 + 6 * K); cx.stroke();
+  cx.strokeStyle = hexA(lc, 0.5); cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(lineX, laneY, laneH * 0.36, 0, Math.PI * 2); cx.stroke();
+  // ノーツ
+  for (let j = j1; j >= Math.max(0, j0); j--) {
+    const d = info(j), x = sx(j), col = COLORS[d.L], dt = (j - S) * dur;
+    if (dt < -0.35) continue;
+    const fade = dt < 0 ? clamp(1 + dt / 0.35, 0, 1) : 1;
+    if (d.head) {
+      const r = laneH * (d.L === 3 ? 0.34 : 0.3), near = dt >= 0 && dt < dur ? 1 - dt / dur : 0;
+      const n = noteLog.find(e => e.head && Math.abs(e.sc - j) < 0.5), res = n && n.res;
+      cx.globalAlpha = fade;
+      if (near > 0) { cx.shadowColor = col; cx.shadowBlur = 20 * K * near; }
+      cx.fillStyle = res ? hexA(TAPK[res].color, 0.9) : col; cx.beginPath(); cx.arc(x, laneY, r, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      cx.strokeStyle = d.bar ? LIME : '#ffffff'; cx.lineWidth = (d.bar ? 4 : 2.5) * K; cx.stroke();
+      txt(d.L === 2 ? 'パ' : 'ト', x, laneY + 1, r * 0.95, '#0f172a', 900);
+      cx.globalAlpha = 1;
+    } else {
+      cx.fillStyle = hexA('#e2e8f0', 0.7 * fade); cx.beginPath(); cx.arc(x, laneY, laneH * 0.07, 0, Math.PI * 2); cx.fill();
+    }
+  }
+  // 叩いた瞬間の光
+  if (hitAge < 1) {
+    cx.strokeStyle = hexA(lc, 1 - hitAge); cx.lineWidth = 4 * K * (1 - hitAge) + 0.5;
+    cx.beginPath(); cx.arc(lineX, laneY, laneH * (0.4 + 0.5 * hitAge), 0, Math.PI * 2); cx.stroke();
+  }
+  // 連続とスコア
+  const s = tapStats, comboFs = Math.max(16, (20 + Math.min(noteCombo, 20) * 0.8) * K);
+  if (noteCombo >= 2) txt(`${noteCombo} 連続ぴったり！`, W / 2, laneY + laneH / 2 + 34 * K, comboFs, noteCombo >= 10 ? '#fde047' : LIME, 900);
+  else if (performance.now() - noteMissT < 900) txt('連続がとぎれた…', W / 2, laneY + laneH / 2 + 34 * K, Math.max(15, 16 * K), '#94a3b8', 800);
+  txt(`ぴったり ${s.p}　早い ${s.e}　遅い ${s.l}　いちばん長い連続 ${noteBest}`, W / 2, laneY - laneH / 2 - 34 * K, Math.max(12, 12.5 * K), '#a3b1c6', 700);
+  if (!has) txt('▶ 再生して、ノーツが線に重なった瞬間にタップ（J・Enterキーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else txt(W < 640 ? '線に重なった瞬間にタップ！' : '大きな丸が線に重なった瞬間に、画面をタップ（J・Enter キーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* 振り子の音：カーン（鐘に当たる＝まとまりの頭。パンは高く、トマトは低く）／コッ（サブ拍） */
+function playPendulum(t, head, L, barHead) {
+  if (head) {
+    const f = L === 3 ? 784 : 1046, len = barHead ? 0.7 : 0.45;
+    [[1, 0.5], [2.76, 0.18], [5.4, 0.07]].forEach(([r, a]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(f * r, t);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a * (barHead ? 1.3 : 1), t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + len / r ** 0.3);
+      o.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.05);
+    });
+    const s = ctx.createBufferSource(), fl = ctx.createBiquadFilter(), ng = ctx.createGain();
+    s.buffer = getNoise(); fl.type = 'highpass'; fl.frequency.value = 2500;
+    ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.25, t + 0.001); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+    s.connect(fl); fl.connect(ng); ng.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + 0.04);
+  } else {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(1500, t); o.frequency.exponentialRampToValueAtTime(1100, t + 0.03);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.06);
+  }
+}
+
 /* ---------- モードF：同時ポリリズム ----------
    1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
    外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
@@ -3367,7 +3536,7 @@ function updateScore() {
     (s.x ? `　<span class="ex">たたきすぎ ${s.x}</span>` : '') +
     (n ? `<br><span class="c-mute">ぴったり率 ${Math.round(100 * s.p / n)}%</span>` : '');
 }
-$('#tapReset').onclick = () => { tapStats = { p: 0, e: 0, l: 0, x: 0 }; tapHist = []; updateScore(); };
+$('#tapReset').onclick = () => { tapStats = { p: 0, e: 0, l: 0, x: 0 }; tapHist = []; noteCombo = 0; noteBest = 0; updateScore(); };
 updateScore();
 
 /* ----- 補助を少しずつ消す ----- */
@@ -3694,10 +3863,10 @@ $('#bpm').oninput = e => setBpm(+e.target.value);
 $('#bpmDown').onclick = () => setBpm(bpm - 5);
 $('#bpmUp').onclick = () => setBpm(bpm + 5);
 const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
-cv.addEventListener('pointerdown', e => { if (SET.tapOn && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+cv.addEventListener('pointerdown', e => { if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
 cv.addEventListener('click', () => {
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
-  if (!SET.tapOn) togglePlay();
+  if (!tapActive()) togglePlay();
 });
 $('#emblemReset').onclick = e => { e.stopPropagation(); emblemReset(); };
 document.addEventListener('keydown', e => {
@@ -3706,7 +3875,7 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.key === 'Escape') { closeModals(); closeDrawer(); return; }
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
-  if (SET.tapOn && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
+  if (tapActive() && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
   if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) toggleFs(); return; }
   if (tg.type === 'range' && e.key.startsWith('Arrow')) return;   // スライダーを操作中
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); stepMode(e.key === 'ArrowRight' ? 1 : -1); return; }
