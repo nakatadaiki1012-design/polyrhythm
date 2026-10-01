@@ -2086,106 +2086,96 @@ function drawFireworks(st, now, ah) {
 
 /* ---------- モードJ：歯車 ----------
    ・パン＝2つ歯の小さな歯車、トマト＝3つ歯の大きな歯車（歯と歯の間隔はみんな同じなので、歯が多いほど大きい）
-   ・いまのグループの歯車だけが回る。8分音符ごとに歯が1つ進み、歯が上の「爪」に当たるたびに音が鳴る
-   ・1回転するとちょうどグループが終わり、バトンが次の歯車へ渡る（最後の歯車のあとは最初へ）
-   ・印の付いた歯（グループの頭＝重心）が真上に来る。小節の頭では、全部の歯車の印が真上にそろって光る */
-function gearPoly(x, y, L, s, rot) {   // 歯車のふち（歯の数 L、歯の大きさ s は共通）
-  const rp = L * s, rr = rp - 0.25 * s, rt = rp + 0.8 * s;
-  const ab = 0.55 * Math.PI / L, at = 0.26 * Math.PI / L, st2 = 2 * Math.PI / L;
+   ・となり合う歯車は、歯がかみ合っている。ひとつが回ると、となりは逆向きに回る（ほんとうの歯車と同じ）
+   ・8分音符ごとに、歯が1つぶん進む。歯と歯がかみ合って「カチッ」と当たる瞬間に音が鳴る
+   ・光っている歯車が「いまのグループ」。緑の歯が緑の三角にもどってくる（＝1回転）と、次の歯車の番になる
+   ・小節の頭では、全部の歯車がいっせいに光って、先頭の歯車からもう一度はじまる */
+const GT = { ta: 0.7, td: 0.85, rw: 0.2, tw: 0.1 };   // 歯の形（歯の高さ・根もとの太さ・先の太さ）
+function gearGeom(L, s) {
+  const rp = L * s, rr = rp - GT.td * s, rt = rp + GT.ta * s, p = 2 * Math.PI * s;
+  return { rp, rr, rt, w: 2 * Math.PI / L, ar: GT.rw * p / rr, at: GT.tw * p / rt };
+}
+function gearPoly(x, y, L, s, rot) {   // 歯車のふち（rot＝0番めの歯の向き）
+  const g = gearGeom(L, s);
   cx.beginPath();
+  cx.moveTo(x + Math.cos(rot - g.ar) * g.rr, y + Math.sin(rot - g.ar) * g.rr);
   for (let k = 0; k < L; k++) {
-    const th = rot + k * st2, a0 = th - ab, a1 = th + ab;
-    if (k === 0) cx.moveTo(x + Math.cos(a0) * rr, y + Math.sin(a0) * rr);
-    cx.lineTo(x + Math.cos(th - at) * rt, y + Math.sin(th - at) * rt);
-    cx.arc(x, y, rt, th - at, th + at);
-    cx.lineTo(x + Math.cos(a1) * rr, y + Math.sin(a1) * rr);
-    cx.arc(x, y, rr, a1, th + st2 - ab);
+    const th = rot + k * g.w;
+    cx.lineTo(x + Math.cos(th - g.at) * g.rt, y + Math.sin(th - g.at) * g.rt);
+    cx.arc(x, y, g.rt, th - g.at, th + g.at);
+    cx.lineTo(x + Math.cos(th + g.ar) * g.rr, y + Math.sin(th + g.ar) * g.rr);
+    cx.arc(x, y, g.rr, th + g.ar, th + g.w - g.ar);
   }
   cx.closePath();
 }
 function toothPoly(x, y, L, s, th) {   // 歯を1本だけ
-  const rp = L * s, rr = rp - 0.25 * s, rt = rp + 0.8 * s, ab = 0.55 * Math.PI / L, at = 0.26 * Math.PI / L;
+  const g = gearGeom(L, s);
   cx.beginPath();
-  cx.moveTo(x + Math.cos(th - ab) * rr, y + Math.sin(th - ab) * rr);
-  cx.lineTo(x + Math.cos(th - at) * rt, y + Math.sin(th - at) * rt);
-  cx.arc(x, y, rt, th - at, th + at);
-  cx.lineTo(x + Math.cos(th + ab) * rr, y + Math.sin(th + ab) * rr);
-  cx.arc(x, y, rr, th + ab, th - ab, true);
+  cx.moveTo(x + Math.cos(th - g.ar) * g.rr, y + Math.sin(th - g.ar) * g.rr);
+  cx.lineTo(x + Math.cos(th - g.at) * g.rt, y + Math.sin(th - g.at) * g.rt);
+  cx.arc(x, y, g.rt, th - g.at, th + g.at);
+  cx.lineTo(x + Math.cos(th + g.ar) * g.rr, y + Math.sin(th + g.ar) * g.rr);
+  cx.arc(x, y, g.rr, th + g.ar, th - g.ar, true);
   cx.closePath();
 }
-function pathCum(pts) {
-  const cum = [0];
-  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-  return cum;
-}
-function pathAt(pts, cum, u) {
-  const t = clamp(u, 0, 1) * cum[cum.length - 1];
-  let i = 1; while (i < cum.length - 1 && cum[i] < t) i++;
-  const f = (t - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1);
-  return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * f, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * f];
-}
-function roundPath(pts, rad) {
-  cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 1; i < pts.length - 1; i++) cx.arcTo(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], rad);
-  cx.lineTo(pts[pts.length - 1][0], pts[pts.length - 1][1]); cx.stroke();
-}
-function drawGearBody(o, s, rot, act, fl, col) {
-  const { x, y, L, rp } = o, rr = rp - 0.25 * s, base = -Math.PI / 2 + rot;
-  gearPoly(x, y, L, s, base);
+function drawGearBody(o, s, rot, act, col, limeK) {
+  const { x, y, L } = o, g = gearGeom(L, s), rr = g.rr;
+  gearPoly(x, y, L, s, rot);
   cx.fillStyle = '#0d1730'; cx.fill();
-  const g = cx.createRadialGradient(x - rp * 0.3, y - rp * 0.3, rp * 0.1, x, y, rp * 1.6);
-  g.addColorStop(0, hexA(col, act ? 0.55 : 0.26)); g.addColorStop(1, hexA(col, act ? 0.2 : 0.08));
-  if (act) { cx.shadowColor = col; cx.shadowBlur = 24 * K; }
-  cx.fillStyle = g; cx.fill(); cx.shadowBlur = 0;
-  cx.strokeStyle = hexA(col, act ? 1 : 0.65); cx.lineWidth = (act ? 3.5 : 2.5) * K; cx.lineJoin = 'round'; cx.stroke();
+  const gr = cx.createRadialGradient(x - o.rp * 0.3, y - o.rp * 0.3, o.rp * 0.1, x, y, o.rp * 1.6);
+  gr.addColorStop(0, hexA(col, act ? 0.6 : 0.28)); gr.addColorStop(1, hexA(col, act ? 0.24 : 0.1));
+  if (act) { cx.shadowColor = col; cx.shadowBlur = 22 * K; }
+  cx.fillStyle = gr; cx.fill(); cx.shadowBlur = 0;
+  cx.strokeStyle = hexA(col, act ? 1 : 0.7); cx.lineWidth = (act ? 3 : 2.2) * K; cx.lineJoin = 'round'; cx.stroke();
   // 内側のかざり：回っているのが見えるように、スポークと穴をつける
   cx.strokeStyle = hexA(col, 0.3); cx.lineWidth = 1.5 * K;
-  cx.beginPath(); cx.arc(x, y, rr * 0.82, 0, Math.PI * 2); cx.stroke();
+  cx.beginPath(); cx.arc(x, y, rr * 0.86, 0, Math.PI * 2); cx.stroke();
   for (let k = 0; k < L; k++) {
-    const th = base + k * 2 * Math.PI / L, th2 = th + Math.PI / L;
+    const th = rot + k * g.w, th2 = th + g.w / 2;
     cx.strokeStyle = hexA(col, 0.3);
-    cx.beginPath(); cx.moveTo(x + Math.cos(th) * rr * 0.5, y + Math.sin(th) * rr * 0.5); cx.lineTo(x + Math.cos(th) * rr * 0.82, y + Math.sin(th) * rr * 0.82); cx.stroke();
+    cx.beginPath(); cx.moveTo(x + Math.cos(th) * rr * 0.5, y + Math.sin(th) * rr * 0.5); cx.lineTo(x + Math.cos(th) * rr * 0.86, y + Math.sin(th) * rr * 0.86); cx.stroke();
     cx.fillStyle = 'rgba(11,18,34,0.85)'; cx.strokeStyle = hexA(col, 0.4);
-    cx.beginPath(); cx.arc(x + Math.cos(th2) * rr * 0.66, y + Math.sin(th2) * rr * 0.66, Math.max(1.5, rr * 0.13), 0, Math.PI * 2); cx.fill(); cx.stroke();
+    cx.beginPath(); cx.arc(x + Math.cos(th2) * rr * 0.68, y + Math.sin(th2) * rr * 0.68, Math.max(1.5, rr * 0.12), 0, Math.PI * 2); cx.fill(); cx.stroke();
   }
-  // 印の歯（グループの頭）
-  toothPoly(x, y, L, s, base);
-  cx.fillStyle = hexA(LIME, act ? 0.9 : 0.62);
-  if (fl > 0) { cx.shadowColor = LIME; cx.shadowBlur = 26 * fl * K; }
-  cx.fill(); cx.shadowBlur = 0;
-  cx.strokeStyle = 'rgba(248,250,252,0.85)'; cx.lineWidth = 1.5 * K; cx.stroke();
-  cx.fillStyle = '#ffffff';
-  cx.beginPath(); cx.arc(x + Math.cos(base) * (rp + 0.5 * s), y + Math.sin(base) * (rp + 0.5 * s), Math.max(2, 0.16 * s), 0, Math.PI * 2); cx.fill();
+  if (limeK >= 0) {   // 印の歯（グループの頭＝重心）
+    toothPoly(x, y, L, s, rot + limeK * g.w);
+    cx.fillStyle = hexA(LIME, 0.95); cx.shadowColor = LIME; cx.shadowBlur = 14 * K; cx.fill(); cx.shadowBlur = 0;
+    cx.strokeStyle = 'rgba(248,250,252,0.9)'; cx.lineWidth = 1.5 * K; cx.stroke();
+  }
 }
 
 function drawGears(st, now, ah) {
   const m = st.m, G = m.groups.length, B = m.nBars, dur = 60 / bpm, narrow = W < 640;
-  const pad = 14 * K, top = 96 * K, bottom = ah * (narrow ? 0.855 : 0.9);
+  const pad = 10 * K, top = 100 * K, bottom = ah * (narrow ? 0.85 : 0.895), mk = 16 * K, gapY = 6 * K;
   const rows = []; for (let b = 0; b < B; b++) rows.push([]);
   m.groups.forEach((L, g) => rows[m.barOfGroup[g]].push(g));
+  const rowN = rows.map(r => r.reduce((a, g) => a + m.groups[g], 0));
 
   // 大きさ：幅にも高さにも収まるように。パンとトマトの大きさの比は、歯の数のとおり 2：3
-  let sW = 1e9;
-  rows.forEach(r => {
-    const sumL = r.reduce((a, g) => a + m.groups[g], 0);
-    sW = Math.min(sW, (W - 2 * pad) / (2 * (sumL + 0.8 * r.length) + 0.8 * (r.length - 1)));
-  });
-  const arch = 26 * K, pawl = 14 * K, lane = 28 * K;
-  const sH = (bottom - top - arch - B * (pawl + lane)) / (B * 7.6);
-  const s = Math.max(5, Math.min(sW, sH)), R3 = 3.8 * s, gap = 0.8 * s;
-  const rowCy = b => top + arch + pawl + R3 + b * (2 * R3 + pawl + lane);
+  let sW = 1e9; rows.forEach((r, b) => { sW = Math.min(sW, (W - 2 * pad) / (2 * rowN[b] + 2 * GT.ta)); });
+  const sH = (bottom - top - B * mk - (B - 1) * gapY) / (B * 2 * (3 + GT.ta));
+  const s = Math.max(4, Math.min(sW, sH)), R3 = (3 + GT.ta) * s, rowH = 2 * R3 + mk;
+  const y0 = top + (bottom - top - (B * rowH + (B - 1) * gapY)) / 2 + mk * 0.6;
+  const fr = v => v - Math.floor(v);
   const gear = [];
   rows.forEach((r, b) => {
-    const rowW = r.reduce((a, g) => a + 2 * (m.groups[g] + 0.8) * s, 0) + gap * (r.length - 1);
-    let x = (W - rowW) / 2;
-    r.forEach(g => { const L = m.groups[g], R = (L + 0.8) * s; gear[g] = { x: x + R, y: rowCy(b), L, rp: L * s, R, row: b }; x += 2 * R + gap; });
+    const rowW = s * (2 * rowN[b] + 2 * GT.ta);
+    let x = (W - rowW) / 2 + (m.groups[r[0]] + GT.ta) * s, tau = 0, off = 0;
+    r.forEach((g, i) => {
+      const L = m.groups[g], d = i % 2 === 0 ? 1 : -1, w = 2 * Math.PI / L, ang0 = i === 0 ? 0 : Math.PI;
+      const base0 = ang0 - d * tau * w;
+      let ka = 0, best = 1e9;                       // 爪の位置：いちばん上に近い歯の、止まっているときの向き
+      for (let k = 0; k < L; k++) { const a = base0 + k * w, dd = Math.abs(mod(a + Math.PI / 2 + Math.PI, 2 * Math.PI) - Math.PI); if (dd < best) { best = dd; ka = k; } }
+      gear[g] = { x, y: y0 + R3 + b * (rowH + gapY), L, rp: L * s, row: b, idx: i, d, w, base0, ka, alpha: base0 + ka * w, off };
+      const T = tau + fr(-d * ang0 / w);            // この歯車の歯が、右どなりとの接点に来る時刻（歯1つぶんを1とする）
+      tau = T + 0.5;                                // となりの歯車は、半分ずれて（歯の間に入って）かみ合う
+      off += L;
+      if (i + 1 < r.length) x += (L + m.groups[r[i + 1]]) * s;
+    });
   });
 
   // いま、どこまで進んだか
   const has = st.has, curG = has ? st.g : -1, kCur = has ? st.sub - m.starts[st.g] : 0, ageS = has ? st.frac * dur : 9;
-  const prevG = has ? mod(curG - 1, G) : -1;
-  const hitG = !has ? -1 : (kCur === 0 && st.sc > 0 ? prevG : curG);   // いま歯が爪に当たった歯車
-  const doneG = has && kCur === 0 && st.sc > 0 ? prevG : -1;           // いま1回転を終えた歯車
   const flash = new Array(G).fill(0); let barFlash = 0;
   for (const a of accents) {
     if (a.meta !== m) continue;
@@ -2194,124 +2184,81 @@ function drawGears(st, now, ah) {
     if (m.barStartGroup.includes(a.g)) barFlash = Math.max(barFlash, q);
     flash[a.g] = Math.max(flash[a.g], q);
   }
-  // 回る角度：歯を1つ進めるのは拍のうしろ半分。拍の瞬間にちょうど「カチッ」と当たる
+  // 歯が1つ進むのは、拍のうしろ半分。拍の瞬間にちょうど「カチッ」とかみ合う
   const u2 = clamp((st.frac - 0.5) / 0.5, 0, 1), snap = Math.pow(u2, 2.2);
-  const wob = -0.1 * Math.sin(ageS * 45) * Math.exp(-ageS / 0.07);
-  const rotOf = g => (has && g === curG) ? (2 * Math.PI / gear[g].L) * (kCur + snap + wob) : 0;
-
-  // 軸の線
-  rows.forEach(r => {
-    const a = gear[r[0]], z = gear[r[r.length - 1]];
-    cx.strokeStyle = 'rgba(148,163,184,0.12)'; cx.lineWidth = 2 * K; cx.setLineDash([3 * K, 6 * K]);
-    cx.beginPath(); cx.moveTo(a.x - a.R - 8 * K, a.y); cx.lineTo(z.x + z.R + 8 * K, z.y); cx.stroke(); cx.setLineDash([]);
-  });
-
-  // バトンの通り道（次の歯車へ。最後は最初へもどる）
-  const anchorTop = g => [gear[g].x, gear[g].y - gear[g].R - pawl - 3 * K];
-  const anchorBot = g => [gear[g].x, gear[g].y + gear[g].R + 3 * K];
-  const archY = top + arch * 0.25;
-  const route = g => {
-    const h = (g + 1) % G, a = gear[g], b = gear[h];
-    if (a.row === b.row && h === g + 1) {
-      const y1 = Math.min(anchorTop(g)[1], anchorTop(h)[1]) - 8 * K;
-      return [anchorTop(g), [a.x, y1], [b.x, y1], anchorTop(h)];
-    }
-    if (B === 1) return [anchorTop(g), [a.x, archY], [b.x, archY], anchorTop(h)];
-    if (b.row === a.row + 1) {
-      const ly = rowCy(a.row) + R3 + lane / 2;
-      return [anchorBot(g), [a.x, ly], [b.x, ly], anchorTop(h)];
-    }
-    const ly = rowCy(B - 1) + R3 + lane * 0.4, mx = pad * 0.5;
-    return [anchorBot(g), [a.x, ly], [mx, ly], [mx, archY], [b.x, archY], anchorTop(h)];
+  const wob = -0.08 * Math.sin(ageS * 45) * Math.exp(-ageS / 0.07);
+  const cyc = has ? Math.floor(st.sc / m.total) : 0, within = has ? st.sc - cyc * m.total : 0, bc = has ? m.barOfGroup[curG] : 0;
+  const rowS = b => {   // この段の歯車列が、歯いくつぶん進んだか（出番のない段は止まっている）
+    let part = 0;
+    if (has) part = b < bc ? rowN[b] : b === bc ? (within - m.barStartSub[b]) + snap + wob : 0;
+    return cyc * rowN[b] + part;
   };
-  const routes = []; for (let g = 0; g < G; g++) routes.push(route(g));
-  for (let g = 0; g < G; g++) {
-    const pts = routes[g], carrying = g === curG;
-    cx.setLineDash([5 * K, 6 * K]); cx.lineWidth = (carrying ? 2.6 : 1.6) * K; cx.lineCap = 'round'; cx.lineJoin = 'round';
-    cx.strokeStyle = carrying ? hexA(LIME, 0.6) : 'rgba(226,232,240,0.2)';
-    roundPath(pts, 8 * K); cx.setLineDash([]);
-    const e = pts[pts.length - 1], p = pts[pts.length - 2], an = Math.atan2(e[1] - p[1], e[0] - p[0]), z = 6 * K;
-    cx.fillStyle = carrying ? hexA(LIME, 0.9) : 'rgba(226,232,240,0.35)';
-    cx.beginPath(); cx.moveTo(e[0], e[1]);
-    cx.lineTo(e[0] + Math.cos(an + 2.6) * z, e[1] + Math.sin(an + 2.6) * z); cx.lineTo(e[0] + Math.cos(an - 2.6) * z, e[1] + Math.sin(an - 2.6) * z);
-    cx.closePath(); cx.fill();
-  }
-  { // 「くり返し」の札
-    const g = G - 1, pts = routes[g], n = pts.length, x0 = pts[n - 2][0], x1 = pts[n - 1][0];
-    txt('↩ くり返し', (x0 + x1) / 2, archY - 7 * K, 11 * K, 'rgba(190,242,100,0.8)', 800);
-  }
 
-  // 歯車
-  for (let g = 0; g < G; g++) {
-    const o = gear[g], L = o.L, act = g === curG, col = COLORS[L], rot = rotOf(g);
-    const fl = barFlash > 0 ? Math.max(barFlash, flash[g]) : flash[g];
-    // 回転の進み具合のリング（1回転 ＝ 1グループ）
-    const rg = o.R + Math.min(7 * K, gap * 0.28);
-    if (act || (g === doneG && ageS < 0.6)) {
-      cx.strokeStyle = 'rgba(148,163,184,0.18)'; cx.lineWidth = 3 * K;
-      cx.beginPath(); cx.arc(o.x, o.y, rg, 0, Math.PI * 2); cx.stroke();
-      const done = g === doneG, prog = done ? 1 : (kCur + snap) / L;
-      cx.strokeStyle = done ? hexA(LIME, 1 - ageS / 0.6) : LIME; cx.lineWidth = 3 * K; cx.lineCap = 'round';
-      cx.beginPath(); cx.arc(o.x, o.y, rg, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * prog); cx.stroke();
-    }
-    drawGearBody(o, s, rot, act, fl, col);
-    // 中心の円（回らない）：いまの音／歯車の名前
-    const hubR = (o.rp - 0.25 * s) * 0.5;
-    if (act) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
-    cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(o.x, o.y, hubR, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
-    cx.strokeStyle = hexA(col, act ? 1 : 0.6); cx.lineWidth = 2 * K; cx.stroke();
-    let label, lc, fs;
-    if (g === doneG && ageS < 0.6) { label = '1回転'; lc = LIME; fs = 0.6 * s; }
-    else if (act) { label = SYL[L][clamp(kCur, 0, L - 1)]; lc = '#ffffff'; fs = 1.05 * s; }
-    else { label = L === 2 ? 'パン' : 'トマト'; lc = hexA(col, 0.95); fs = 0.62 * s; }
-    if (fs >= 7) txt(label, o.x, o.y + 0.5, fs, lc, 900);
-
-    // 爪（歯が当たる）
-    const hitAge = g === hitG ? ageS : 9;
-    const kick = hitAge < 0.3 ? Math.exp(-hitAge / 0.05) * 5 * K : 0;
-    const ya = o.y - o.R - 1 * K - kick, lit = fl > 0.05 || hitAge < 0.08;
-    cx.fillStyle = lit ? LIME : '#94a3b8';
-    cx.beginPath(); cx.moveTo(o.x, ya); cx.lineTo(o.x - 5 * K, ya - pawl * 0.8); cx.lineTo(o.x + 5 * K, ya - pawl * 0.8); cx.closePath(); cx.fill();
-    if (hitAge < 0.28) {   // 火花
-      const q = hitAge / 0.28, big = (g === doneG || kCur === 0) ? 1.5 : 1;
-      for (let i = -2; i <= 2; i++) {
-        const an = -Math.PI / 2 + i * 0.45, d0 = 4 * K, d1 = (8 + 22 * q * big) * K;
-        cx.strokeStyle = hexA(i % 2 ? '#fde68a' : '#ffffff', 1 - q); cx.lineWidth = 2 * K;
-        cx.beginPath(); cx.moveTo(o.x + Math.cos(an) * d0, ya + Math.sin(an) * d0); cx.lineTo(o.x + Math.cos(an) * d1, ya + Math.sin(an) * d1); cx.stroke();
+  // 歯車（左から右へ。となりどうし、歯がかみ合っている）
+  const dimOther = B > 1 && has;
+  for (let b = 0; b < B; b++) {
+    const r = rows[b], S = rowS(b), rowAct = !dimOther || b === bc;
+    cx.globalAlpha = rowAct ? 1 : 0.55;
+    const a0 = gear[r[0]], z = gear[r[r.length - 1]];
+    cx.strokeStyle = 'rgba(148,163,184,0.12)'; cx.lineWidth = 2 * K; cx.setLineDash([3 * K, 6 * K]);
+    cx.beginPath(); cx.moveTo(a0.x - a0.rp - 10 * K, a0.y); cx.lineTo(z.x + z.rp + 10 * K, z.y); cx.stroke(); cx.setLineDash([]);
+    for (const g of r) {
+      const o = gear[g], L = o.L, act = g === curG, col = COLORS[L], fl = flash[g];
+      const rot = o.base0 + o.d * S * o.w;
+      const limeK = act ? mod(o.ka - o.d * (cyc * rowN[b] + o.off), L) : -1;
+      const geo = gearGeom(L, s);
+      if (act) {   // 回転の進み具合のリング（1回転 ＝ 1グループ）
+        const rg = geo.rt + 6 * K;
+        cx.strokeStyle = 'rgba(148,163,184,0.18)'; cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(o.x, o.y, rg, 0, Math.PI * 2); cx.stroke();
+        cx.strokeStyle = LIME; cx.lineWidth = 3 * K; cx.lineCap = 'round';
+        cx.beginPath(); cx.arc(o.x, o.y, rg, -Math.PI / 2, -Math.PI / 2 + 2 * Math.PI * clamp((kCur + snap) / L, 0, 1)); cx.stroke();
+      }
+      drawGearBody(o, s, rot, act, col, limeK);
+      if (barFlash > 0) {   // 小節の頭：全部の歯車がいっせいに光る
+        cx.strokeStyle = hexA(LIME, 0.85 * barFlash); cx.lineWidth = 3 * K;
+        cx.beginPath(); cx.arc(o.x, o.y, geo.rt + 4 * K, 0, Math.PI * 2); cx.stroke();
+      }
+      // 中心の円（回らない）：いまの音／歯車の名前
+      const hubR = geo.rr * 0.5;
+      if (act) { cx.shadowColor = col; cx.shadowBlur = 14 * K; }
+      cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(o.x, o.y, hubR, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      cx.strokeStyle = hexA(col, act ? 1 : 0.6); cx.lineWidth = 2 * K; cx.stroke();
+      let label, lc, fs;
+      if (act) { label = SYL[L][clamp(kCur, 0, L - 1)]; lc = '#ffffff'; fs = Math.min(1.0 * s, hubR * 1.5); }
+      else { label = L === 2 ? 'パン' : 'トマト'; lc = hexA(col, 0.95); fs = Math.min(0.5 * s, hubR * (L === 2 ? 0.95 : 0.8)); }
+      if (fs >= 6) txt(label, o.x, o.y + 0.5, fs, lc, 900);
+      // 爪（緑の三角）：緑の歯がここに来る瞬間がグループの頭
+      const ca = Math.cos(o.alpha), sa = Math.sin(o.alpha), lit = act || barFlash > 0.05 || fl > 0.05;
+      const px = o.x + ca * (geo.rt + 2 * K), py = o.y + sa * (geo.rt + 2 * K), nx = -sa, ny = ca, ln = 11 * K;
+      cx.fillStyle = lit ? LIME : '#64748b';
+      cx.beginPath(); cx.moveTo(px, py); cx.lineTo(px + ca * ln + nx * 5 * K, py + sa * ln + ny * 5 * K); cx.lineTo(px + ca * ln - nx * 5 * K, py + sa * ln - ny * 5 * K); cx.closePath(); cx.fill();
+      if (fl > 0.02) {   // グループの頭に来たときの光
+        cx.strokeStyle = hexA(LIME, fl); cx.lineWidth = 3 * K * fl + 0.5;
+        cx.beginPath(); cx.arc(o.x + ca * geo.rt, o.y + sa * geo.rt, (8 + (1 - fl) * 34) * K, 0, Math.PI * 2); cx.stroke();
       }
     }
-    // 印がそろった・頭に来たときの光
-    if (fl > 0.02) {
-      const tip = [o.x + Math.cos(-Math.PI / 2 + rot) * o.R, o.y + Math.sin(-Math.PI / 2 + rot) * o.R];
-      cx.strokeStyle = hexA(LIME, fl); cx.lineWidth = 3 * K * fl + 0.5;
-      cx.beginPath(); cx.arc(tip[0], tip[1], (10 + (1 - fl) * 36) * K, 0, Math.PI * 2); cx.stroke();
-      if (barFlash > 0) {
-        cx.strokeStyle = hexA(LIME, 0.75 * barFlash); cx.lineWidth = 3 * K;
-        cx.beginPath(); cx.moveTo(o.x, o.y - o.R); cx.lineTo(o.x, o.y - o.R - pawl * 1.6); cx.stroke();
+    // 歯がかみ合うところの火花（いまの歯車と、そのとなり）
+    if (has && b === bc && ageS < 0.26) {
+      const q = ageS / 0.26, big = kCur === 0 ? 1.6 : 1, i = gear[curG].idx;
+      for (const j of [i - 1, i]) {
+        if (j < 0 || j + 1 >= r.length) continue;
+        const A = gear[r[j]], px = A.x + A.rp, py = A.y;
+        for (let n = -2; n <= 2; n++) {
+          const an = -Math.PI / 2 + n * 0.5, d0 = 3 * K, d1 = (7 + 20 * q * big) * K;
+          cx.strokeStyle = hexA(n % 2 ? '#fde68a' : '#ffffff', 1 - q); cx.lineWidth = 2 * K;
+          cx.beginPath(); cx.moveTo(px + Math.cos(an) * d0, py + Math.sin(an) * d0); cx.lineTo(px + Math.cos(an) * d1, py + Math.sin(an) * d1); cx.stroke();
+        }
       }
     }
   }
-
-  // バトン（光の玉）：最後の1拍で次の歯車へ渡る
-  if (has) {
-    const pts = routes[curG], cum = pathCum(pts), Lc = gear[curG].L;
-    const v = kCur === Lc - 1 ? clamp((st.frac - 0.3) / 0.7, 0, 1) : 0, uu = v * v * (3 - 2 * v);
-    for (let i = 5; i >= 1; i--) {
-      const q = pathAt(pts, cum, Math.max(0, uu - i * 0.03));
-      cx.fillStyle = hexA(LIME, 0.12 * (6 - i)); cx.beginPath(); cx.arc(q[0], q[1], (6 - i * 0.7) * K, 0, Math.PI * 2); cx.fill();
-    }
-    const p = pathAt(pts, cum, uu);
-    cx.shadowColor = LIME; cx.shadowBlur = 20 * K; cx.fillStyle = '#ffffff';
-    cx.beginPath(); cx.arc(p[0], p[1], 6 * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
-    cx.strokeStyle = LIME; cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(p[0], p[1], 9 * K, 0, Math.PI * 2); cx.stroke();
-  }
+  cx.globalAlpha = 1;
 
   // 文字
-  if (barFlash > 0) txt('小節の頭！ 全部の印がそろった', W / 2, 80 * K, 14 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
-  else if (!has) txt('▶ 再生すると、歯車が1つずつ回りはじめます', W / 2, 80 * K, 13 * K, '#94a3b8', 700);
+  if (barFlash > 0) txt('小節の頭！ 全部の歯車が光って、先頭からもう一度', W / 2, 80 * K, 13.5 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
+  else if (!has) txt('▶ 再生すると、歯車がかみ合って回りはじめます', W / 2, 80 * K, 13 * K, '#94a3b8', 700);
   const lines = narrow
-    ? ['1回転 ＝ 1グループ（パン＝2つ歯、トマト＝3つ歯）', '緑の印の歯が真上に来る瞬間 ＝ グループの頭', '小節の頭では、全部の印がそろって光る']
-    : ['歯車が1回転 ＝ 1グループ。パンは2つ歯、トマトは3つ歯で、1回転したらバトンを次へ渡す', '緑の印の歯が真上に来る瞬間が「グループの頭」。小節の頭では、全部の印がそろって光る'];
+    ? ['となり合う歯車は、歯がかみ合って逆向きに回る', '光る歯車が「いまのグループ」。緑の歯が緑の三角に戻る＝1回転', '歯が2つ＝パン、3つ＝トマト。小節の頭で全部が光る']
+    : ['となり合う歯車は、歯がかみ合って逆向きに回る。パン＝2つ歯、トマト＝3つ歯', '光る歯車が「いまのグループ」。緑の歯が緑の三角に戻る瞬間＝グループの頭。小節の頭で全部が光る'];
   lines.forEach((t, i) => txt(t, W / 2, ah * (narrow ? 0.9 + i * 0.04 : 0.935 + i * 0.045), (narrow ? 10.5 : 12) * K, '#94a3b8', 600));
 }
 
@@ -2407,30 +2354,37 @@ function drawDancer(st, now, ah) {
 
   // 人（足の位置を先に決めてから、体をそれに合わせる）
   const Ps = headSc, Pw0 = headSc - Lprev, Pw1 = headSc + L;
-  const tame = L === 3 ? 0.42 : 0.2;
+  // 足の動き：はじめの（L−1）拍は、床をふんだまま「ため」て、最後の1拍で一気に次の一歩をふみ出す
+  const tame = (L - 1) / L;
   const s = has ? clamp((gp - tame) / (1 - tame), 0, 1) : 0, se = s * s * (3 - 2 * s), burst = Math.sin(Math.PI * s);
+  // 拍ごとの弾み：拍の頭で体がいちばん沈み、拍のあいだに伸びる（グループの頭・小節の頭ほど大きく）
+  const barNow = has && m.barStartSub.includes(st.sub);
+  const ph = has ? st.frac : 0, dip = Math.pow(0.5 + 0.5 * Math.cos(2 * Math.PI * ph), 1.7);
+  const amp = !has ? 0 : kCur === 0 ? (barNow ? 0.22 : L === 3 ? 0.18 : 0.13) : 0.075;
+  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
+  const fling = has && kCur === 0 ? Math.exp(-ageH / 0.16) * (L === 3 ? 1.5 : 0.9) * (barNow ? 1.25 : 1) : 0;   // 足がついた瞬間に、腕を振り上げる
+  const tapLift = has && s === 0 ? Math.pow(1 - dip, 1.2) * 0.1 * Lt : 0;                                       // ためている間も、つま先で拍をとる
   let fS, fW, liftW;
-  if (has) { fS = sx(Ps); fW = sx(Pw0 + (Pw1 - Pw0) * se); liftW = Math.pow(burst, 0.8) * (L === 3 ? 0.34 : 0.17) * Lt; }
+  if (has) { fS = sx(Ps); fW = sx(Pw0 + (Pw1 - Pw0) * se); liftW = Math.max(Math.pow(burst, 0.8) * (L === 3 ? 0.38 : 0.2) * Lt, tapLift); }
   else { fS = ax + 0.35 * u * 2; fW = ax - 0.35 * u * 2; liftW = 0; }
   const stride = Math.abs(fW - fS), hxp = (fS + fW) / 2;
   const hh = Math.sqrt(Math.max(0, Math.pow(0.97 * Lt, 2) - stride * stride / 4));
-  const ctm = has ? (gp < tame ? gp / tame : 1 - clamp((gp - tame) / 0.3, 0, 1)) : 0, crouch = ctm * ctm * (3 - 2 * ctm) * (L === 3 ? 0.3 : 0.1) * Lt;
-  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
-  const imp = (L === 3 ? 0.17 : 0.1) * Lt * Math.exp(-ageH / 0.09) * (kCur === 0 ? 1 : 0.3) + 0.025 * Lt * Math.exp(-ageS / 0.06);
-  const hyp = fy - hh + crouch + imp;
-  const lean = has ? (-0.2 * ctm * (L === 3 ? 1 : 0.4) + 0.24 * burst * (L === 3 ? 1 : 0.6)) : 0.05;
+  const ctm = has ? (gp < tame ? gp / tame : 1 - clamp((gp - tame) / 0.25, 0, 1)) : 0, crouch = ctm * ctm * (3 - 2 * ctm) * (L === 3 ? 0.22 : 0.08) * Lt;
+  const hyp = fy - hh + crouch + amp * Lt * dip;
+  const lean = has ? (-0.12 * ctm * (L === 3 ? 1 : 0.4) + 0.2 * burst * (L === 3 ? 1 : 0.6) + 0.1 * dip * (amp / 0.1)) : 0.05;
   const T = 0.34 * hB, shx = hxp + Math.sin(lean) * T, shy = hyp - Math.cos(lean) * T;
-  const headR = 0.085 * hB, hdx = shx + Math.sin(lean) * (0.07 * hB + headR), hdy = shy - Math.cos(lean) * (0.07 * hB + headR);
+  const headR = 0.085 * hB, nod = 0.03 * hB * dip * (amp / 0.1);
+  const hdx = shx + Math.sin(lean) * (0.07 * hB + headR), hdy = shy - Math.cos(lean) * (0.07 * hB + headR) + nod;
 
   // 床のかげ
-  cx.fillStyle = 'rgba(0,0,0,0.3)'; cx.beginPath(); cx.ellipse(hxp, fy + 5 * K, (0.3 * hB) * (1 - liftW / Lt * 0.4), 5 * K, 0, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(0,0,0,0.3)'; cx.beginPath(); cx.ellipse(hxp, fy + 5 * K, (0.3 * hB) * (1 - liftW / Lt * 0.4) * (1 + 0.15 * dip), 5 * K, 0, 0, Math.PI * 2); cx.fill();
 
   const NEAR = '#e2e8f0', FAR = '#7b88a3', lw = 0.085 * hB, aw = 0.062 * hB, al = 0.36 * hB, fl = 0.075 * hB;
   const limb = (p, c, w) => { cx.strokeStyle = c; cx.lineWidth = w; cx.lineCap = 'round'; cx.lineJoin = 'round'; cx.beginPath(); cx.moveTo(p[0], p[1]); for (let i = 2; i < p.length; i += 2) cx.lineTo(p[i], p[i + 1]); cx.stroke(); };
   const leg = (fx, fyy, c) => { const k = ikLimb(hxp, hyp, fx, fyy, Lt, 1); limb([hxp, hyp, k.kx, k.ky, k.fx, k.fy, k.fx + fl, k.fy], c, lw); };
-  const sw = has ? (se - 0.5) * 2 : 0, raise = has ? (L === 3 ? 1 : 0.35) * burst : 0;
+  const sw = has ? (se - 0.5) * 2 : 0, raise = has ? (L === 3 ? 1 : 0.4) * burst : 0, pump = has ? (1 - dip) * (kCur === 0 ? 0.5 : 0.8) : 0;
   const arm = (ang, c) => { const hx2 = shx + Math.sin(ang) * al * 0.93, hy2 = shy + Math.cos(ang) * al * 0.93; const k = ikLimb(shx, shy, hx2, hy2, al, -1); limb([shx, shy, k.kx, k.ky, k.fx, k.fy], c, aw); };
-  const aA = 0.5 * sw + raise * 1.7 + 0.1, aB = -0.5 * sw + raise * 1.3 + 0.05;
+  const aA = 0.35 * sw + raise * 1.5 + 0.15 + pump * 0.9 + fling * 1.7, aB = -0.35 * sw + raise * 1.2 + 0.05 + pump * 0.7 + fling * 1.4;
   arm(aB, FAR); leg(fW, fy - liftW, FAR);
   limb([hxp, hyp, shx, shy], NEAR, 0.2 * hB);
   cx.fillStyle = NEAR; cx.beginPath(); cx.arc(hdx, hdy, headR, 0, Math.PI * 2); cx.fill();
