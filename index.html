@@ -591,6 +591,10 @@ MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミ�
   detail: ['8分音符1つ＝ドミノ1枚。1拍かけて倒れ、次のドミノに当たった瞬間に音が鳴る。', 'まとまりの頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯がまとまりの長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
 MODE_INFO.O = { g: 'g3', em: '🤹', name: 'ジャグリング', line: 'パンは低く、トマトは高く投げる。手に落ちる瞬間＝まとまりの頭', short: 'パンは低く、トマトは高く投げる',
   detail: ['まとまり1つ＝1回の投げ。左右の手で交互に投げる。', '空中にいる時間が長いほど高く上がる（2拍の投げより3拍の投げは約2倍の高さ）。本物のジャグリングと同じしくみ。', 'ボールの道の上の点は8分音符ごとの位置。てっぺん近くでは点の間がせまい＝ゆっくり動く。', '手に落ちる瞬間に音が鳴る。軌道が残り、小節ごとに同じ形がくり返される。'] };
+MODE_INFO.P = { g: 'g2', em: '💧', name: 'しずく', line: 'しずくが水面に落ちる瞬間に音。大きな波紋＝まとまりの頭', short: '大きな波紋＝まとまりの頭',
+  detail: ['8分音符の数だけ、しずくが落ちる場所が横に並ぶ（1周期ぶん）。', 'しずくは上から落ちてきて、ちょうど拍の瞬間に水面に着く。落ちてくる間が「予告」。', 'まとまりの頭は大きなしずく。トマトの波紋はパンより大きく、長く広がる。', '毎小節、同じ場所に同じしずくが落ちるので、波紋の模様がくり返される。'] };
+MODE_INFO.Q = { g: 'g3', em: '🍮', name: 'ゼリー', line: 'サクランボが乗った瞬間にゼリーがぷるん。トマトのゼリーは大きく長くゆれる', short: '乗った瞬間にぷるん。トマトは長くゆれる',
+  detail: ['まとまり1つ＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー。', 'サクランボがゼリーからゼリーへ跳びうつり、乗った瞬間（まとまりの頭）にゼリーがつぶれて、ぷるんぷるんとゆれる。', 'トマトのゼリーは大きく、長くゆれる。サブ拍では小さく「ぷるっ」。', '小節の頭のゼリーには緑の印。サクランボは毎小節、同じ道を跳ぶ。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -828,6 +832,7 @@ function logTarget(time, head) {
 const MODE_SOUND = {
   G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
   K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
+  P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b),
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
@@ -1093,6 +1098,8 @@ function frame() {
     else if (mode === 'K') drawDancer(st, now, sceneH);
     else if (mode === 'N') drawDomino(st, now, sceneH);
     else if (mode === 'O') drawJuggle(st, now, sceneH);
+    else if (mode === 'P') drawDrops(st, now, sceneH);
+    else if (mode === 'Q') drawJelly(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, belowY + bandH, stripH);
@@ -2766,7 +2773,7 @@ function drawDomino(st, now, ah) {
   }
   if (barFlash > 0) txt('小節の頭！ 同じ並びのドミノが、また倒れはじめる', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、ドミノが倒れはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt('背の高いドミノ ＝ まとまりの頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else txt(W < 640 ? '背の高いドミノ ＝ まとまりの頭' : '背の高いドミノ ＝ まとまりの頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
 }
 
 /* ---------- モード：ジャグリング ----------
@@ -2887,6 +2894,233 @@ function playJuggle(t, head, L, barHead) {
     o.type = 'sine'; o.frequency.setValueAtTime(2200, t);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
     o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
+  }
+}
+
+/* ---------- モード：しずくと波紋 ----------
+   ・池の上に、8分音符の数だけ「しずくの落ちる場所」が横に並ぶ（1周期ぶん）
+   ・しずくは上から落ちてきて、ちょうど拍の瞬間に水面に着く（落ちてくる間が「予告」）
+   ・まとまりの頭は大きなしずく → 大きな波紋（トマトはパンより大きく、長く広がる）。サブ拍は小さなしずく
+   ・毎小節、同じ場所に同じ大きさのしずくが落ちるので、波紋の重なりが同じ模様でくり返される */
+function drawDrops(st, now, ah) {
+  const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
+  const top = 112 * K, waterY = top + (ah - top) * 0.56, depth = (ah - top) * 0.36;
+  const S = has ? st.sc + st.frac : -0.5;
+  const span = Math.min(W * 0.86, W - 40 * K), x0 = (W - span) / 2, step = span / N;
+  const xOf = i => x0 + (i + 0.5) * step;
+  const info = j => { const i = mod(j, N), g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+  const Tf = Math.min(0.7, Math.max(0.35, dur * 1.8));                 // しずくが落ちるのにかかる時間（秒）
+  const dropTop = top + 6 * K;
+
+  // 空と水面
+  const sky = cx.createLinearGradient(0, top - 40 * K, 0, waterY);
+  sky.addColorStop(0, 'rgba(15,23,42,0)'); sky.addColorStop(1, 'rgba(30,58,138,0.25)');
+  cx.fillStyle = sky; cx.fillRect(0, top - 40 * K, W, waterY - top + 40 * K);
+  const wg = cx.createLinearGradient(0, waterY, 0, waterY + depth);
+  wg.addColorStop(0, '#0c4a6e'); wg.addColorStop(1, '#082f49');
+  cx.fillStyle = wg; cx.fillRect(0, waterY, W, ah - waterY);
+  cx.strokeStyle = 'rgba(125,211,252,0.45)'; cx.lineWidth = 1.5 * K;
+  cx.beginPath(); cx.moveTo(0, waterY); cx.lineTo(W, waterY); cx.stroke();
+
+  // まとまりの帯（水面の手前）と言葉
+  const bandY = waterY + depth * 0.82;
+  m.groups.forEach((L, g) => {
+    const a = x0 + m.starts[g] * step, b = a + L * step, cur = has && g === st.g, col = COLORS[L];
+    cx.fillStyle = hexA(col, cur ? 0.85 : 0.3); rr(a + 3 * K, bandY, b - a - 6 * K, 7 * K, 3.5 * K); cx.fill();
+    txt(L === 2 ? 'パン' : 'トマト', (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, step * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
+  });
+  m.barStartSub.forEach((bs, b) => {
+    if (m.nBars < 2 || b === 0) return;
+    const x = x0 + bs * step; cx.strokeStyle = 'rgba(226,232,240,0.4)'; cx.setLineDash([4 * K, 5 * K]); cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.moveTo(x, top); cx.lineTo(x, ah - 4 * K); cx.stroke(); cx.setLineDash([]);
+  });
+
+  // 落ちる場所の目印（上）
+  for (let i = 0; i < N; i++) {
+    const d = info(i), x = xOf(i);
+    cx.fillStyle = d.head ? hexA(COLORS[d.L], 0.85) : 'rgba(148,163,184,0.5)';
+    cx.beginPath(); cx.arc(x, dropTop, (d.head ? 4.5 : 2.5) * K, 0, Math.PI * 2); cx.fill();
+  }
+
+  // 波紋（これまでに落ちたしずく）
+  let barFlash = 0;
+  cx.save(); cx.beginPath(); cx.rect(0, waterY - 1, W, ah - waterY + 1); cx.clip();
+  const back = Math.ceil(3.2 / dur) + 1;
+  for (let j = Math.floor(S); j >= Math.max(0, Math.floor(S) - back); j--) {
+    if (!has) break;
+    const d = info(j), age = (S - j) * dur, life = d.head ? (d.L === 3 ? 3.0 : 2.0) : 1.0;
+    if (age > life) continue;
+    const q = age / life, x = xOf(d.i), col = d.bar ? '#a3e635' : d.head ? COLORS[d.L] : '#e0f2fe';
+    const vmax = d.head ? (d.L === 3 ? 1.5 : 1.15) * step : 0.6 * step, rings = d.head ? 3 : 1;
+    for (let r = 0; r < rings; r++) {
+      const rad = (age - r * 0.12) * vmax * 2.2 + 3 * K; if (age - r * 0.12 < 0) continue;
+      cx.strokeStyle = hexA(col, (1 - q) * (d.head ? 0.85 : 0.6) * (1 - r * 0.25)); cx.lineWidth = (d.head ? 2.6 : 1.4) * K * (1 - q * 0.6);
+      cx.beginPath(); cx.ellipse(x, waterY + 2 * K, rad, rad * 0.28, 0, 0, Math.PI * 2); cx.stroke();
+    }
+    if (d.bar && age < 0.6) barFlash = Math.max(barFlash, 1 - age / 0.6);
+  }
+  cx.restore();
+
+  // しぶき（まとまりの頭で、水が王冠のようにはねる）
+  if (has) {
+    const j = Math.floor(S), d = info(j), age = (S - j) * dur;
+    if (d.head && age < 0.45) {
+      const x = xOf(d.i), n = d.L === 3 ? 9 : 7, hgt = (d.L === 3 ? 46 : 32) * K, col = d.bar ? '#d9f99d' : '#e0f2fe';
+      for (let i = 0; i < n; i++) {
+        const a = Math.PI * (0.12 + 0.76 * i / (n - 1)), v = hgt * (0.7 + 0.3 * hash01(i + j));
+        const t = age / 0.45, px = x - Math.cos(a) * v * 0.9 * t, py = waterY - Math.sin(a) * v * (4 * t * (1 - t));
+        cx.fillStyle = hexA(col, 1 - t); cx.beginPath(); cx.arc(px, py, (2.6 - 1.2 * t) * K, 0, Math.PI * 2); cx.fill();
+      }
+    }
+  }
+  // 落ちてくるしずく（予告）：ちょうど拍の瞬間に水面に着く
+  for (let j = Math.max(0, Math.floor(S) + 1); j <= Math.floor(S) + Math.ceil(Tf / dur) + 1; j++) {
+    const tl = (j - S) * dur; if (tl > Tf || tl < 0) continue;
+    const d = info(j), p = 1 - tl / Tf, y = dropTop + (waterY - dropTop) * p * p, x = xOf(d.i);
+    const sz = Math.min(step * 0.16, 16 * K) * (d.head ? (d.L === 3 ? 1 : 0.82) : 0.48) + 2 * K, col = d.head ? COLORS[d.L] : '#bae6fd';
+    cx.fillStyle = hexA(col, 0.95);
+    cx.beginPath(); cx.moveTo(x, y - sz * (1.6 + p)); cx.quadraticCurveTo(x + sz, y - sz * 0.2, x, y + sz * 0.8); cx.quadraticCurveTo(x - sz, y - sz * 0.2, x, y - sz * (1.6 + p)); cx.fill();
+    if (d.head) { cx.fillStyle = hexA('#ffffff', 0.6); cx.beginPath(); cx.arc(x - sz * 0.3, y - sz * 0.1, sz * 0.22, 0, Math.PI * 2); cx.fill(); }
+    if (p > 0.75) { cx.strokeStyle = hexA(col, (p - 0.75) * 2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 2 * K, sz * 1.4, sz * 0.4, 0, 0, Math.PI * 2); cx.stroke(); }   // 水面に映る影
+  }
+
+  if (barFlash > 0) txt('小節の頭！ 同じ場所に、同じしずくがもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? '大きなしずく ＝ まとまりの頭' : '大きなしずく ＝ まとまりの頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* ---------- モード：ぷるぷるゼリー ----------
+   ・まとまり1つ＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー（はばが拍の数に比例）
+   ・サクランボがゼリーからゼリーへ跳びうつる。着地の瞬間（まとまりの頭）にゼリーがぐにゃっとつぶれて、ぷるんぷるんとゆれる
+   ・トマトのゼリーは大きく、長くゆれる。サブ拍では小さく「ぷるっ」
+   ・サクランボの跳ぶ高さと時間もまとまりの長さで変わる（トマトは高く長く） */
+function drawJelly(st, now, ah) {
+  const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, has = st.has;
+  const top = 116 * K, plateY = ah - Math.max(30 * K, (ah - top) * 0.12);
+  const span0 = Math.min(W * 0.9, W - 30 * K), gap = Math.min(18 * K, span0 * 0.03);
+  const unit = Math.min((span0 - gap * (G - 1)) / N, (plateY - top) * 0.2);                // 1拍ぶんのはば
+  const span = unit * N + gap * (G - 1), x0 = (W - span) / 2;
+  const jh = L => Math.min((plateY - top) * 0.45, unit * (L === 3 ? 1.7 : 1.45));        // ゼリーの高さ
+  const box = g => { const L = m.groups[g], x = x0 + m.starts[g] * unit + g * gap; return { x, w: L * unit, L, cxx: x + L * unit / 2, h: jh(L) }; };
+  const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0, L = m.groups[g];
+  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
+
+  // 皿
+  for (let gi = 0; gi < G; gi++) {
+    const b = box(gi);
+    cx.fillStyle = 'rgba(226,232,240,0.14)'; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, b.w * 0.6, 8 * K, 0, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = 'rgba(226,232,240,0.35)'; cx.lineWidth = 1.5 * K; cx.stroke();
+    txt(b.L === 2 ? 'パン' : 'トマト', b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(COLORS[b.L], has && gi === g ? 1 : 0.65), 800);
+  }
+  // それぞれのゼリーのゆれ：最後にサクランボが乗った時刻からの経過時間で決める
+  const lastHit = gi => {   // 秒
+    if (!has) return 99;
+    const back = mod(g - gi, G);
+    if (back === 0) return ageH;
+    let t = ageH; for (let i = 1; i <= back; i++) t += m.groups[mod(g - i, G)] * dur;
+    return t;
+  };
+  for (let gi = 0; gi < G; gi++) {
+    const b = box(gi), col = COLORS[b.L], act = has && gi === g, t = lastHit(gi);
+    const big = b.L === 3 ? 1 : 0.7, tau = (b.L === 3 ? 0.9 : 0.55), om = 2 * Math.PI * (b.L === 3 ? 3.2 : 4.2);
+    let sy = 1 - 0.32 * big * Math.exp(-t / tau) * Math.cos(om * t);                       // 縦ののび縮み
+    if (act && kCur > 0) sy -= 0.07 * Math.exp(-ageS / 0.1) * Math.cos(30 * ageS);           // サブ拍の「ぷるっ」
+    const sx = 1 / Math.sqrt(Math.max(0.4, sy)), lean = 0.12 * big * Math.exp(-t / tau) * Math.sin(om * t * 0.5);
+    const w = b.w * 0.86 * sx, h = b.h * sy, xb = b.cxx, yb = plateY;
+    // 形（上がせまいプリン形。上はゆれて左右にずれる）
+    const topW = w * 0.62, sh = lean * h;
+    cx.beginPath();
+    cx.moveTo(xb - w / 2, yb);
+    cx.bezierCurveTo(xb - w / 2, yb - h * 0.5, xb - topW / 2 + sh * 0.6, yb - h * 0.85, xb - topW / 2 + sh, yb - h);
+    cx.quadraticCurveTo(xb + sh, yb - h * 1.08, xb + topW / 2 + sh, yb - h);
+    cx.bezierCurveTo(xb + topW / 2 + sh * 0.6, yb - h * 0.85, xb + w / 2, yb - h * 0.5, xb + w / 2, yb);
+    cx.closePath();
+    const gr = cx.createLinearGradient(0, yb - h, 0, yb);
+    gr.addColorStop(0, hexA(col, act ? 0.95 : 0.7)); gr.addColorStop(1, hexA(col, act ? 0.6 : 0.4));
+    if (act) { cx.shadowColor = col; cx.shadowBlur = 22 * K; }
+    cx.fillStyle = gr; cx.fill(); cx.shadowBlur = 0;
+    cx.strokeStyle = hexA('#ffffff', act ? 0.7 : 0.35); cx.lineWidth = 2 * K; cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,0.35)';   // つや
+    cx.beginPath(); cx.ellipse(xb - w * 0.22 + sh * 0.5, yb - h * 0.62, w * 0.06, h * 0.2, -0.2, 0, Math.PI * 2); cx.fill();
+    if (m.barStartGroup.includes(gi)) { cx.fillStyle = LIME; cx.beginPath(); cx.arc(xb + w / 2 - 6 * K, yb - 8 * K, 4 * K, 0, Math.PI * 2); cx.fill(); }
+    b.topY = yb - h * 1.04; b.topX = xb + sh;
+    box[gi] = b;
+  }
+  // サクランボ：ゼリー g から次のゼリーへ、まとまりの長さをかけて跳ぶ
+  const bA = box[g] || box(g), gn = (g + 1) % G, bB = box[gn] || box(gn);
+  const u = has ? clamp((kCur + st.frac) / L, 0, 1) : 0;
+  // はじめの少しの間はゼリーに乗ったまま（つぶれてから跳ぶ）
+  const fly = clamp((u - 0.12) / 0.88, 0, 1);
+  const hgt = (plateY - top) * (L === 3 ? 0.55 : 0.32);
+  const xA = bA.topX, yA = bA.topY, xB = bB.cxx, yB = plateY - bB.h * 1.04;
+  let cxp = xA + (xB - xA) * fly, cyp = yA + (yB - yA) * fly - 4 * hgt * fly * (1 - fly);
+  const cr = Math.max(6, Math.min(12 * K, unit * 0.22));
+  // 跳ぶ道の点線
+  if (has) {
+    cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.5); cx.lineWidth = 2 * K; cx.beginPath();
+    for (let i = 0; i <= 30; i++) { const f = i / 30, px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f); i ? cx.lineTo(px, py - cr) : cx.moveTo(px, py - cr); }
+    cx.stroke(); cx.setLineDash([]);
+    for (let k = 1; k < L; k++) {   // 8分音符ごとの位置
+      const f = clamp((k / L - 0.12) / 0.88, 0, 1), px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f), lit = kCur >= k;
+      cx.fillStyle = lit ? '#ffffff' : 'rgba(226,232,240,0.45)'; cx.beginPath(); cx.arc(px, py - cr, (lit ? 4.5 : 3) * K, 0, Math.PI * 2); cx.fill();
+    }
+  }
+  cx.strokeStyle = '#4ade80'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(cxp, cyp - cr * 1.6); cx.quadraticCurveTo(cxp + cr * 0.9, cyp - cr * 2.6, cxp + cr * 1.4, cyp - cr * 2.8); cx.stroke();
+  cx.fillStyle = '#ef4444'; cx.shadowColor = '#ef4444'; cx.shadowBlur = 12 * K;
+  cx.beginPath(); cx.arc(cxp, cyp - cr, cr, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+  cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(cxp - cr * 0.35, cyp - cr * 1.35, cr * 0.28, 0, Math.PI * 2); cx.fill();
+  // 着地の光
+  let barFlash = 0;
+  if (has && ageH < 0.5) {
+    const q = ageH / 0.5, bar = m.barStartGroup.includes(g);
+    cx.strokeStyle = hexA(bar ? LIME : COLORS[L], 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+    cx.beginPath(); cx.ellipse(bA.cxx, plateY, bA.w * (0.5 + 0.5 * q), 10 * K * (1 + q), 0, 0, Math.PI * 2); cx.stroke();
+    if (bar) barFlash = 1 - q;
+  }
+  if (barFlash > 0) txt('小節の頭！ サクランボが最初のゼリーにもどった', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? 'ゼリーの大きさ ＝ まとまりの長さ' : 'ゼリーの大きさ ＝ まとまりの長さ（パン 2 ／ トマト 3）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* しずくの音：ポチャン（まとまりの頭、トマトは低く長く）／ピチョ（サブ拍） */
+function playDrop(t, head, L, barHead) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  const f0 = head ? (L === 3 ? 420 : 560) : 1100, f1 = head ? (L === 3 ? 1100 : 1400) : 2100, len = head ? (L === 3 ? 0.16 : 0.12) : 0.06;
+  o.type = 'sine'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + len * 0.6);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? 0.75 : 0.35, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.03);
+  if (head) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
+    s.buffer = getNoise(); f.type = 'lowpass'; f.frequency.value = 900;
+    ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.3, t + 0.003); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    s.connect(f); f.connect(ng); ng.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + 0.14);
+  }
+  if (barHead) {
+    const b = ctx.createOscillator(), bg = ctx.createGain();
+    b.type = 'sine'; b.frequency.setValueAtTime(1760, t + 0.01);
+    bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.14, t + 0.015); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.55);
+  }
+}
+/* ゼリーの音：ぷるん（まとまりの頭、トマトは低く長く震える）／ぽよ（サブ拍） */
+function playJelly(t, head, L, barHead) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  if (head) {
+    const len = L === 3 ? 0.32 : 0.22, lfo = ctx.createOscillator(), lg = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(L === 3 ? 260 : 330, t); o.frequency.exponentialRampToValueAtTime(L === 3 ? 140 : 180, t + len);
+    lfo.frequency.value = L === 3 ? 14 : 18; lg.gain.value = L === 3 ? 30 : 25; lfo.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.85, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.03); lfo.start(t); lfo.stop(t + len + 0.03);
+    if (barHead) {
+      const b = ctx.createOscillator(), bg = ctx.createGain();
+      b.type = 'sine'; b.frequency.setValueAtTime(1320, t);
+      bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.15, t + 0.004); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+      b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.4);
+    }
+  } else {
+    o.type = 'sine'; o.frequency.setValueAtTime(620, t); o.frequency.exponentialRampToValueAtTime(420, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.35, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.09);
   }
 }
 
