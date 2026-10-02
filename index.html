@@ -125,6 +125,24 @@
   @media (max-width: 599px) { #lesson { left: 0; right: 0; top: auto; width: auto; height: 58%; border-left: 0; border-top: 1px solid #1e3a8a; border-radius: 18px 18px 0 0; }
     #lesson.fold { height: auto; padding-bottom: 10px; overflow: hidden; } #lesson.fold .ls-head { padding: 8px 0 4px; } #lesson.fold .ls-nav { margin-top: 6px; } #lesson.fold .ls-nav .btn { padding: 8px 6px; font-size: 15px; } }
   .ls-t1 { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #e2e8f0 !important; }
+  .ls-opts { display: grid; gap: 6px; margin-top: 6px; } .ls-opt { text-align: left; justify-content: flex-start; }
+  .ls-opt.right { background: #166534; border-color: #4ade80; color: #fff; } .ls-opt.wrong { background: #7f1d1d; border-color: #fb7185; color: #fff; }
+  .ls-card { margin: 8px 0; padding: 8px 10px; border-radius: 12px; background: rgba(96,165,250,0.08); border: 1px solid #1e3a8a; font-size: 15px; line-height: 1.55; }
+  .bigq { position: fixed; inset: 0; z-index: 60; background: rgba(2,6,23,0.94); display: flex; align-items: center; justify-content: center; padding: 3vh 3vw; }
+  .bigq[hidden] { display: none; }
+  .bq-box { width: min(1240px, 100%); max-height: 100%; overflow: auto; background: #0b1630; border: 2px solid #1e3a8a; border-radius: 24px; padding: clamp(14px, 3vh, 36px) clamp(16px, 3vw, 48px); }
+  .bq-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: clamp(14px, 1.8vw, 22px); color: #93c5fd; font-weight: 800; }
+  .bq-q { font-size: clamp(24px, 4.4vw, 62px); font-weight: 900; margin: 2vh 0; line-height: 1.3; color: #f8fafc; }
+  .bq-body { font-size: clamp(18px, 3vw, 40px); line-height: 1.6; color: #e2e8f0; }
+  .bq-opts { display: grid; gap: 1.6vh; }
+  .bq-opt { display: flex; align-items: center; gap: 2vw; font-size: clamp(20px, 3.4vw, 50px); font-weight: 800; padding: 1.4vh 2vw; border-radius: 18px; background: #1e293b; border: 2px solid #334155; color: #f1f5f9; }
+  .bq-opt.right { background: #166534; border-color: #4ade80; } .bq-opt.dim { opacity: .35; }
+  .bq-k { display: inline-flex; width: 1.6em; height: 1.6em; border-radius: 50%; background: #60a5fa; color: #0f172a; align-items: center; justify-content: center; flex: none; font-size: .8em; }
+  .bq-a { margin-top: 2vh; font-size: clamp(18px, 2.8vw, 38px); font-weight: 800; color: #bbf7d0; line-height: 1.5; }
+  .bq-hint { margin-top: 2vh; font-size: clamp(16px, 2.4vw, 30px); color: #fbbf24; font-weight: 800; }
+  .bq-nav { display: flex; gap: 12px; margin-top: 2.4vh; } .bq-nav .btn { flex: 1; font-size: clamp(15px, 2vw, 24px); padding: 1.4vh 10px; }
+  .qexp { font-size: 15px; color: #fde68a; margin: 2px 0 6px; font-weight: 700; line-height: 1.45; }
+  .quiz.qlow { top: auto; bottom: var(--qb, 120px); transform: translateX(-50%); }
   .ls-goal1 { font-size: 14px; color: #e2e8f0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (min-width: 1700px) { #lesson { width: 440px; font-size: 1.1rem; } }
   .ls-head { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 12px 0 8px; background: #0b1630; z-index: 1; }
@@ -470,6 +488,10 @@
         <button id="slimSw" class="sw" aria-label="下のカード帯を細くする"></button>
       </div>
       <div class="row">
+        <div><div class="lbl">楽譜の「拍の段」</div><div class="hint">刻みの楽譜の下に、拍を1つの音符で出す（パン＝♩、トマト＝♩.）</div></div>
+        <button id="beatSw" class="sw" aria-label="拍の段"></button>
+      </div>
+      <div class="row">
         <span class="lbl">音の種類</span>
         <div class="seg" id="soundSel"><button data-v="click">クリック</button><button data-v="voice">声（パ・ン…）</button></div>
       </div>
@@ -654,7 +676,7 @@ const SET = {
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
   bodyOn: false, countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
-  tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true,
+  tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true, beatRow: true,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -726,7 +748,7 @@ MODE_INFO.V = { g: 'g2', em: '⚖️', name: 'くらべる', line: '2つのリ�
 MODE_INFO.W = { g: 'g2', em: '👂', name: '当てる', line: '音だけを聞いて、リズムを当てよう。答えると映像と楽譜で正解が見られる', short: '音だけ聞いて、リズムを当てよう',
   detail: ['映像をかくして、音だけ2小節鳴らす。「2+3？ 3+2？」「何拍子？」などを選ぶ。', '答えると、映像（円軌道）と楽譜バーつきで、もう一度鳴る。', 'むずかしさは3段階：やさしい（2択・刻みあり）／ふつう（3択）／むずかしい（3択・刻みなし・テンポ速め）。「連符」を選ぶと、1拍がいくつに分かれているかを当てる。', '10問で結果が出る。まちがえた問題は、もう一度聞ける。'] };
 MODE_INFO.X = { g: 'g2', em: '🍡', name: '連符', line: '1拍（♩）を 2〜7 つに等しく分ける。針が円を1周する間が1拍', short: '1拍を等しく分ける。1周＝1拍',
-  detail: ['1拍（♩＝刻み2つぶん）を、同じ長さの n 個に分けたものが「n連符」。3連符＝トマト、5連符＝さつまいも、7連符＝いちごだいふく。', '円：針が1周する間が1拍。円は n 等分され、区切りを通るたびに音が鳴る。拍の頭は強い音。', '帯：1小節ぶん。「ふつうの刻みとくらべる」をONにすると、下の段の8分音符（パン）が太鼓の音で鳴り、ずれ方が見える。', '練習の順番（2→3→4→5→6→7 など）と、1つを何小節続けるかは「🎛 連符の設定」で選ぶ。次に変わるときは予告が出る。', 'タップ判定をONにすると、連符を自分で叩いて「ぴったり／早い／遅い」がわかる。「当てる」には連符クイズもある。'] };
+  detail: ['1拍（♩＝刻み2つぶん）を、同じ長さの n 個に分けたものが「n連符」。3連符＝トマト、5連符＝さつまいも、7連符＝いちごだいふく。', '3連符は、6/8 の拍（♩.＝刻み3つ）と同じ分け方。「くらべる」の「6/8 と 2/4 の3連符」で聞きくらべられる。', '円：針が1周する間が1拍。円は n 等分され、区切りを通るたびに音が鳴る。拍の頭は強い音。', '帯：1小節ぶん。「ふつうの刻みとくらべる」をONにすると、下の段の8分音符（パン）が太鼓の音で鳴り、ずれ方が見える。', '練習の順番（2→3→4→5→6→7 など）と、1つを何小節続けるかは「🎛 連符の設定」で選ぶ。次に変わるときは予告が出る。', 'タップ判定をONにすると、連符を自分で叩いて「ぴったり／早い／遅い」がわかる。「当てる」には連符クイズもある。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -991,7 +1013,9 @@ function scheduleMeta() {
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
-    if (mode === 'V') scheduleCompare(nextTime, m, curSub, subCounter);
+    if (mode === 'V' || (mode === 'W' && quiz.cmpOn)) scheduleCompare(nextTime, m, curSub, subCounter);
+    if (mode === 'W' && barHead) playBell(nextTime, 2093, 0.32);   // クイズ：小節の頭をはっきり
+    if (mode === 'V' || (mode === 'W' && quiz.cmpOn)) {}
     else if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur, barHead) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime, barHead); }
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
@@ -1057,7 +1081,7 @@ function scheduleTup() {
   }
   const ev = tupEv[tupE], stg = curStage, t = nextTime, head = tupE === 0, barHead = head && tupBeat === 0;
   if (stg < 3) {
-    if (head) playAccent(t, barHead);
+    if (head) { playAccent(t, barHead); if (tupQuiz && barHead) playBell(t, 2093, 0.32); }
     else if (ev.j >= 0 && subOn && stg < 2) playTupNote(t);
     if (ev.c && (head || (subOn && stg < 2))) playTupBase(t, head);
   }
@@ -1121,7 +1145,11 @@ function start(noCount) {
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
-  if (SET.countOn && !noCount && mode !== 'W') {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
+  if (mode === 'W' && quizStopBars) {   // クイズ：テンポを伝える刻み4つ（答えのヒントにならないように）
+    const d = 60 / bpm; countInfo = { beats: [0, 1, 2, 3].map(i => ({ off: i * d, n: i + 1, head: true })), len: 4 * d };
+    countInfo.beats.forEach((b, i) => { b.t = nextTime + b.off; playCount(b.t, i === 0); if (i === 0) playBell(b.t, 2093, 0.3); });
+    countInfo.start = nextTime; countInfo.end = nextTime + countInfo.len; nextTime = countInfo.end;
+  } else if (SET.countOn && !noCount && mode !== 'W') {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
     const beats = [];
     if (isTup()) {
       const d = 2 * 60 / bpm;
@@ -1299,14 +1327,15 @@ function frame() {
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
   const bodyH = SET.bodyOn && (mode !== 'F' || isTup()) ? Math.round(Math.max(34, 34 * K)) : 0;
   const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
-  let scoreH = SET.scoreOn && (mode !== 'F' || isTup()) ? Math.round((SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) * (fsNow ? 0.88 : 1)) : 0;
-  const cmp2 = mode === 'V';   // くらべる：下のカード帯のかわりに、楽譜を上下2段で出す
+  const tallScore = SET.beatRow && !isTup();   // 拍の段のぶん高くする
+  let scoreH = SET.scoreOn && (mode !== 'F' || isTup()) ? Math.round((tallScore ? (SET.big ? clamp(H * 0.13, 70, 130) : clamp(H * 0.17, 84, 156)) : (SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112))) * (fsNow ? 0.88 : 1)) : 0;
+  const cmp2 = mode === 'V' || (mode === 'W' && quiz.cmpOn && quiz.phase === 'reveal');   // くらべる：下のカード帯のかわりに、楽譜を上下2段で出す
   if (cmp2) { scoreH = Math.round(clamp(H * (fsNow ? 0.17 : 0.2), 100, 200)); stripH = 0; }   // 大きな数字のときは楽譜を少し小さく
   const sceneH = H - stripH - bandH - capH - scoreH - bodyH, belowY = sceneH + capH + bodyH;
   const quizHide = mode === 'W' && quiz.phase !== 'reveal';
-  const qEl = document.getElementById('quizUI'), qPanH = mode === 'W' && !qEl.hidden && qEl.classList.contains('mini') ? qEl.offsetHeight + 14 : 0;
+  const qEl = document.getElementById('quizUI'), qPanH = mode === 'W' && !qEl.hidden && (qEl.classList.contains('mini') || qEl.classList.contains('qlow')) ? qEl.offsetHeight + 14 : 0;
   if (hide) drawHidden(stage, belowY, stripH + scoreH, bandH);
-  else if (quizHide) drawQuizHidden(now, sceneH, belowY + bandH, scoreH + stripH);
+  else if (quizHide) { const cq = quiz.phase === 'listen' && quiz.list[quiz.i]; drawQuizHidden(now, sceneH, belowY + bandH, scoreH + stripH, cq && cq.score); }
   else if (isTup()) {
     const ts = getTupState(now);
     drawTup(ts, now, sceneH - qPanH);
@@ -1341,7 +1370,7 @@ function frame() {
     else if (mode === 'L') drawKarakuri(st, now, sceneH);
     else if (mode === 'M') drawBlocks(st, now, sceneH);
     else if (mode === 'V') drawCompare(st, now, sceneH);
-    else if (mode === 'W') drawOrbit(st, now, sceneH - qPanH);
+    else if (mode === 'W') { if (quiz.cmpOn) drawCompare(st, now, sceneH - qPanH); else drawOrbit(st, now, sceneH - qPanH); }
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     if (cmp2) drawScore2(st, now, belowY + bandH, scoreH);
@@ -1401,43 +1430,61 @@ function drawBarMark(now, m, sceneH) {
    拍子記号・8分音符（拍ごとに連桁でつなぐ）・拍の頭にアクセント記号・小節線・くり返し記号
    いま鳴っている音符が光る。拍子記号をタップすると、意味の説明が出る */
 let sigHits = [], sigTip = null;
-function drawScore(st, now, y0, h) {
-  const m = st.m, pad = 10 * K, has = st.has;
-  rr(pad, y0 + 3 * K, W - 2 * pad, h - 6 * K, 10 * K);
-  cx.fillStyle = 'rgba(241,245,249,0.96)'; cx.fill();
-  const ink = '#0f172a', lineY = y0 + h * 0.66;
-  const tsw = h * 0.42, ggap = h * 0.16, bgap = h * 0.22;
-  // 横の配置を数える
-  const sigShown = m.bars.map((bg, b) => b === 0 || m.sigs[b] !== m.sigs[b - 1]);
-  let fixed = 2 * pad + 18 * K + 26 * K;   // 左右の余白と、最後のくり返し記号
-  m.bars.forEach((bg, b) => { fixed += (sigShown[b] ? tsw : 0) + (bg.length - 1) * ggap + (b ? bgap : 0); });
-  const sp = Math.max(8, Math.min((W - fixed) / m.total, h * 0.75));
-  const nh = Math.min(h * 0.11, 9 * K + 2, sp * 0.3);
-  const contentW = fixed - 2 * pad + sp * m.total, xStart = (W - contentW) / 2 + 4 * K;
+function drawScore(st, now, y0, h, opt = {}) {
+  const m = st.m, pad = 10 * K, has = st.has && !opt.still, ink = '#0f172a';
+  const beatOn = SET.beatRow && !opt.noBeat;
+  if (!opt.noBg) { rr(pad, y0 + 3 * K, W - 2 * pad, h - 6 * K, 10 * K); cx.fillStyle = 'rgba(241,245,249,0.96)'; cx.fill(); }
+  // 2小節ぶん並べる（交互パターンは2小節で1組なので、そのまま）
+  const copies = m.nBars === 1 && (W >= 640 || m.total <= 10) ? 2 : 1, show = [];
+  for (let c = 0; c < copies; c++) for (let b = 0; b < m.nBars; b++) show.push({ b, c });
+  const rowH = beatOn ? h * 0.6 : h, lineY = y0 + rowH * 0.66, beatY = y0 + rowH + (h - rowH) * 0.5;
+  const tsw = rowH * 0.42, ggap = rowH * 0.16, bgap = rowH * 0.22;
+  const sigOf = b => m.sigs[b], sigShown = show.map((s, k) => k === 0 || sigOf(s.b) !== sigOf(show[k - 1].b));
+  // 拍の段の右に書く「＝ 2拍子」
+  const parts = m.bars.map(bg => meterOf(bg).name), beatLabel = '＝ ' + (parts.every(p => p === parts[0]) ? parts[0] : parts.join(' → '));
+  const lfs = Math.max(12, Math.min(15 * K, (h - rowH) * 0.42));
+  cx.font = `900 ${lfs}px ${FONT}`;
+  let labR = beatOn ? cx.measureText(beatLabel).width + 14 * K : 0;
+  const labL = beatOn ? (W < 640 ? 30 : 52) * K : 0;
+  let fixed = 2 * pad + 18 * K + 26 * K + labL, T = 0;
+  show.forEach((s, k) => { const bg = m.bars[s.b]; fixed += (sigShown[k] ? tsw : 0) + (bg.length - 1) * ggap + (k ? bgap : 0); T += bg.reduce((a, v) => a + v, 0); });
+  if (labR && (W - fixed - labR) / T < 14) labR = 0;   // せまい画面：「＝ ○拍子」は見出しにもあるので省く
+  fixed += labR;
+  const sp = Math.max(8, Math.min((W - fixed) / T, rowH * 0.75));
+  const nh = Math.min(rowH * 0.11, 9 * K + 2, sp * 0.3);
+  const contentW = fixed - 2 * pad - labR - labL + sp * T, xStart = labL + (W - labL - labR - contentW) / 2 + 4 * K;
   cx.strokeStyle = hexA(ink, 0.55); cx.lineWidth = 1.2 * K;
   cx.beginPath(); cx.moveTo(xStart - 6 * K, lineY); cx.lineTo(xStart + contentW - 14 * K, lineY); cx.stroke();
-  sigHits = [];
-  let x = xStart, sub = 0;
-  const barAge = barHeadAge(now, m);
-  m.bars.forEach((bg, b) => {
-    if (b) {   // 小節線
+  if (beatOn) {
+    cx.strokeStyle = hexA(ink, 0.35); cx.beginPath(); cx.moveTo(xStart - 6 * K, beatY); cx.lineTo(xStart + contentW - 14 * K, beatY); cx.stroke();
+    txt(W < 640 ? '拍' : '拍の段', pad + 8 * K, beatY, Math.max(12, lfs * 0.85), '#475569', 900, 'left');
+    txt(W < 640 ? '刻み' : '刻みの段', pad + 8 * K, lineY - rowH * 0.12, Math.max(11, lfs * 0.75), '#94a3b8', 800, 'left');
+  }
+  if (!opt.still) sigHits = [];
+  const curCopy = copies === 2 ? mod(st.measure, 2) : 0;
+  let x = xStart;
+  const barAge = barHeadAge(now, m), stemTop = lineY - rowH * 0.44;
+  show.forEach((s, k) => {
+    const b = s.b, bg = m.bars[b];
+    if (k) {   // 小節線（拍の段までのばす）
       cx.strokeStyle = ink; cx.lineWidth = 1.6 * K;
-      cx.beginPath(); cx.moveTo(x + bgap * 0.3, lineY - h * 0.36); cx.lineTo(x + bgap * 0.3, lineY + h * 0.2); cx.stroke();
+      cx.beginPath(); cx.moveTo(x + bgap * 0.3, lineY - rowH * 0.36); cx.lineTo(x + bgap * 0.3, beatOn ? beatY + (h - rowH) * 0.25 : lineY + rowH * 0.2); cx.stroke();
       x += bgap;
     }
-    if (sigShown[b]) {   // 拍子記号
-      const [nu, de] = m.sigs[b].split('/'), fs = h * 0.3, cxs = x + tsw * 0.42;
+    if (sigShown[k]) {   // 拍子記号
+      const [nu, de] = sigOf(b).split('/'), fs = rowH * 0.3, cxs = x + tsw * 0.42;
       cx.font = `900 ${fs}px Georgia, "Times New Roman", serif`; cx.fillStyle = ink; cx.textAlign = 'center'; cx.textBaseline = 'middle';
       cx.fillText(nu, cxs, lineY - fs * 0.52); cx.fillText(de, cxs, lineY + fs * 0.5);
-      sigHits.push({ x0: x, x1: x + tsw, y0: y0, y1: y0 + h, sig: m.sigs[b], cx: cxs, bar: b });
+      if (!opt.still) sigHits.push({ x0: x, x1: x + tsw, y0: y0, y1: y0 + h, sig: sigOf(b), cx: cxs, bar: b });
       x += tsw;
     }
+    const quarter = /\/4$/.test(sigOf(b)), live = s.c === curCopy;
     bg.forEach((L, gi) => {
-      const g = m.barStartGroup[b] + gi, xs = [];
-      for (let k = 0; k < L; k++) { xs.push(x + sp * (k + 0.5)); }
-      const stemTop = lineY - h * 0.44, col = COLORS[L], curG = has && st.g === g;
-      xs.forEach((nx, k) => {
-        const on = has && st.sub === sub + k, head = k === 0;
+      const g = m.barStartGroup[b] + gi, s0 = m.starts[g], xs = [];
+      for (let q = 0; q < L; q++) xs.push(x + sp * (q + 0.5));
+      const col = COLORS[L], curG = has && live && st.g === g;
+      xs.forEach((nx, q) => {
+        const on = has && live && st.sub === s0 + q, head = q === 0;
         if (on) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
         cx.fillStyle = on ? col : (curG ? hexA(col, 0.95) : ink);
         cx.save(); cx.translate(nx, lineY); cx.rotate(-0.38);
@@ -1445,29 +1492,44 @@ function drawScore(st, now, y0, h) {
         cx.strokeStyle = cx.fillStyle; cx.lineWidth = 1.6 * K;
         cx.beginPath(); cx.moveTo(nx + nh * 1.1, lineY - nh * 0.3); cx.lineTo(nx + nh * 1.1, stemTop); cx.stroke();
         if (head) {   // アクセント記号
-          const ay = y0 + h * 0.1, aw = nh * 1.4;
+          const ay = y0 + rowH * 0.1, aw = nh * 1.4;
           cx.strokeStyle = on || curG ? col : ink; cx.lineWidth = 2 * K;
           cx.beginPath(); cx.moveTo(nx - aw * 0.6, ay - aw * 0.45); cx.lineTo(nx + aw * 0.8, ay); cx.lineTo(nx - aw * 0.6, ay + aw * 0.45); cx.stroke();
         }
-        if (on && head && b === m.barOfGroup[g] && gi === 0 && barAge < 0.7) {   // 小節の頭の印
-          const q = barAge / 0.7; cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
-          cx.beginPath(); cx.arc(nx, lineY, nh * 2 + 18 * K * q, 0, Math.PI * 2); cx.stroke();
+        if (on && head && gi === 0 && barAge < 0.7) {   // 小節の頭の印
+          const qq = barAge / 0.7; cx.strokeStyle = hexA(LIME, 1 - qq); cx.lineWidth = 3 * K * (1 - qq) + 0.5;
+          cx.beginPath(); cx.arc(nx, lineY, nh * 2 + 18 * K * qq, 0, Math.PI * 2); cx.stroke();
         }
       });
-      // 連桁（拍ごとに1本でつなぐ）
-      cx.fillStyle = curG ? col : ink;
-      cx.fillRect(xs[0] + nh * 1.1 - 0.8 * K, stemTop, xs[xs.length - 1] - xs[0] + 1.6 * K, Math.max(3, h * 0.07));
+      cx.fillStyle = curG ? col : ink;   // 連桁（拍ごとに1本でつなぐ）
+      cx.fillRect(xs[0] + nh * 1.1 - 0.8 * K, stemTop, xs[L - 1] - xs[0] + 1.6 * K, Math.max(3, rowH * 0.07));
+      if (quarter && L === 3) {   // 4分の拍子の中の3つ＝3連符
+        const fsN = Math.max(10, rowH * 0.17), mid = (xs[0] + xs[2]) / 2 + nh * 1.1, by = stemTop - fsN * 0.75;
+        cx.font = `italic 900 ${fsN}px Georgia, serif`; cx.fillStyle = curG ? col : ink; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('3', mid, by);
+      }
+      if (beatOn) {   // 拍の段：パン＝♩、トマト＝♩.（拍の頭で光る＝からだ表示の足ぶみと同じ）
+        let age = 9; if (has && live) for (const a of accents) if (a.meta === m && a.g === g) { const d = now - a.t; if (d >= 0 && d < age) age = d; }
+        const fl = age < 0.3 ? 1 - age / 0.3 : 0, bx = xs[0], bnh = Math.min(nh * 1.15, (h - rowH) * 0.16), bst = beatY - (h - rowH) * 0.42;
+        const c2 = curG ? col : ink;
+        if (fl) { cx.strokeStyle = hexA(col, fl); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.arc(bx, beatY, bnh * 2 + 12 * K * (1 - fl), 0, Math.PI * 2); cx.stroke(); cx.shadowColor = col; cx.shadowBlur = 16 * K * fl; }
+        cx.fillStyle = c2; cx.save(); cx.translate(bx, beatY); cx.rotate(-0.38);
+        cx.beginPath(); cx.ellipse(0, 0, bnh * 1.25, bnh * 0.85, 0, 0, Math.PI * 2); cx.fill(); cx.restore(); cx.shadowBlur = 0;
+        cx.strokeStyle = c2; cx.lineWidth = 1.6 * K; cx.beginPath(); cx.moveTo(bx + bnh * 1.1, beatY - bnh * 0.3); cx.lineTo(bx + bnh * 1.1, bst); cx.stroke();
+        if (L === 3) { cx.beginPath(); cx.arc(bx + bnh * 2.4, beatY - bnh * 0.2, Math.max(1.8, bnh * 0.32), 0, Math.PI * 2); cx.fill(); }   // 付点
+      }
       x += sp * L + (gi < bg.length - 1 ? ggap : 0);
-      sub += L;
     });
   });
   // くり返し記号（周期）
-  const rx = x + 12 * K;
+  const rx = x + 12 * K, rTop = lineY - rowH * 0.36, rBot = beatOn ? beatY + (h - rowH) * 0.25 : lineY + rowH * 0.2;
   cx.fillStyle = ink;
-  cx.beginPath(); cx.arc(rx - 7 * K, lineY - h * 0.12, 2.4 * K, 0, Math.PI * 2); cx.arc(rx - 7 * K, lineY + h * 0.05, 2.4 * K, 0, Math.PI * 2); cx.fill();
-  cx.fillRect(rx, lineY - h * 0.36, 1.6 * K, h * 0.56); cx.fillRect(rx + 4 * K, lineY - h * 0.36, 4.5 * K, h * 0.56);
-  { const hf = Math.max(11, 10 * K); cx.font = `700 ${hf}px ${FONT}`; const hw = cx.measureText('拍子記号をタップすると説明').width;
-    if (!sigTip && rx + 24 * K + hw < W - pad - 12 * K) txt('拍子記号をタップすると説明', W - pad - 12 * K, y0 + h - 9 * K, hf, '#64748b', 700, 'right'); }
+  cx.beginPath(); cx.arc(rx - 7 * K, lineY - rowH * 0.12, 2.4 * K, 0, Math.PI * 2); cx.arc(rx - 7 * K, lineY + rowH * 0.05, 2.4 * K, 0, Math.PI * 2); cx.fill();
+  cx.fillRect(rx, rTop, 1.6 * K, rBot - rTop); cx.fillRect(rx + 4 * K, rTop, 4.5 * K, rBot - rTop);
+  if (beatOn && labR) txt(beatLabel, rx + 16 * K, beatY, lfs, '#334155', 900, 'left');
+  if (!opt.still) {
+    const hf = Math.max(11, 10 * K); cx.font = `700 ${hf}px ${FONT}`; const hw = cx.measureText('拍子記号をタップすると説明').width;
+    if (!sigTip && rx + 24 * K + labR + hw < W - pad - 12 * K) txt('拍子記号をタップすると説明', W - pad - 12 * K, y0 + h - 9 * K, hf, '#64748b', 700, 'right');
+  }
 }
 function sigExplain(sig) {
   const [nu, de] = sig.split('/').map(Number), name = de === 8 ? '8分音符' : de === 4 ? '4分音符' : `${de}分音符`;
@@ -4178,7 +4240,11 @@ const CMP_PAIRS = [
   { title: '4/4 と 8/8（3+3+2）', a: 2, b: 8 },
   { title: '7/8 2+2+3 と 3+2+2', a: 6, b: 7 },
   { title: '自分で作ったリズムどうし', custom: true },
+  { title: 'パン（3/4）と トマト（6/8）', a: 1, b: 3, msg: 'パン＝刻み2つ、トマト＝刻み3つ。トマトはパンの1.5倍の長さ', msgS: 'トマトはパンの1.5倍の長さ' },   // あとから追加（番号がずれないよう最後に）
+  { title: '6/8 と 2/4 の3連符', a: 3, bp: { cat: 'cmp', sig: '2/4', bars: [[3, 3]], note: '2/4 の3連符' }, labB: '2/4 の3連符（♩を3つに分ける）',
+    msg: '同じ音に聞こえる！ 6/8 は、拍の中を3つに分ける拍子（拍＝♩.）', msgS: '同じ音！ 6/8 は拍の中を3つに分ける拍子' },
 ];
+const CMP_ORDER = [0, 5, 1, 6, 2, 3, 4];   // 画面に並べる順
 let compareMeta = makeMeta(PRESETS[5]);
 function comparePresets(i) {
   const pr = CMP_PAIRS[i] || CMP_PAIRS[0];
@@ -4187,7 +4253,7 @@ function comparePresets(i) {
     if (customs.length === 1) return [customPreset(customs[0]), customPreset(customs[0].slice().reverse())];
     return [PRESETS[4], PRESETS[5]];
   }
-  return [PRESETS[pr.a], PRESETS[pr.b]];
+  return [pr.ap || PRESETS[pr.a], pr.bp || PRESETS[pr.b]];
 }
 function applyComparePair() {
   const [A, B] = comparePresets(SET.cmpPair);
@@ -4197,8 +4263,9 @@ function applyComparePair() {
   renderPresets(); updateBarRhythm(); renderCompareSel();
 }
 function compareSound(t, laneA, head, L, bar) {   // 上の段＝木の高い音、下の段＝太鼓の低い音
-  if (SET.cmpSound === 'top' && !laneA) return;
-  if (SET.cmpSound === 'bottom' && laneA) return;
+  const cs = mode === 'W' ? 'both' : SET.cmpSound;
+  if (cs === 'top' && !laneA) return;
+  if (cs === 'bottom' && laneA) return;
   const o = ctx.createOscillator(), g = ctx.createGain();
   if (laneA) {
     o.type = 'triangle'; o.frequency.setValueAtTime(head ? (bar ? 1760 : 1320) : 2200, t); o.frequency.exponentialRampToValueAtTime(head ? 900 : 1700, t + 0.05);
@@ -4221,7 +4288,7 @@ function drawCompare(st, now, ah) {
   const Nmax = Math.max(A.total, B.total), x0 = pad + (narrow ? 0 : 6 * K), span = W - 2 * pad, step = span / Nmax;
   const S = has ? st.sc + st.frac : 0;
   const pr = CMP_PAIRS[SET.cmpPair] || CMP_PAIRS[0];
-  const lanes = [{ m: A, y: top, name: '上', col: '#f9a8d4' }, { m: B, y: top + laneH + gapMid, name: '下', col: '#7dd3fc' }];
+  const qc = mode === 'W', lanes = [{ m: A, y: top, name: qc ? 'あなたの答え' : '上', col: '#f9a8d4' }, { m: B, y: top + laneH + gapMid, name: qc ? '正解' : '下', col: '#7dd3fc', lab: !qc && pr.labB }];
   const posIn = mt => has ? mod(S, mt.total) : -1;
   // 縦の点線（刻み）。両方の段をつらぬく
   for (let i = 0; i <= Nmax; i++) {
@@ -4240,7 +4307,7 @@ function drawCompare(st, now, ah) {
   lanes.forEach((ln, li) => {
     const mt = ln.m, p = posIn(mt), jp = Math.floor(p), f = p - jp, y0 = ln.y, y1 = ln.y + laneH, sig = mt.bars.map((bg, b) => mt.sigs[b]).join('→');
     cx.fillStyle = li ? 'rgba(14,116,144,0.10)' : 'rgba(190,24,93,0.10)'; rr(x0 - 6 * K, y0 - 2 * K, span + 12 * K, laneH + 4 * K, 10 * K); cx.fill();
-    txt(`${ln.name}：${sig} [${mt.bars.map(b => b.join('+')).join(' → ')}]　${meterText(mt, true)}`, x0 + 4 * K, y0 + 13 * K, Math.max(13, 13.5 * K), ln.col, 900, 'left');
+    txt(ln.lab ? `${ln.name}：${ln.lab}` : `${ln.name}：${sig} [${mt.bars.map(b => b.join('+')).join(' → ')}]　${meterText(mt, true)}`, x0 + 4 * K, y0 + 13 * K, Math.max(13, 13.5 * K), ln.col, 900, 'left');
     const yb = y1 - 8 * K, hMax = laneH - 34 * K;
     if (SET.cmpStyle === 'orbit') {
       const R = Math.min(hMax * 0.5, span * 0.18), ccx = W / 2, ccy = y0 + 26 * K + (laneH - 26 * K) / 2, T = mt.total, a0 = -Math.PI / 2;
@@ -4293,18 +4360,28 @@ function drawCompare(st, now, ah) {
     cx.beginPath(); cx.moveTo(x, top - 6 * K); cx.lineTo(x, top + 2 * laneH + gapMid + 6 * K); cx.stroke();
   }
   let msg = '刻み（縦の点線）の数は同じ。ちがうのは、拍の頭（▼▲）の位置だけ';
-  if (pr.hemiola) msg = narrow ? '同時に鳴らすとヘミオラ（2対3）' : '同時に鳴らすと、2つの拍と3つの拍が重なる＝ヘミオラ（2対3）';
+  if (mode === 'W') msg = narrow ? '上＝あなたの答え、下＝正解' : '上＝あなたの答え、下＝正解。拍の頭（▼▲）の位置をくらべよう';
+  else if (pr.msg) msg = narrow ? pr.msgS : pr.msg;
+  else if (pr.hemiola) msg = narrow ? '同時に鳴らすとヘミオラ（2対3）' : '同時に鳴らすと、2つの拍と3つの拍が重なる＝ヘミオラ（2対3）';
   else if (narrow) msg = '刻みの数は同じ。拍の頭の位置だけちがう';
   txt(msg, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 800);
 }
 
 /* ---------- モード：聴き取りクイズ（当てる） ----------
    映像をかくして音だけ2小節鳴らし、「2+3？ 3+2？」「何拍子？」などを選ぶ。答えると映像と楽譜で正解を見せる */
-const QUIZ_LEVELS = { easy: 'やさしい（2択・刻みあり）', normal: 'ふつう（3択）', hard: 'むずかしい（3択・刻みなし・速め）', tup: '連符（何連符？）' };
-const quiz = { phase: 'setup', level: 'easy', list: [], i: 0, base: null };
+const QUIZ_LEVELS = { easy: 'やさしい（2択・刻みあり）', normal: 'ふつう（3択）', hard: 'むずかしい（3択・刻みなし・速め）', tup: '連符（何連符？）', score: '楽譜を見て答える（音は答えのあと）' };
+const quiz = { phase: 'setup', level: 'easy', list: [], i: 0, base: null, cmpOn: false, userOn: false };
 function qPreset(groups, sig) {
   const total = groups.reduce((a, v) => a + v, 0);
   return { cat: 'quiz', sig: sig || `${total}/8`, bars: [groups.slice()], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
+}
+/* 答えのあとに出す1行の解説 */
+function quizExplain(o) {
+  if (o.tup) return o.tup === 2 ? '1拍に2つ ＝ ふつうの8分音符（パン）' : `1拍に同じ間かくで${o.tup}つ ＝ ${o.tup}連符（${TUP_WORD[o.tup]}）${o.tup === 3 ? '。6/8 の拍と同じ分け方' : ''}`;
+  const bg = o.p.bars[0], nm = meterOf(bg).name;
+  if (bg.every(L => L === bg[0])) return `拍が${bg.length}つ、どれも${bg[0] === 2 ? 'パン（刻み2つ）' : 'トマト（刻み3つ）'}。だから ${o.p.sig} は${nm}`;
+  const longs = bg.map((L, k) => L === 3 ? k + 1 : 0).filter(v => v);
+  return `長い拍（トマト）は${longs.join('・')}拍目。だから ${bg.join('+')}（${nm}）`;
 }
 function quizMakeQuestion(level) {
   const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -4323,16 +4400,25 @@ function quizMakeQuestion(level) {
     const set = pick([[2, 3], [3, 4], [3, 5], [5, 7], [2, 3, 4], [4, 5, 6], [5, 6, 7], [3, 5, 7]]);
     return { ask: '1拍がいくつに分かれている？', opts: set.map(v => ({ t: v === 2 ? '2つ（ふつう・パン）' : `${v}連符（${TUP_WORD[v]}）`, tup: v })) };
   };
-  const q = level === 'tup' ? tupQ() : pick(level === 'easy' ? easy : normal)();
-  q.answer = Math.floor(Math.random() * q.opts.length); q.user = null;
+  const scoreQ = () => {   // 楽譜（刻みの段）だけを見て答える
+    if (Math.random() < 0.5) {
+      const [g, sg] = pick([[[2, 2], '2/4'], [[2, 2, 2], '3/4'], [[2, 2, 2, 2], '4/4'], [[3, 3], '6/8'], [[2, 3]], [[3, 2]], [[2, 2, 3]], [[2, 3, 2]], [[3, 2, 2]], [[3, 3, 2]], [[3, 2, 3]], [[2, 3, 3]], [[2, 2, 2, 3]]]);
+      return { ask: '楽譜を見て：何拍子？', score: true, fix: g.length - 2, opts: [2, 3, 4].map(k => ({ t: `${k}拍子`, p: k === g.length ? qPreset(g, sg) : null })) };
+    }
+    const g = pick([[2, 3], [3, 2], [2, 2, 3], [2, 3, 2], [3, 2, 2], [2, 2, 2, 3], [3, 2, 2, 2], [2, 3, 2, 2], [2, 2, 3, 2]]);
+    return { ask: '楽譜を見て：長い拍（トマト）は何拍目？', score: true, fix: g.indexOf(3), opts: g.map((_, k) => { const gg = g.map(() => 2); gg[k] = 3; return { t: `${k + 1}拍目`, p: qPreset(gg) }; }) };
+  };
+  const q = level === 'tup' ? tupQ() : level === 'score' ? scoreQ() : pick(level === 'easy' ? easy : normal)();
+  q.answer = q.fix !== undefined ? q.fix : Math.floor(Math.random() * q.opts.length); q.user = null;
+  q.expl = quizExplain(q.opts[q.answer]);
   return q;
 }
 function quizUI() {
   const el = $('#quizUI'); if (mode !== 'W') { el.hidden = true; return; }
-  el.hidden = false; el.classList.remove('mini');
+  el.hidden = false; el.classList.remove('mini', 'qlow');
   const q = quiz.list[quiz.i];
   if (quiz.phase === 'setup') {
-    el.innerHTML = `<div class="qbox"><h3>👂 聴き取りクイズ</h3><p>音だけを聞いて、リズムを当てよう（全10問・1問2小節）</p>
+    el.innerHTML = `<div class="qbox"><h3>👂 聴き取りクイズ</h3><p>音だけを聞いて、リズムを当てよう（全10問・1問2小節。はじめに刻み4つのカウント）</p>
       <div class="qlv">${Object.entries(QUIZ_LEVELS).map(([k, v]) => `<button class="qbtn ${quiz.level === k ? 'on' : ''}" data-lv="${k}">${v}</button>`).join('')}</div>
       <button class="qbtn main" data-act="start">はじめる</button></div>`;
   } else if (quiz.phase === 'done') {
@@ -4341,18 +4427,19 @@ function quizUI() {
       ${ng.length ? `<p>まちがえた問題（もう一度聞けます）</p><div class="qlist">${ng.map(([q, i]) => `<button class="qbtn" data-replay="${i}">第${i + 1}問：正解は「${q.opts[q.answer].t}」 ▶</button>`).join('')}</div>` : '<p>全問正解！ すばらしい！</p>'}
       <button class="qbtn main" data-act="again">もう一度はじめる</button></div>`;
   } else if (q.user !== null) {   // 答えたあと：小さな帯にして、下の映像と楽譜が見えるようにする
-    const correct = q.user === q.answer;
+    const correct = q.user === q.answer, uo = q.opts[q.user], ao = q.opts[q.answer];
+    const canCmp = !correct && uo.p && ao.p, canUser = !correct && uo.tup;
+    const now = quiz.cmpOn ? '<div class="qexp">いま：上＝あなたの答え、下＝正解</div>' : quiz.userOn ? `<div class="qexp">いま鳴っているのは：あなたの答え（${uo.t}）</div>` : '';
     el.classList.add('mini');
-    el.innerHTML = `<div class="qbox"><div class="qres ${correct ? 'ok' : 'ng'}">第${quiz.i + 1}問　${correct ? '⭕ 正解！' : '❌ ざんねん'}　正解は「${q.opts[q.answer].t}」</div>
-      <div class="qrow"><button class="qbtn listen" data-act="listen">▶ 映像つきでもう一度</button>
+    el.innerHTML = `<div class="qbox"><div class="qres ${correct ? 'ok' : 'ng'}">第${quiz.i + 1}問　${correct ? '⭕ 正解！' : '❌ ざんねん'}　正解は「${ao.t}」</div>
+      <div class="qexp">💡 ${q.expl}</div>${now}
+      <div class="qrow"><button class="qbtn listen" data-act="listen">▶ ${canCmp || canUser ? '正解を' : '映像つきで'}もう一度</button>
+      ${canCmp ? '<button class="qbtn" data-act="cmp">⚖ 自分の答えとくらべる</button>' : ''}${canUser ? '<button class="qbtn" data-act="user">▶ 自分の答えを聞く</button>' : ''}
       <button class="qbtn main" data-act="${quiz.fromDone ? 'back' : 'next'}">${quiz.fromDone ? '結果にもどる' : quiz.i + 1 < quiz.list.length ? '次の問題へ' : '結果を見る'}</button></div></div>`;
   } else {
-    const answered = q.user !== null, correct = answered && q.user === q.answer;
     el.innerHTML = `<div class="qbox"><div class="qnum">第 ${quiz.i + 1} 問 ／ ${quiz.list.length}</div><h3>${q.ask}</h3>
-      <button class="qbtn listen" data-act="listen">${playing && quiz.phase === 'listen' ? '♪ 聞いています…' : answered ? '▶ 映像つきでもう一度' : '▶ 聞く（2小節）'}</button>
-      <div class="qopts">${q.opts.map((o, i) => `<button class="qbtn opt ${answered ? (i === q.answer ? 'right' : i === q.user ? 'wrong' : '') : ''}" data-opt="${i}" ${answered ? 'disabled' : ''}>${o.t}</button>`).join('')}</div>
-      ${answered ? `<div class="qres ${correct ? 'ok' : 'ng'}">${correct ? '⭕ 正解！' : '❌ ざんねん'}　正解は「${q.opts[q.answer].t}」</div><button class="qbtn main" data-act="next">${quiz.i + 1 < quiz.list.length ? '次の問題へ' : '結果を見る'}</button>` : ''}
-      </div>`;
+      ${q.score ? '<p>下の楽譜（刻みの段）を読んで答えよう。音は答えたあとに鳴ります</p>' : `<button class="qbtn listen" data-act="listen">${playing && quiz.phase === 'listen' ? '♪ 聞いています…' : '▶ 聞く（2小節）'}</button>`}
+      <div class="qopts">${q.opts.map((o, i) => `<button class="qbtn opt" data-opt="${i}">${o.t}</button>`).join('')}</div></div>`;
   }
   el.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { quiz.level = b.dataset.lv; quizUI(); });
   el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => quizAct(b.dataset.act));
@@ -4360,16 +4447,23 @@ function quizUI() {
   el.querySelectorAll('[data-replay]').forEach(b => b.onclick = () => { quiz.i = +b.dataset.replay; quiz.fromDone = true; quizPlay(true); });
 }
 let quizStopBars = 0;
-function quizPlay(reveal) {
+function quizPlay(reveal, how) {
   const q = quiz.list[quiz.i]; if (!q) return;
   if (!quiz.base) quiz.base = { bpm, subOn, selected };
   if (playing) stop();
   subOn = quiz.level !== 'hard';   // むずかしいは刻みなし
   bpm = quiz.level === 'hard' ? Math.min(300, quiz.base.bpm + 40) : quiz.base.bpm; showBpm();
-  const ans = q.opts[q.answer]; tupQuiz = ans.tup || 0;
-  if (!tupQuiz) { selected = ans.p; activeMeta = makeMeta(selected); }
+  const ans = q.opts[q.answer], usr = q.user !== null ? q.opts[q.user] : null;
+  quiz.cmpOn = how === 'cmp' && !!(usr && usr.p && ans.p); quiz.userOn = how === 'user' && !!(usr && usr.tup);
+  const src = quiz.userOn ? usr : ans;
+  tupQuiz = src.tup || 0;
+  if (!tupQuiz) {
+    if (quiz.cmpOn) { selected = usr.p; activeMeta = makeMeta(usr.p); compareMeta = makeMeta(ans.p); }
+    else { selected = src.p; activeMeta = makeMeta(selected); }
+  }
   pendingMeta = null; lastNote = null; accents = [];
   quiz.phase = reveal ? 'reveal' : 'listen';
+  if (q.score && !reveal) { quizStopBars = 0; updateBarRhythm(); quizUI(); return; }   // 楽譜を見て答える：音はまだ鳴らさない
   quizStopBars = 2; start(true);
   updateBarRhythm(); quizUI();
 }
@@ -4378,9 +4472,12 @@ function quizAct(a) {
     quiz.list = []; for (let i = 0; i < 10; i++) quiz.list.push(quizMakeQuestion(quiz.level));
     quiz.i = 0; quiz.fromDone = false; quiz.phase = 'listen'; quizPlay(false);
   } else if (a === 'listen') { const q = quiz.list[quiz.i]; quizPlay(q.user !== null); }
-  else if (a === 'back') { if (playing) stop(); quiz.fromDone = false; quiz.phase = 'done'; quizUI(); updateBarRhythm(); }
+  else if (a === 'cmp') quizPlay(true, 'cmp');
+  else if (a === 'user') quizPlay(true, 'user');
+  else if (a === 'back') { if (playing) stop(); quiz.cmpOn = quiz.userOn = false; quiz.fromDone = false; quiz.phase = 'done'; quizUI(); updateBarRhythm(); }
   else if (a === 'next') {
     if (playing) stop();
+    quiz.cmpOn = quiz.userOn = false;
     if (quiz.i + 1 < quiz.list.length) { quiz.i++; quiz.phase = 'listen'; quizPlay(false); }
     else { quiz.phase = 'done'; quizUI(); updateBarRhythm(); }
   }
@@ -4391,11 +4488,22 @@ function quizAnswer(i) {
 }
 function quizLeave() {   // ほかのモードへ移ったら、テンポと刻みの設定をもとにもどす
   if (quiz.base) { bpm = quiz.base.bpm; subOn = quiz.base.subOn; showBpm(); selected = quiz.base.selected; activeMeta = makeMeta(selected); pendingMeta = null; lastNote = null; quiz.base = null; renderPresets(); }
-  quizStopBars = 0; tupQuiz = 0; if (quiz.phase !== 'done') quiz.phase = 'setup';
+  quizStopBars = 0; tupQuiz = 0; quiz.cmpOn = quiz.userOn = false; if (quiz.phase !== 'done') quiz.phase = 'setup';
 }
-function drawQuizHidden(now, sceneH, belowY, rest) {
-  // 音を聞いている間：映像・楽譜・カウント帯をかくす
+/* 楽譜を見て答える：問題の楽譜（刻みの段だけ）を、絵の場所に大きく出す */
+function drawQuizScore(now, ah) {
+  txt('楽譜を読んで答えよう', W / 2, 84 * K, Math.max(14, 15 * K), '#f1f5f9', 800);
+  const y = 100 * K, h = clamp(ah - y - 14 * K, 64, 200 * K);
+  drawScore({ m: activeMeta, has: false, measure: 0 }, now, y, h, { noBeat: true, still: true });
+}
+function drawQuizHidden(now, sceneH, belowY, rest, scoreQ) {
+  // 音を聞いている間：映像・楽譜・カウント帯をかくす（楽譜を見て答える問題では、下に問題の楽譜を出す）
   const t = now * 2;
+  if (scoreQ) {
+    txt(W < 640 ? '▼ この楽譜を読んで答えよう' : '▼ この楽譜を読んで答えよう（拍の段は答えのあとに出ます）', W < 640 ? 14 * K : W / 2, belowY - 4 * K, Math.max(13, 13 * K), '#fde68a', 800, W < 640 ? 'left' : 'center', 'bottom');
+    drawScore({ m: activeMeta, has: false, measure: 0 }, now, belowY + 2 * K, rest - 4 * K, { noBeat: true, still: true });
+    return;
+  }
   for (let i = 0; i < 3; i++) {
     const r = (60 + i * 40 + (t * 30) % 40) * K;
     cx.strokeStyle = `rgba(148,163,184,${0.25 - i * 0.06})`; cx.lineWidth = 3 * K;
@@ -4633,7 +4741,8 @@ function drawTupHeader(ts) {
   cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${26 * K}px ${FONT}`;
   let x = pad; const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
   put(`${ts.beats}/4`, '#e2e8f0', 12 * K); put(tupName(n), col, 0);
-  const sub = n === 2 ? `1拍を 2 つに分ける ＝ ふつうの8分音符（${tupWord(2)}）` : `1拍を ${n} つに等しく分ける（${tupWord(n)}）`;
+  let sub = n === 2 ? `1拍を 2 つに分ける ＝ ふつうの8分音符（${tupWord(2)}）` : `1拍を ${n} つに等しく分ける（${tupWord(n)}）`;
+  if (n === 3) { cx.font = `800 ${Math.max(13, 13.5 * K)}px ${FONT}`; const s2 = sub + '・6/8 の拍と同じ分け方'; if (cx.measureText(s2).width < W - 2 * pad - 170 * K) sub = s2; }
   txt(sub, pad, y + 24 * K, Math.max(13, 13.5 * K), '#e2e8f0', 800, 'left');
   const ramp = SET.rampOn && playing, tm = tempoText(true, ramp);
   txt(tm[0], W - pad, y, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
@@ -4730,6 +4839,10 @@ function drawScoreRow(m, cur, xs0, sp, rowTop, rh, col, dim) {
     }
     const xa = xs0 + sp * (s0 + 0.5) - nh * 0.4 + nh * 1.1;
     cx.fillStyle = curG ? gc : ink; cx.fillRect(xa - 0.8 * K, stemTop, sp * (L - 1) + 1.6 * K, beamH);
+    if (L === 3 && /\/4$/.test(m.sigs[m.barOfGroup[g]])) {   // 4分の拍子の中の3つ＝3連符
+      const fsN = Math.max(10, rh * 0.2); cx.font = `italic 900 ${fsN}px Georgia, serif`; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText('3', xa + sp, stemTop - fsN * 0.7);
+    }
   });
   m.barStartSub.forEach((s, b) => {   // 小節線と、途中で変わる拍子
     if (!b) return;
@@ -4753,10 +4866,10 @@ function drawScore2(st, now, y0, h) {
   const inner = h - 12 * K, rh = inner / 2, labW = (W < 640 ? 34 : 70) * K, Nmax = Math.max(A.total, B.total);
   const tsw = rh * 0.62, xMin = pad + 8 * K + labW + tsw;
   const sp = Math.max(8, Math.min((W - pad - 30 * K - xMin) / Nmax, rh * 1.4)), xs0 = Math.max(xMin, (W - sp * Nmax) / 2);
-  const S = has ? st.sc : -1, rows = [[A, '上の段', '#db2777', 'bottom'], [B, '下の段', '#0284c7', 'top']];
+  const qc = mode === 'W', S = has ? st.sc : -1, rows = [[A, qc ? 'あなた' : '上の段', '#db2777', 'bottom'], [B, qc ? '正解' : '下の段', '#0284c7', 'top']];
   sigHits = [];
   rows.forEach(([m, name, col, mute], i) => {
-    const rt = y0 + 6 * K + i * rh, dim = SET.cmpSound === mute;
+    const rt = y0 + 6 * K + i * rh, dim = !qc && SET.cmpSound === mute;
     txt(W < 640 ? (i ? '下' : '上') : name, pad + 8 * K + labW / 2, rt + rh * 0.55, Math.max(12, Math.min(14 * K, rh * 0.3)), col, 900);
     drawScoreRow(m, has ? mod(S, m.total) : -1, xs0, sp, rt, rh, col, dim);
     sigHits.push({ x0: xs0 - tsw, x1: xs0, y0: rt, y1: rt + rh, sig: m.sigs[0], cx: xs0 - rh * 0.3, bar: 0 });
@@ -4785,6 +4898,7 @@ function updatePlayBtn() {
 /* 下のバーの「今のリズム」 */
 function updateBarRhythm() {
   if (mode === 'W' && quiz.phase !== 'reveal' && quiz.phase !== 'done') { $('#barR1').textContent = '👂 聴き取りクイズ'; $('#barR2').textContent = 'リズムはひみつ'; return; }
+  if (mode === 'W' && quiz.cmpOn) { $('#barR1').textContent = '⚖ あなたの答え／正解'; $('#barR2').textContent = '上＝あなたの答え、下＝正解'; return; }
   if (isTup()) { $('#barR1').textContent = tupQuiz ? `連符：${tupName(tupQuiz)}` : `連符 ${tupSeq().join('→')}`; $('#barR2').textContent = tupQuiz ? '答えの連符' : `${SET.tupBeats}拍の小節・${SET.tupBars}小節ずつ${SET.tupCmp ? '・くらべる' : ''}（押して選ぶ）`; return; }
   if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
   const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
@@ -4937,6 +5051,7 @@ $('#reDown').onclick = () => stepRamp('rampEnd', -5); $('#reUp').onclick = () =>
 bindSwitch('#bigSw', () => SET.big, v => { SET.big = v; });
 bindSwitch('#scoreSw', () => SET.scoreOn, v => { SET.scoreOn = v; });
 bindSwitch('#slimSw', () => SET.slimStrip, v => { SET.slimStrip = v; });
+bindSwitch('#beatSw', () => SET.beatRow, v => { SET.beatRow = v; });
 bindSeg('#soundSel', () => SET.voice ? 'voice' : 'click', v => { SET.voice = v === 'voice'; });
 bindSwitch('#subSw', () => subOn, v => { subOn = v; SET.subOn = v; });
 $('#vol').oninput = e => {
@@ -5056,56 +5171,94 @@ let tagFilter = '';
 const LESSON = [
   { title: '同じ長さの拍', mode: 'C', presets: [0, 1], goal: '拍の長さが全部同じ拍子（2/4・3/4）を感じよう',
     act: '拍の頭で足ぶみ、刻みで手拍子。2/4 と 3/4 を切りかえて、光の球が1周する間に足ぶみが何回か数えよう',
-    q: '3/4 は、1小節に拍がいくつ？ 刻みはいくつ？', a: '拍が3つ、刻みは6つ（1拍＝刻み2つ）' },
-  { title: 'パンとトマト', mode: 'O', presets: [0, 3], goal: '2つの刻みの拍（パン）と、3つの刻みの拍（トマト）の長さのちがいを感じよう',
-    act: '「パン」「トマト」と言いながら手拍子。ボールが手に落ちる瞬間に足ぶみしよう',
-    q: 'トマトの拍は、パンの拍の何倍の長さ？', a: '1.5倍（刻み3つと刻み2つ）' },
+    q: '3/4 は、1小節に拍がいくつ？ 刻みはいくつ？', opts: ['拍が3つ、刻みが6つ', '拍が3つ、刻みが3つ', '拍が6つ、刻みが3つ'], ans: 0,
+    a: '3/4 は ♩ が3つ（拍が3つ）。♩1つ＝刻み2つなので、刻みは6つ' },
+  { title: 'パンとトマト', mode: 'V', cmp: 5, goal: '2つの刻みの拍（パン）と、3つの刻みの拍（トマト）の長さのちがいを感じよう',
+    act: '上（パン×3）と下（トマト×2）を同時に鳴らそう。「上だけ」「下だけ」に切りかえて、「パン」「トマト」と言いながら手拍子しよう',
+    q: 'トマトの拍は、パンの拍の何倍の長さ？', opts: ['同じ長さ', '1.5倍', '2倍'], ans: 1,
+    a: 'パン＝刻み2つ、トマト＝刻み3つ。3÷2＝1.5倍の長さ' },
   { title: '5/8', mode: 'K', presets: [4], goal: '5/8 は「短い拍＋長い拍」の2拍子だと知ろう',
     act: '踊る人と同じように、拍の頭で強く踏み込み、刻みで小さく足ぶみ（ドン・タ・ドン・タ・タ）',
-    q: '5/8 は何拍子？', a: '2拍子（短い拍＋長い拍）' },
+    q: '5/8 は何拍子？', opts: ['2拍子', '5拍子', '3拍子'], ans: 0,
+    a: '刻みは5つでも、踏み込む所（拍）は2つ。パン＋トマト＝2拍子' },
   { title: '2+3 と 3+2', mode: 'V', cmp: 0, goal: '同じ5つの刻みでも、まとまり方で重心の位置が変わることを見つけよう',
     act: '「上だけ」「下だけ」に切りかえて、どちらが鳴っているか当てっこしよう。半分ずつ分かれて同時に手拍子もしてみよう',
-    q: '2+3 と 3+2 のちがいは何？', a: '刻みの数はどちらも5つ。ちがうのは拍の頭（重心）の位置' },
+    q: '2+3 と 3+2 のちがいは何？', opts: ['長い拍（トマト）の場所', '刻みの数', 'テンポ（速さ）'], ans: 0,
+    a: '刻みはどちらも5つ。長い拍が2拍目か1拍目か＝重心の位置がちがう' },
   { title: '7/8', mode: 'D', presets: [6, 7], goal: '7/8 は3拍子。長い拍がどこにあるかで感じ方が変わることを知ろう',
     act: '指揮の図に合わせて腕を振ろう。2+2+3 と 3+2+2 を切りかえて、長い拍がどこかを体で感じよう',
-    q: '7/8 の 2+2+3 は何拍子？ 長い拍は何拍目？', a: '3拍子。3拍目が長い拍' },
+    q: '7/8 の 2+2+3 で、長い拍は何拍目？', opts: ['1拍目', '2拍目', '3拍目'], ans: 2,
+    a: '2+2+3 は「パン・パン・トマト」。3拍目が長い拍で、全部で3拍子' },
   { title: '6/8 と 3/4', mode: 'V', cmp: 1, goal: '同じ6つの刻みでも、2拍子（6/8）と3拍子（3/4）になることを知ろう',
     act: 'クラスを2つに分けて、6/8 と 3/4 を同時に手拍子。2つの拍と3つの拍が重なる「ヘミオラ」を体験しよう',
-    q: '6/8 と 3/4、刻みの数は？ 拍の数は？', a: '刻みはどちらも6つ。拍は6/8 が2つ、3/4 が3つ' },
+    q: '6/8 と 3/4、拍の数は？', opts: ['6/8 は2つ、3/4 は3つ', '6/8 は6つ、3/4 は3つ', 'どちらも6つ'], ans: 0,
+    a: '刻みはどちらも6つ。6/8 はトマト×2で2拍、3/4 はパン×3で3拍' },
   { title: '自分で作る', mode: 'L', build: true, goal: 'パンとトマトのカードを並べて、自分だけの変拍子を作ろう',
     act: 'カードを並べて「このリズムで鳴らす」。からくり装置で、自分のリズムの仕掛けを見てみよう',
-    q: '自分のリズムは何拍子？', a: 'カード（拍）の数が、そのまま○拍子になる' },
+    q: '自分のリズムが何拍子かは、どうやってわかる？', opts: ['カード（拍）の数を数える', '刻みの数を数える', '音の高さで決まる'], ans: 0,
+    a: 'カード1枚＝拍1つ。カードが3枚なら3拍子（刻みの数は拍子記号の上の数字になる）' },
   { title: '当てるクイズ', mode: 'W', goal: '音だけを聞いて、リズムを当てよう',
     act: '「はじめる」を押して10問に挑戦。わからないときは、拍の頭で足ぶみしながら聞いてみよう',
-    q: '音だけでわかったのは、どの音のおかげ？', a: '拍の頭の強い音（小節の頭はいちばん強く高い）と、刻みの数' },
+    q: '音だけでわかったのは、どの音のおかげ？', opts: ['拍の頭の強い音と、小節の頭のベル', 'メロディーの高さ', '音をのばす長さ'], ans: 0,
+    a: '拍の頭の強い音で拍の数が、小節の頭のベルで1小節の長さがわかる' },
+  { title: 'まとめ', mode: 'C', presets: [4], summary: true, goal: '学んだことを5枚のカードでふり返ろう',
+    act: 'カードを1枚ずつ大きく出して、言葉で説明してみよう。「▶ 見る」で、そのカードに合うモードに切りかわる' },
 ];
-let lessonStep = -1, lessonOpen = false, lessonShowAns = false, lessonFold = true;
+/* まとめの5枚のカード（▶ 見る：そのカードに合うモードとリズム） */
+const SUMMARY = [
+  { t: '① 拍子記号の意味', b: '下の数字＝数える音符（4＝♩、8＝♪）。上の数字＝1小節にその音符がいくつ。5/8 は ♪ が5つ', mode: 'C', pre: 4 },
+  { t: '② 強さの3段階', b: '小節の頭（いちばん強く高い）→ 拍の頭（中くらい）→ 刻み（小さい）。強さで、拍と小節がわかる', mode: 'I', pre: 6 },
+  { t: '③ 長さのちがう拍', b: 'パン＝刻み2つ（♩）、トマト＝刻み3つ（♩.）。トマトはパンの1.5倍の長さ', mode: 'O', pre: 4 },
+  { t: '④ まとまり方で拍子が変わる', b: '同じ6つの刻みでも、3+3 は2拍子（6/8）、2+2+2 は3拍子（3/4）。2+3 と 3+2 は重心の位置がちがう', mode: 'V', cmp: 1 },
+  { t: '⑤ くり返し', b: '同じ並びが小節ごとにくり返される＝周期。くり返しがわかると、変拍子も体でおぼえられる', mode: 'H', pre: 6 },
+];
+let lessonStep = -1, lessonOpen = false, lessonShowAns = false, lessonFold = true, lessonPick = null;
 function lessonApply(i) {
   const st = LESSON[i]; if (!st) return;
-  lessonStep = i; lessonShowAns = false;
+  lessonStep = i; lessonShowAns = false; lessonPick = null;
   if (st.cmp !== undefined) { SET.cmpPair = st.cmp; saveSet(); }
   if (st.presets && st.mode !== 'V') selectPreset(PRESETS[st.presets[0]]);
   if (mode !== st.mode) setMode(st.mode); else if (st.mode === 'V') applyComparePair();
   if (st.build && window.innerWidth >= 1100) openDrawer('secBuild'); else closeDrawer();   // そのステップで使うものだけ開く
+  bigClose();
   renderLesson();
+}
+function summaryShow(k) {   // まとめのカードに合うモードへ
+  const c = SUMMARY[k]; if (!c) return;
+  if (c.cmp !== undefined) { SET.cmpPair = c.cmp; saveSet(); }
+  if (c.pre !== undefined && c.mode !== 'V') selectPreset(PRESETS[c.pre]);
+  if (mode !== c.mode) setMode(c.mode); else if (c.mode === 'V') applyComparePair();
 }
 function renderLesson() {
   const el = $('#lesson'); $('#app').classList.toggle('ls-open', lessonOpen);
   if (!lessonOpen) return;
   const i = Math.max(0, lessonStep), st = LESSON[i], phone = window.innerWidth < 600;
+  const nav = `<div class="ls-nav"><button class="btn" id="lsPrev" ${i === 0 ? 'disabled' : ''}>◀ 前へ</button><button class="btn main" id="lsPlay">${playing ? '■ 停止' : '▶ 再生'}</button><button class="btn main" id="lsNext" ${i === LESSON.length - 1 ? 'disabled' : ''}>次へ ▶</button></div>`;
   el.classList.toggle('fold', phone && lessonFold);
-  if (phone && lessonFold) {   // スマホ：たたんだカード（めあて1行＋▼で開く）
-    el.innerHTML = `<div class="ls-head"><b>📘 ${i + 1}/${LESSON.length}</b><span class="ls-step ls-t1">${st.title}</span><button class="btn small" id="lsUnfold">▼ くわしく</button><button class="dr-close" id="lsClose" aria-label="閉じる">✕</button></div>
-      <div class="ls-goal1"><span class="ls-tag goal">めあて</span>${st.goal}</div>
-      ${st.build ? '<div class="ls-pre"><button class="btn small main" id="lsBuild">🃏 リズムを作る画面を開く</button></div>' : ''}
-      <div class="ls-nav"><button class="btn" id="lsPrev" ${i === 0 ? 'disabled' : ''}>◀ 前へ</button><button class="btn main" id="lsPlay">${playing ? '■ 停止' : '▶ 再生'}</button><button class="btn main" id="lsNext" ${i === LESSON.length - 1 ? 'disabled' : ''}>次へ ▶</button></div>`;
-    $('#lsUnfold').onclick = () => { lessonFold = false; renderLesson(); };
-    const fbb = $('#lsBuild'); if (fbb) fbb.onclick = () => openDrawer('secBuild');
+  const bindNav = () => {
     $('#lsClose').onclick = () => { lessonOpen = false; renderLesson(); };
     $('#lsPrev').onclick = () => lessonApply(i - 1);
     $('#lsNext').onclick = () => lessonApply(i + 1);
     $('#lsPlay').onclick = () => { togglePlay(); setTimeout(renderLesson, 50); };
-    return;
+    const bb = $('#lsBuild'); if (bb) bb.onclick = () => openDrawer('secBuild');
+  };
+  if (phone && lessonFold) {   // スマホ：たたんだカード（めあて1行＋▼で開く）
+    el.innerHTML = `<div class="ls-head"><b>📘 ${i + 1}/${LESSON.length}</b><span class="ls-step ls-t1">${st.title}</span><button class="btn small" id="lsUnfold">▼ くわしく</button><button class="dr-close" id="lsClose" aria-label="閉じる">✕</button></div>
+      <div class="ls-goal1"><span class="ls-tag goal">めあて</span>${st.goal}</div>
+      ${st.build ? '<div class="ls-pre"><button class="btn small main" id="lsBuild">🃏 リズムを作る画面を開く</button></div>' : ''}${nav}`;
+    $('#lsUnfold').onclick = () => { lessonFold = false; renderLesson(); };
+    bindNav(); return;
+  }
+  let check = '';
+  if (st.summary) {
+    check = `<div class="ls-blk"><span class="ls-tag q">ふり返り</span>${SUMMARY.map((c, k) => `<div class="ls-card"><b>${c.t}</b><div>${c.b}</div>
+      <div class="ls-pre"><button class="btn small" data-sumv="${k}">▶ 見る</button><button class="btn small" data-sumbig="${k}">🔍 大きく</button></div></div>`).join('')}</div>`;
+  } else if (st.opts) {
+    const picked = lessonPick !== null, ok = picked && lessonPick === st.ans;
+    check = `<div class="ls-blk"><span class="ls-tag q">確かめ</span>${st.q}
+      <div class="ls-opts">${st.opts.map((o, k) => `<button class="btn small ls-opt ${picked ? (k === st.ans ? 'right' : k === lessonPick ? 'wrong' : '') : ''}" data-opt="${k}">${'ABC'[k]}　${o}</button>`).join('')}</div>
+      ${picked ? `<div class="ls-ans"><b>${ok ? '⭕ 正解！' : '❌ ざんねん。正解は ' + 'ABC'[st.ans]}</b><br>${st.a}</div>` : ''}
+      <div class="ls-pre"><button class="btn small" id="lsHands">🙋 挙手タイム（大きく出す）</button></div></div>`;
   }
   el.innerHTML = `<div class="ls-head"><b>📘 レッスン</b><span class="ls-step">${i + 1} / ${LESSON.length}</span>${phone ? '<button class="btn small" id="lsFold">▲ たたむ</button>' : ''}<button class="dr-close" id="lsClose" aria-label="閉じる">✕</button></div>
     <div class="ls-dots">${LESSON.map((s, k) => `<button class="ls-dot ${k === i ? 'on' : k < i ? 'done' : ''}" data-step="${k}" title="${s.title}">${k + 1}</button>`).join('')}</div>
@@ -5115,21 +5268,42 @@ function renderLesson() {
       ${st.presets && st.presets.length > 1 ? `<div class="ls-pre">${st.presets.map(pi => `<button class="btn small ${presetKey(PRESETS[pi]) === presetKey(selected) ? 'main' : ''}" data-pre="${pi}">${PRESETS[pi].sig || PRESETS[pi].sigs.join('→')} [${PRESETS[pi].bars.map(b => b.join('+')).join(' → ')}]</button>`).join('')}</div>` : ''}</div>
     <div class="ls-blk"><span class="ls-tag act">やってみよう</span>${st.act}
       ${st.build ? '<div class="ls-pre"><button class="btn small main" id="lsBuild">🃏 リズムを作る画面を開く</button></div>' : ''}</div>
-    <div class="ls-blk"><span class="ls-tag q">確かめ</span>${st.q}
-      <div class="ls-ans">${lessonShowAns ? `<b>答え：</b>${st.a}` : '<button class="btn small" id="lsAns">答えを見る</button>'}</div></div>
-    <div class="ls-nav"><button class="btn" id="lsPrev" ${i === 0 ? 'disabled' : ''}>◀ 前へ</button>
-      <button class="btn main" id="lsPlay">${playing ? '■ 停止' : '▶ 再生'}</button>
-      <button class="btn main" id="lsNext" ${i === LESSON.length - 1 ? 'disabled' : ''}>次へ ▶</button></div>
+    ${check}${nav}
     <div class="hint" style="margin-top:6px">PageDown／PageUp キーでも進めます（プレゼン用リモコンも使えます）</div>`;
-  $('#lsClose').onclick = () => { lessonOpen = false; renderLesson(); };
+  bindNav();
   const fb = $('#lsFold'); if (fb) fb.onclick = () => { lessonFold = true; renderLesson(); };
-  $('#lsPrev').onclick = () => lessonApply(i - 1);
-  $('#lsNext').onclick = () => lessonApply(i + 1);
-  $('#lsPlay').onclick = () => { togglePlay(); setTimeout(renderLesson, 50); };
-  const bb = $('#lsBuild'); if (bb) bb.onclick = () => openDrawer('secBuild');
-  const ab = $('#lsAns'); if (ab) ab.onclick = () => { lessonShowAns = true; renderLesson(); };
+  const hb = $('#lsHands'); if (hb) hb.onclick = () => bigOpen({ kind: 'q', step: i });
+  el.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => { lessonPick = +b.dataset.opt; renderLesson(); });
+  el.querySelectorAll('[data-sumv]').forEach(b => b.onclick = () => summaryShow(+b.dataset.sumv));
+  el.querySelectorAll('[data-sumbig]').forEach(b => b.onclick = () => bigOpen({ kind: 'sum', k: +b.dataset.sumbig }));
   el.querySelectorAll('[data-step]').forEach(b => b.onclick = () => lessonApply(+b.dataset.step));
   el.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { selectPreset(PRESETS[+b.dataset.pre]); renderLesson(); });
+}
+/* ----- 挙手タイム／まとめのカードを大きく出す（全画面でも後ろの席から読める大きさ） ----- */
+let bigState = null;
+function bigOpen(s) { bigState = Object.assign({ shown: false }, s); bigRender(); }
+function bigClose() { bigState = null; const el = document.getElementById('bigQ'); if (el) el.hidden = true; }
+function bigRender() {
+  const el = $('#bigQ'); if (!bigState) { el.hidden = true; return; }
+  el.hidden = false;
+  if (bigState.kind === 'q') {
+    const st = LESSON[bigState.step], sh = bigState.shown;
+    el.innerHTML = `<div class="bq-box"><div class="bq-top"><span>🙋 挙手タイム　${bigState.step + 1}. ${st.title}</span><button class="dr-close" id="bqClose" aria-label="閉じる">✕</button></div>
+      <div class="bq-q">${st.q}</div>
+      <div class="bq-opts">${st.opts.map((o, k) => `<div class="bq-opt ${sh ? (k === st.ans ? 'right' : 'dim') : ''}"><span class="bq-k">${'ABC'[k]}</span>${o}</div>`).join('')}</div>
+      ${sh ? `<div class="bq-a">⭕ 正解は ${'ABC'[st.ans]}　${st.a}</div>` : '<div class="bq-hint">A・B・C、どれだと思う？ 手をあげよう</div>'}
+      <div class="bq-nav"><button class="btn main" id="bqShow">${sh ? 'もう一度かくす' : '答えを見る'}</button></div></div>`;
+    $('#bqShow').onclick = () => { bigState.shown = !bigState.shown; bigRender(); };
+  } else {
+    const k = bigState.k, c = SUMMARY[k];
+    el.innerHTML = `<div class="bq-box"><div class="bq-top"><span>📘 まとめ　${k + 1} / ${SUMMARY.length}</span><button class="dr-close" id="bqClose" aria-label="閉じる">✕</button></div>
+      <div class="bq-q">${c.t}</div><div class="bq-body">${c.b}</div>
+      <div class="bq-nav"><button class="btn" id="bqPrev" ${k === 0 ? 'disabled' : ''}>◀ 前のカード</button><button class="btn" id="bqView">▶ 見る</button><button class="btn main" id="bqNext" ${k === SUMMARY.length - 1 ? 'disabled' : ''}>次のカード ▶</button></div></div>`;
+    $('#bqPrev').onclick = () => { bigState.k--; bigRender(); };
+    $('#bqNext').onclick = () => { bigState.k++; bigRender(); };
+    $('#bqView').onclick = () => { summaryShow(k); bigClose(); };
+  }
+  $('#bqClose').onclick = bigClose;
 }
 function lessonToggle() {
   lessonOpen = !lessonOpen;
@@ -5155,8 +5329,8 @@ function drawBody(st, now, y0, h) {
 /* ----- くらべる ----- */
 function renderCompareSel() {
   const box = $('#cmpPairSel'); if (!box) return; box.innerHTML = '';
-  CMP_PAIRS.forEach((pr, i) => {
-    const b = document.createElement('button'); b.textContent = pr.title + (pr.custom && customs.length < 2 ? '（保存したリズムが2つ以上あると使えます）' : '');
+  CMP_ORDER.forEach(i => {
+    const pr = CMP_PAIRS[i], b = document.createElement('button'); b.textContent = pr.title + (pr.custom && customs.length < 2 ? '（保存したリズムが2つ以上あると使えます）' : '');
     b.classList.toggle('on', SET.cmpPair === i); b.style.textAlign = 'left';
     b.onclick = () => { SET.cmpPair = i; saveSet(); if (mode !== 'V') setMode('V'); else applyComparePair(); renderCompareSel(); };
     box.appendChild(b);
@@ -5422,7 +5596,9 @@ document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tg = e.target || {}, typing = tg.tagName === 'INPUT' && tg.type !== 'range';
   if (typing) return;
-  if (e.key === 'Escape') { closeModals(); closeDrawer(); return; }
+  if (e.key === 'Escape') { bigClose(); closeModals(); closeDrawer(); return; }
+  if (bigState && bigState.kind === 'sum' && (e.key === 'PageDown' || e.key === 'PageUp')) { e.preventDefault(); bigState.k = clamp(bigState.k + (e.key === 'PageDown' ? 1 : -1), 0, SUMMARY.length - 1); bigRender(); return; }
+  if (bigState && bigState.kind === 'q' && (e.key === 'PageDown' || e.key === 'PageUp')) { e.preventDefault(); if (!bigState.shown && e.key === 'PageDown') { bigState.shown = true; bigRender(); } else { bigClose(); lessonApply(clamp(lessonStep + (e.key === 'PageDown' ? 1 : -1), 0, LESSON.length - 1)); } return; }
   if (lessonOpen && (e.key === 'PageDown' || e.key === 'PageUp')) { e.preventDefault(); lessonApply(clamp(lessonStep + (e.key === 'PageDown' ? 1 : -1), 0, LESSON.length - 1)); return; }
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { if (mode === 'W' && quiz.phase !== 'setup' && quiz.phase !== 'done') quizAct('listen'); else togglePlay(); } return; }
   if (tapActive() && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
@@ -5438,5 +5614,6 @@ window.addEventListener('resize', updatePlayBtn);
 renderModes(); renderPresets(); renderPolySel(); renderBuilder(); refreshPanels(); setBpm(SET.rampOn ? SET.rampStart : 160);
 setMode(mode); applyHash(); updatePlayBtn();
 </script>
+<div id="bigQ" class="bigq" hidden></div>
 </body>
 </html>
