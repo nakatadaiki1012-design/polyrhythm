@@ -52,6 +52,7 @@
   .stage-btn { position: absolute; left: 12px; top: 120px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 800;
                background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
   .stage-btn:active { background: #334155; }
+  .stage-btn.on { background: #a3e635; color: #0f172a; border-color: #a3e635; }
   .help-btn { position: absolute; right: 10px; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; font-weight: 900;
               background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
   .help-btn:hover { border-color: #94a3b8; }
@@ -232,7 +233,7 @@
 
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
+    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
     <!-- ===== 設定の引き出し ===== -->
     <aside id="drawer" aria-label="設定">
@@ -544,7 +545,7 @@ const SET = {
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
-  countOn: true, stopMode: 'bar',
+  countOn: true, stopMode: 'bar', blockAuto: false,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -603,6 +604,10 @@ MODE_INFO.T = { g: 'g2', em: '🌸', name: '花', line: 'まとまりの頭で�
   detail: ['まとまり1つ＝花1つ。まとまりの頭で、つぼみがポンと開く。', '8分音符ごとに花びらが2枚ずつふえる（パン＝4枚の小さな花、トマト＝6枚の大きな花）。', '1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く。', '同じリズムなら、どの列も同じ並び。花だんの模様で「くり返し」が見える。'] };
 MODE_INFO.U = { g: 'g3', em: '🐸', name: 'カエル', line: 'ハスの葉に着地する瞬間＝まとまりの頭。葉の間かく：パン＝2、トマト＝3', short: '着地の瞬間＝頭。トマトは遠くへ',
   detail: ['ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝8分音符1つ）。', 'カエルはまとまりの頭で葉に着地して「ケロッ」。トマトは遠く、高く跳ぶ。', '水面の小さな点はサブ拍の位置。カエルの影が通ると波紋が広がる。', '小節の頭の葉には、ハスの花が咲いている。'] };
+MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛けを1拍に1つずつ鳴らして進む。大きな仕掛け＝まとまりの頭', short: '大きな仕掛け＝まとまりの頭',
+  detail: ['左上から右下へ、玉が仕掛けを1拍に1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。拍の数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
+MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える', short: '着地の瞬間にタップ！',
+  detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（まとまりの頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -841,6 +846,7 @@ const MODE_SOUND = {
   G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
   K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
   P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b), R: (t, h, L, b) => playPendulum(t, h, L, b), T: (t, h, L, b) => playFlower(t, h, L, b), U: (t, h, L, b) => playFrog(t, h, L, b),
+  L: (t, h, L, b, k, bar) => playKarakuri(t, h, L, b, k, bar), M: (t, h, L, b) => playBlock(t, h, L, b),
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
@@ -850,8 +856,8 @@ function scheduleMeta() {
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : ms ? ms(nextTime, true, L, barHead) : playAccent(nextTime); }
-    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false) : playClick(nextTime); }
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime); }
+    else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
@@ -919,7 +925,7 @@ function start() {
   if (SET.rampOn) setBpm(SET.rampStart);
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
-  stopReq = false; stopAt = null; countInfo = null;
+  stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
   if (SET.countOn) {   // 再生前のカウント：そのリズムで1小節（グループの頭で「1・2…」）
     const beats = [];
     if (mode === 'F') {
@@ -1001,12 +1007,12 @@ const TAPK = {
   x: { label: 'たたきすぎ', color: '#94a3b8' },
 };
 let tapStats = { p: 0, e: 0, l: 0, x: 0 }, hiddenStats = null, tapFx = [], tapHist = [];
-const tapActive = () => SET.tapOn || mode === 'S';   // 流れるノーツでは、いつでも叩ける
+const tapActive = () => SET.tapOn || mode === 'S' || (mode === 'M' && !SET.blockAuto);   // 流れるノーツでは、いつでも叩ける
 function onTap(perfT) {
   if (!tapActive()) return;
   if (!playing) { start(); return; }
   const t = heardTime(perfT);
-  const cands = noteLog.filter(n => !(SET.tapHead || mode === 'S') || n.head);
+  const cands = noteLog.filter(n => !(SET.tapHead || mode === 'S' || mode === 'M') || n.head);
   if (!cands.length) return;
   let bi = 0;
   for (let i = 1; i < cands.length; i++) if (Math.abs(cands[i].time - t) < Math.abs(cands[bi].time - t)) bi = i;
@@ -1022,7 +1028,7 @@ function onTap(perfT) {
     kind = Math.abs(err) <= win ? 'p' : err < 0 ? 'e' : 'l';
   }
   tapStats[kind]++; updateScore();
-  if (kind !== 'x') best.res = kind;
+  if (kind !== 'x') { best.res = kind; if (mode === 'M' && best.sc !== undefined) blockJudge(best.sc, kind); }
   if (kind === 'p') { noteCombo++; noteBest = Math.max(noteBest, noteCombo); } else { if (noteCombo > 0) noteMissT = performance.now(); noteCombo = 0; }
   const hidden = SET.fadeOn && lastNote && lastNote.stage >= 1;
   if (hidden) { if (hiddenStats) hiddenStats[kind]++; }
@@ -1115,6 +1121,8 @@ function frame() {
     else if (mode === 'S') drawNotes(st, now, sceneH);
     else if (mode === 'T') drawFlowers(st, now, sceneH);
     else if (mode === 'U') drawFrog(st, now, sceneH);
+    else if (mode === 'L') drawKarakuri(st, now, sceneH);
+    else if (mode === 'M') drawBlocks(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, belowY + bandH, stripH);
@@ -1126,6 +1134,9 @@ function frame() {
   const eb = document.getElementById('emblemReset'), showEb = mode === 'H' && !hide;
   if (eb.hidden === showEb) eb.hidden = !showEb;
   if (showEb) { const tp = Math.round(82 * K) + 'px'; if (eb.style.top !== tp) eb.style.top = tp; }
+  const ba = document.getElementById('blockAutoBtn'), showBa = mode === 'M' && !hide;
+  if (ba.hidden === showBa) ba.hidden = !showBa;
+  if (showBa) { const tp = Math.round(104 * K) + 'px'; if (ba.style.top !== tp) ba.style.top = tp; }
   if (!hide) drawTapFx(sceneH, capH, capFs);
   drawReturnBanner(sceneH);
   requestAnimationFrame(frame);
@@ -3504,6 +3515,286 @@ function playFrog(t, head, L, barHead) {
   }
 }
 
+/* ---------- モード：からくり ----------
+   ・左上から右下へ、玉が仕掛けを1拍に1つずつ鳴らしながら進む（1小節ぶんの装置）
+   ・パン＝ばね台（頭）→ ドミノ（サブ拍）／トマト＝卓上ベル（頭）→ 鉄琴の板2枚（サブ拍）
+   ・まとまりの頭は大きな仕掛け。小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通って左上にもどり、
+     次の小節の最初の仕掛けにちょうど落ちる。倒れたドミノはスッと元にもどる
+   ・交互パターンでは、2小節目は色と仕掛け（太鼓・おりん）が変わる */
+function drawKarakuri(st, now, ah) {
+  const m = st.m, dur = 60 / bpm, has = st.has;
+  const g = has ? st.g : 0, b = has ? m.barOfGroup[g] : 0, bs = m.barStartSub[b];
+  const gs = m.bars[b], Nb = gs.reduce((a, v) => a + v, 0), alt = b % 2 === 1;
+  const top = 116 * K, pad = 18 * K;
+  const x0 = pad + 36 * K, span = W - x0 - pad - 70 * K, step = span / Nb;
+  const yTop = top + (ah - top) * 0.3, yBot = ah - Math.max(34 * K, (ah - top) * 0.2);
+  const ptX = i => x0 + (i + 0.5) * step, ptY = i => yTop + (yBot - yTop) * (Nb > 1 ? i / (Nb - 1) : 0);
+  const r = Math.max(6, Math.min(step * 0.17, 14 * K));
+  const kinds = [];
+  gs.forEach(L => { for (let k = 0; k < L; k++) kinds.push({ L, k, kind: k === 0 ? (L === 2 ? (alt ? 'drum' : 'spring') : (alt ? 'bowl' : 'bell')) : (L === 2 ? 'domino' : 'xylo') }); });
+  const iL = has ? st.sub - bs : -1, f = has ? st.frac : 0;
+  const ageOf = i => i <= iL ? (iL - i + f) * dur : -1;
+  const barT = has ? (iL + f) * dur : 9;
+  const goalX = x0 + span + 34 * K, goalY = yBot + 6 * K, outX = ptX(0), outY = top + 4 * K;
+
+  // 背景のパネル（2小節目は色がかわる）
+  cx.fillStyle = alt ? 'rgba(88,28,135,0.18)' : 'rgba(30,58,138,0.16)'; rr(pad, top - 8 * K, W - 2 * pad, ah - top + 4 * K, 14 * K); cx.fill();
+  if (m.nBars > 1) txt(`${b + 1}小節目の装置`, pad + 10 * K, top + 4 * K, Math.max(12, 12 * K), alt ? '#d8b4fe' : '#93c5fd', 800, 'left');
+  // もどりの管（ゴール → 左上）
+  cx.strokeStyle = 'rgba(148,163,184,0.35)'; cx.lineWidth = r * 2.4; cx.lineCap = 'round'; cx.lineJoin = 'round';
+  const tube = [[goalX, goalY - 10 * K], [goalX + 14 * K, top + 30 * K], [goalX, outY], [outX + 30 * K, outY], [outX, outY + 6 * K]];
+  cx.beginPath(); tube.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.stroke();
+  cx.strokeStyle = 'rgba(15,23,42,0.85)'; cx.lineWidth = r * 1.7;
+  cx.beginPath(); tube.forEach((p, i) => i ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1])); cx.stroke();
+  // 仕掛け
+  const XYLO = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#a78bfa'];
+  kinds.forEach((d, i) => {
+    const x = ptX(i), y = ptY(i), age = ageOf(i), hitQ = age >= 0 ? Math.exp(-age / 0.12) : 0, col = COLORS[d.L];
+    cx.strokeStyle = 'rgba(100,116,139,0.6)'; cx.lineWidth = 3 * K;   // 支える柱
+    cx.beginPath(); cx.moveTo(x, y + r * 0.6 + 12 * K); cx.lineTo(x, ah - 4 * K); cx.stroke();
+    if (d.kind === 'spring' || d.kind === 'drum') {
+      const w = step * 0.8, comp = 10 * K * hitQ;
+      if (d.kind === 'spring') {
+        cx.strokeStyle = '#cbd5e1'; cx.lineWidth = 2.5 * K; cx.beginPath();
+        const yb = y + 24 * K, yt = y + comp;
+        for (let z = 0; z <= 8; z++) { const zx = x + (z % 2 ? w * 0.22 : -w * 0.22), zy = yb - (yb - yt) * z / 8; z ? cx.lineTo(zx, zy) : cx.moveTo(x, yb); }
+        cx.stroke();
+        cx.fillStyle = col; if (hitQ > 0.05) { cx.shadowColor = col; cx.shadowBlur = 20 * K * hitQ; }
+        rr(x - w / 2, y + comp - 5 * K, w, 7 * K, 3 * K); cx.fill(); cx.shadowBlur = 0;
+        cx.fillStyle = '#475569'; rr(x - w / 2, yb, w, 6 * K, 3 * K); cx.fill();
+      } else {   // 太鼓
+        cx.fillStyle = '#b45309'; rr(x - w / 2, y + 2 * K, w, 22 * K, 6 * K); cx.fill();
+        cx.fillStyle = hexA('#fef3c7', 0.9); cx.beginPath(); cx.ellipse(x, y + 2 * K + comp * 0.3, w / 2, 6 * K, 0, 0, Math.PI * 2); cx.fill();
+        if (hitQ > 0.05) { cx.strokeStyle = hexA(col, hitQ); cx.lineWidth = 3 * K; cx.beginPath(); cx.ellipse(x, y + 2 * K, w / 2 + 8 * K * (1 - hitQ), 8 * K, 0, 0, Math.PI * 2); cx.stroke(); }
+      }
+    } else if (d.kind === 'bell' || d.kind === 'bowl') {
+      const w = step * 0.9, push = 4 * K * hitQ;
+      if (d.kind === 'bell') {   // 卓上ベル：上のボタンを玉が押す
+        cx.fillStyle = '#475569'; rr(x - w * 0.55, y + 26 * K, w * 1.1, 6 * K, 3 * K); cx.fill();
+        const gr = cx.createLinearGradient(x - w / 2, 0, x + w / 2, 0); gr.addColorStop(0, '#b45309'); gr.addColorStop(0.45, '#fde68a'); gr.addColorStop(1, '#92400e');
+        if (hitQ > 0.05) { cx.shadowColor = '#fde68a'; cx.shadowBlur = 30 * K * hitQ; }
+        cx.fillStyle = gr; cx.beginPath(); cx.ellipse(x, y + 26 * K, w / 2, 22 * K, 0, Math.PI, 0); cx.fill(); cx.shadowBlur = 0;
+        cx.fillStyle = '#e2e8f0'; rr(x - 3 * K, y + push, 6 * K, 6 * K, 2 * K); cx.fill();
+      } else {   // おりん
+        const gr = cx.createLinearGradient(x - w / 2, 0, x + w / 2, 0); gr.addColorStop(0, '#a16207'); gr.addColorStop(0.5, '#fef08a'); gr.addColorStop(1, '#854d0e');
+        if (hitQ > 0.05) { cx.shadowColor = '#fef08a'; cx.shadowBlur = 30 * K * hitQ; }
+        cx.fillStyle = gr; cx.beginPath(); cx.moveTo(x - w / 2, y + 2 * K); cx.quadraticCurveTo(x, y + 44 * K, x + w / 2, y + 2 * K); cx.closePath(); cx.fill(); cx.shadowBlur = 0;
+        cx.fillStyle = '#7f1d1d'; rr(x - w * 0.4, y + 26 * K, w * 0.8, 8 * K, 4 * K); cx.fill();
+      }
+      if (hitQ > 0.05) for (let z = 0; z < 3; z++) {   // 音の輪
+        cx.strokeStyle = hexA('#fde68a', hitQ * (1 - z * 0.3)); cx.lineWidth = 2 * K;
+        cx.beginPath(); cx.arc(x, y + 14 * K, w * 0.6 + z * 10 * K + (1 - hitQ) * 26 * K, -Math.PI * 0.9, -Math.PI * 0.1); cx.stroke();
+      }
+    } else if (d.kind === 'domino') {
+      const h = 30 * K, w = 8 * K;
+      let ang = age >= 0 ? Math.min(1.25, Math.pow(Math.min(1, age / 0.18), 2) * 1.25) : 0;
+      if (age < 0 && barT < 0.25 && barT >= 0) ang = 1.25 * (1 - barT / 0.25);   // 前の小節で倒れたドミノが、スッと元にもどる
+      cx.fillStyle = '#475569'; rr(x - step * 0.35, y + h, step * 0.7, 5 * K, 2.5 * K); cx.fill();
+      cx.save(); cx.translate(x + w / 2, y + h); cx.rotate(ang);
+      cx.fillStyle = hexA(col, 0.9); rr(-w, -h, w, h, 2 * K); cx.fill(); cx.strokeStyle = '#ffffff'; cx.lineWidth = 1.2 * K; cx.stroke();
+      cx.restore();
+    } else {   // 鉄琴の板
+      const w = step * 0.78, h = 9 * K, c = XYLO[(i + (alt ? 3 : 0)) % XYLO.length], vib = hitQ * Math.sin(age * 90) * 2 * K;
+      cx.fillStyle = '#475569'; cx.fillRect(x - w * 0.35, y + h, 4 * K, 10 * K); cx.fillRect(x + w * 0.35 - 4 * K, y + h, 4 * K, 10 * K);
+      if (hitQ > 0.05) { cx.shadowColor = c; cx.shadowBlur = 18 * K * hitQ; }
+      cx.fillStyle = c; rr(x - w / 2, y + vib, w, h, 3 * K); cx.fill(); cx.shadowBlur = 0;
+    }
+    if (d.k === 0) txt(d.L === 2 ? 'パン' : 'トマト', x, yBot + 30 * K > ah - 6 * K ? y - 26 * K : y + 46 * K, Math.max(12, 13 * K), hexA(col, has && i <= iL && i + d.L > iL ? 1 : 0.7), 900);
+  });
+  // ゴールと旗
+  const lastBeat = iL === Nb - 1, flagUp = has ? (lastBeat ? clamp((f - 0.35) / 0.2, 0, 1) : barT < 0.6 * dur * 2 && iL >= 0 && st.sc > 0 ? 1 - clamp(barT / (dur * 1.2), 0, 1) : 0) : 0;
+  cx.fillStyle = '#334155'; rr(goalX - 16 * K, goalY - 6 * K, 32 * K, 18 * K, 6 * K); cx.fill();
+  cx.strokeStyle = '#e2e8f0'; cx.lineWidth = 2 * K; const fpY = goalY - 6 * K - 46 * K * flagUp - 8 * K;
+  cx.beginPath(); cx.moveTo(goalX + 12 * K, goalY - 6 * K); cx.lineTo(goalX + 12 * K, goalY - 62 * K); cx.stroke();
+  cx.fillStyle = LIME; cx.beginPath(); cx.moveTo(goalX + 12 * K, fpY); cx.lineTo(goalX + 34 * K, fpY + 7 * K + Math.sin(now * 8) * 2 * K); cx.lineTo(goalX + 12 * K, fpY + 14 * K); cx.closePath(); cx.fill();
+  let barFlash = 0;
+  if (has && iL === 0 && st.sc > 0 && barT < 0.6) {   // ゴールのきらめき
+    const q = barT / 0.6; barFlash = 1 - q;
+    for (let z = 0; z < 10; z++) { const a = z * 0.63, d0 = (10 + 50 * q) * K; cx.fillStyle = hexA(z % 2 ? '#fde047' : LIME, 1 - q); cx.beginPath(); cx.arc(goalX + Math.cos(a) * d0, goalY - 30 * K + Math.sin(a) * d0 * 0.7, 2.6 * K, 0, Math.PI * 2); cx.fill(); }
+  }
+  // 玉
+  let bx, by, inTube = false;
+  if (!has) { bx = outX; by = outY + 20 * K; }
+  else if (!lastBeat) {
+    const nx = ptX(iL + 1), ny = ptY(iL + 1), sx0 = ptX(iL), sy0 = ptY(iL), h = step * 0.5 + (kinds[iL + 1].k === 0 ? step * 0.25 : 0);
+    bx = sx0 + (nx - sx0) * f; by = sy0 + (ny - sy0) * f - 4 * h * f * (1 - f) - r;
+  } else if (f < 0.4) {
+    const q = f / 0.4, sx0 = ptX(iL), sy0 = ptY(iL), h = step * 0.4;
+    bx = sx0 + (goalX - sx0) * q; by = sy0 + (goalY - 8 * K - sy0) * q - 4 * h * q * (1 - q) - r;
+  } else if (f < 0.62) {   // 管の中を通ってもどる（光が走る）
+    inTube = true; const q = (f - 0.4) / 0.22, tl = tube.length - 1, seg = Math.min(tl - 1, Math.floor(q * tl)), qq = q * tl - seg;
+    bx = tube[seg][0] + (tube[seg + 1][0] - tube[seg][0]) * qq; by = tube[seg][1] + (tube[seg + 1][1] - tube[seg][1]) * qq;
+  } else {
+    const q = (f - 0.62) / 0.38; bx = outX; by = outY + 6 * K + (ptY(0) - r - outY - 6 * K) * q * q;
+  }
+  if (inTube) { cx.fillStyle = hexA(LIME, 0.9); cx.shadowColor = LIME; cx.shadowBlur = 20 * K; cx.beginPath(); cx.arc(bx, by, r * 0.7, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0; }
+  else {
+    const gr = cx.createRadialGradient(bx - r * 0.35, by - r * 0.35, r * 0.1, bx, by, r);
+    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.4, '#cbd5e1'); gr.addColorStop(1, '#475569');
+    cx.fillStyle = gr; cx.beginPath(); cx.arc(bx, by, r, 0, Math.PI * 2); cx.fill();
+  }
+  if (barFlash > 0) txt('小節の頭！ 旗が立って、また最初の仕掛けから', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、玉が転がりはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? '大きな仕掛け ＝ まとまりの頭' : '大きな仕掛け（ばね・ベル）＝ まとまりの頭。1拍に1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* ---------- モード：ブロック積み（ゲーム） ----------
+   ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（まとまりの頭）に画面タップ（または J・Enter キー）
+   ・判定は「ぴったり／早い／遅い」。1小節ぶんのブロックが全部決まると、列が光って消える
+   ・叩きそびれたブロックの列は消えずに残る（4列まで）
+   ・「見るだけ」にすると、自動で積まれる。判定には映像と音のズレ補正の値も使う */
+let blockRes = {}, blockScore = 0, blockCombo = 0, blockBest = 0, blockDone = {}, blockFx = [];
+function blockReset() { blockRes = {}; blockScore = 0; blockCombo = 0; blockBest = 0; blockDone = {}; blockFx = []; }
+function blockJudge(sc, kind) {   // タップ判定のたびによばれる
+  if (blockRes[sc]) return;
+  blockRes[sc] = kind;
+  if (kind === 'p') { blockCombo++; blockBest = Math.max(blockBest, blockCombo); blockScore += 100 + 10 * Math.min(blockCombo, 20); }
+  else { blockScore += 40; blockCombo = 0; }
+}
+function drawBlocks(st, now, ah) {
+  const m = st.m, N = m.total, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
+  const top = 112 * K, maxRows = 4;
+  const Nmax = Math.max(...m.bars.map(b => b.reduce((a, v) => a + v, 0)));
+  const cs = Math.max(16, Math.min((W * 0.62) / Nmax, (ah - top - 20 * K) / (maxRows + 3.2), 80 * K));
+  const wellW = cs * Nmax, wx = (W - wellW) / 2, floorY = ah - 10 * K, wellTop = floorY - cs * (maxRows + 3);
+  const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0;
+  const barNo = has ? st.measure * B + m.barOfGroup[g] : 0, gAbs = has ? st.step : -1;
+  const headScOf = (bn, i) => {   // bn 小節目の i 番目のまとまりの頭（サブ拍の通し番号）
+    const cyc = Math.floor(bn / B), b = mod(bn, B); return cyc * N + m.starts[m.barStartGroup[b] + i];
+  };
+  // 見のがし：頭を過ぎても叩かれなかったブロック
+  if (playing && !auto) for (const n of noteLog) { if (!n.head || n.res || n.miss || n.sc === undefined) continue; if (now - n.time > 0.18) { n.miss = true; if (!blockRes[n.sc]) { blockRes[n.sc] = 'm'; blockCombo = 0; } } }
+  const resOf = sc => auto ? 'p' : blockRes[sc];
+  const okRow = bn => { const b = mod(bn, B); return m.bars[b].every((L, i) => { const r = resOf(headScOf(bn, i)); return r && r !== 'm'; }); };
+  // 消えずに残った列（下から）
+  const stuck = [];
+  for (let bn = Math.max(0, barNo - 12); bn < barNo; bn++) {
+    if (bn < 0 || !has) continue;
+    const ok = okRow(bn);
+    if (ok && !blockDone[bn]) { blockDone[bn] = true; blockScore += auto ? 0 : 300; blockFx.push({ t: performance.now(), bn }); }
+    if (!ok) stuck.push(bn);
+  }
+  while (stuck.length > maxRows - 1) stuck.shift();
+  const rowY = ri => floorY - (ri + 1) * cs;
+  // 井戸
+  cx.fillStyle = 'rgba(15,23,42,0.75)'; cx.fillRect(wx, wellTop, wellW, floorY - wellTop);
+  cx.strokeStyle = 'rgba(148,163,184,0.5)'; cx.lineWidth = 3 * K;
+  cx.beginPath(); cx.moveTo(wx, wellTop); cx.lineTo(wx, floorY); cx.lineTo(wx + wellW, floorY); cx.lineTo(wx + wellW, wellTop); cx.stroke();
+  cx.strokeStyle = 'rgba(148,163,184,0.08)'; cx.lineWidth = 1;
+  for (let c = 1; c < Nmax; c++) { cx.beginPath(); cx.moveTo(wx + c * cs, wellTop); cx.lineTo(wx + c * cs, floorY); cx.stroke(); }
+  const drawBlock = (x, y, L, res, glow, al = 1) => {
+    const col = res === 'm' ? '#475569' : COLORS[L];
+    cx.globalAlpha = al;
+    if (glow) { cx.shadowColor = col; cx.shadowBlur = 22 * K * glow; }
+    const gr = cx.createLinearGradient(0, y, 0, y + cs); gr.addColorStop(0, hexA(col, 1)); gr.addColorStop(1, hexA(col, 0.65));
+    cx.fillStyle = gr; rr(x + 2, y + 2, L * cs - 4, cs - 4, 6 * K); cx.fill(); cx.shadowBlur = 0;
+    cx.strokeStyle = res && res !== 'm' ? hexA(TAPK[res].color, 0.95) : 'rgba(255,255,255,0.6)'; cx.lineWidth = (res && res !== 'm' ? 3 : 1.5) * K; cx.stroke();
+    txt(String(L), x + L * cs / 2, y + cs * 0.52, cs * 0.55, '#0f172a', 900);
+    if (res === 'm') txt('×', x + L * cs - cs * 0.25, y + cs * 0.3, cs * 0.3, '#fb7185', 900);
+    cx.globalAlpha = 1;
+  };
+  const rowBlocks = (bn, y, upto, al) => {
+    const b = mod(bn, B); let c = 0;
+    m.bars[b].forEach((L, i) => { if (i <= upto) drawBlock(wx + c * cs, y, L, resOf(headScOf(bn, i)), 0, al); c += L; });
+  };
+  stuck.forEach((bn, ri) => rowBlocks(bn, rowY(ri), 99, 0.75));
+  const curRow = stuck.length;
+  // いまの小節の列（着地したブロック）
+  if (has) {
+    const b = mod(barNo, B), iCur = g - m.barStartGroup[b];
+    rowBlocks(barNo, rowY(curRow), iCur, 1);
+    // 着地したばかりのブロックのつぶれ・光
+    const ageH = (kCur + st.frac) * dur;
+    if (ageH < 0.35) {
+      let c = 0; for (let i = 0; i < iCur; i++) c += m.bars[b][i];
+      const L = m.groups[g], q = ageH / 0.35;
+      cx.strokeStyle = hexA(COLORS[L], 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5; rr(wx + c * cs - 6 * K * q, rowY(curRow) - 6 * K * q, L * cs + 12 * K * q, cs + 12 * K * q, 8 * K); cx.stroke();
+    }
+  }
+  // 列が消える光
+  blockFx = blockFx.filter(e => performance.now() - e.t < 600);
+  for (const e of blockFx) {
+    const q = (performance.now() - e.t) / 600, y = rowY(curRow);
+    cx.fillStyle = hexA(LIME, 0.6 * (1 - q)); cx.fillRect(wx - 10 * K * q, y - cs * 0.2 * q, wellW + 20 * K * q, cs * (1 + 0.4 * q));
+    for (let z = 0; z < 14; z++) { const px = wx + wellW * (z + 0.5) / 14, py = y + cs / 2 - 60 * K * q * (0.5 + hash01(z)); cx.fillStyle = hexA(z % 2 ? '#fde047' : '#ffffff', 1 - q); cx.beginPath(); cx.arc(px, py, 3 * K, 0, Math.PI * 2); cx.fill(); }
+    if (q < 0.7) txt('そろった！', W / 2, y - 14 * K, Math.max(16, 20 * K), hexA(LIME, 1 - q), 900);
+  }
+  // 落ちてくるブロック（次のまとまり）：いまのまとまりの間に落ちて、次の頭でちょうど着地
+  if (has) {
+    const L = m.groups[g], gp = clamp((kCur + st.frac) / L, 0, 1);
+    const gNext = (g + 1) % G_(m), bNext = m.barOfGroup[gNext], nextBarNo = gNext === m.barStartGroup[bNext] ? barNo + 1 : barNo;
+    const iNext = gNext - m.barStartGroup[bNext], Ln = m.groups[gNext];
+    let c = 0; for (let i = 0; i < iNext; i++) c += m.bars[bNext][i];
+    const bCur = mod(barNo, B);
+    const curOk = m.bars[bCur].every((LL, i) => { if (i > g - m.barStartGroup[bCur]) return true; const r2 = resOf(headScOf(barNo, i)); return !r2 || r2 !== 'm'; });
+    const targetRow = nextBarNo === barNo ? curRow : (curOk ? curRow : Math.min(curRow + 1, maxRows - 1));
+    const ty = rowY(targetRow), sy = wellTop - cs * 0.2, y = sy + (ty - sy) * gp * gp;
+    // 着地する場所の目印
+    cx.setLineDash([4 * K, 4 * K]); cx.strokeStyle = hexA(COLORS[Ln], 0.4 + 0.5 * gp); cx.lineWidth = 2 * K;
+    rr(wx + c * cs + 2, ty + 2, Ln * cs - 4, cs - 4, 6 * K); cx.stroke(); cx.setLineDash([]);
+    cx.save(); cx.beginPath(); cx.rect(wx, wellTop - cs, wellW, floorY - wellTop + cs); cx.clip();
+    drawBlock(wx + c * cs, y, Ln, null, gp > 0.75 ? (gp - 0.75) * 4 : 0);
+    cx.restore();
+  }
+  // スコア
+  const tx = wx + wellW + 18 * K, nar = W < 640;
+  const sx = nar ? W / 2 : tx, al = nar ? 'center' : 'left', sy0 = nar ? wellTop - 30 * K : wellTop + 10 * K;
+  txt(`スコア ${blockScore}`, sx, sy0, Math.max(15, 18 * K), '#f8fafc', 900, al);
+  if (!nar) txt(`いちばん長い連続 ${blockBest}`, sx, sy0 + 26 * K, Math.max(12, 13 * K), '#a3b1c6', 700, al);
+  if (blockCombo >= 2 && !auto) txt(`${blockCombo} 連続ぴったり！`, nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(15, (16 + Math.min(blockCombo, 20) * 0.6) * K), blockCombo >= 10 ? '#fde047' : LIME, 900, al);
+  if (auto) txt('見るだけ（自動）', nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(13, 14 * K), '#94a3b8', 800, al);
+  if (!has) txt(auto ? '▶ 再生すると、ブロックが自動で積まれます' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else txt(auto ? 'まとまりの頭でブロックが着地する' : (nar ? '着地の瞬間にタップ！' : 'ブロックが着地する瞬間に、画面をタップ（J・Enter キーでも）'), W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+const G_ = m => m.groups.length;
+
+/* からくりの音：仕掛けごとに素材のちがう音 */
+const XYLO_F = [1046, 1175, 1318, 1568, 1760, 2093];
+function playKarakuri(t, head, L, barHead, k, bar) {
+  const tone = (type, f0, f1, a, len) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + len * 0.7);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.03);
+  };
+  const alt = bar % 2 === 1;
+  if (head && L === 2) {
+    if (!alt) { tone('sine', 180, 420, 0.6, 0.16); tone('sine', 420, 200, 0.25, 0.22); }   // ばね：ボヨン
+    else { tone('sine', 120, 55, 0.9, 0.22); }                                               // 太鼓：ドン
+  } else if (head) {
+    if (!alt) { tone('sine', 2093, 2093, 0.4, 0.8); tone('sine', 5230, 5230, 0.08, 0.4); }   // ベル：チーン
+    else { tone('sine', 880, 880, 0.45, 1.1); tone('sine', 2420, 2420, 0.1, 0.6); }          // おりん：リーン
+  } else if (L === 2) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();     // ドミノ：カタッ
+    s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 2;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.001); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    s.connect(f); f.connect(g); g.connect(bus); s.start(t, Math.random() * 0.2); s.stop(t + 0.05);
+    tone('triangle', 1400, 1000, 0.25, 0.05);
+  } else {
+    tone('sine', XYLO_F[(k + (alt ? 2 : 0)) % XYLO_F.length], XYLO_F[(k + (alt ? 2 : 0)) % XYLO_F.length], 0.35, 0.35);   // 鉄琴
+    tone('sine', XYLO_F[(k + (alt ? 2 : 0)) % XYLO_F.length] * 4, XYLO_F[(k + (alt ? 2 : 0)) % XYLO_F.length] * 4, 0.04, 0.1);
+  }
+  if (barHead) { [1318, 1568, 2093].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(), tt = t + 0.06 + i * 0.05; o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(0.12, tt + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.3); o.connect(g); g.connect(bus); o.start(tt); o.stop(tt + 0.35); }); }
+}
+/* ブロックの音：ゴトッ（着地＝まとまりの頭）／ピッ（サブ拍） */
+function playBlock(t, head, L, barHead) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  if (head) {
+    o.type = 'square'; o.frequency.setValueAtTime(L === 3 ? 196 : 262, t); o.frequency.exponentialRampToValueAtTime(L === 3 ? 98 : 131, t + 0.08);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1200;
+    o.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.14);
+    const s = ctx.createOscillator(), sg = ctx.createGain();
+    s.type = 'sine'; s.frequency.setValueAtTime(110, t); s.frequency.exponentialRampToValueAtTime(50, t + 0.12);
+    sg.gain.setValueAtTime(0.0001, t); sg.gain.exponentialRampToValueAtTime(0.7, t + 0.004); sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+    s.connect(sg); sg.connect(bus); s.start(t); s.stop(t + 0.17);
+  } else {
+    o.type = 'square'; o.frequency.setValueAtTime(1760, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.04);
+  }
+}
+
 /* ---------- モードF：同時ポリリズム ----------
    1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
    外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
@@ -4080,6 +4371,10 @@ cv.addEventListener('click', () => {
   if (!tapActive()) togglePlay();
 });
 $('#emblemReset').onclick = e => { e.stopPropagation(); emblemReset(); };
+function showBlockAuto() { $('#blockAutoBtn').textContent = SET.blockAuto ? '👀 見るだけ：ON' : '👀 見るだけ：OFF'; $('#blockAutoBtn').classList.toggle('on', SET.blockAuto); }
+$('#blockAutoBtn').onclick = e => { e.stopPropagation(); SET.blockAuto = !SET.blockAuto; saveSet(); showBlockAuto(); };
+$('#blockAutoBtn').addEventListener('pointerdown', e => e.stopPropagation());
+showBlockAuto();
 document.addEventListener('keydown', e => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tg = e.target || {}, typing = tg.tagName === 'INPUT' && tg.type !== 'range';
