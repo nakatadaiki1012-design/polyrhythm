@@ -120,6 +120,9 @@
   .sheet-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .sheet-grid .tab { flex-direction: column; justify-content: center; padding: 10px 4px; font-size: 14px; white-space: normal; text-align: center; }
   .sheet-grid .tab .em { font-size: 26px; }
+  .more-hint { position: sticky; bottom: -18px; margin: 10px -20px -18px; padding: 10px 0 12px; text-align: center; font-size: 14px; font-weight: 800; color: #bef264;
+               background: linear-gradient(rgba(15,26,48,0), #0f1a30 45%); pointer-events: none; transition: opacity .2s; }
+  .more-hint.off { opacity: 0; }
   .share-url { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #334155; background: #0b1222; color: #e2e8f0; font-size: 14px; font-family: inherit; }
   .qr-wrap { display: flex; justify-content: center; margin-top: 12px; }
   .qr-wrap canvas { background: #fff; border-radius: 10px; width: 220px; height: 220px; image-rendering: pixelated; }
@@ -240,7 +243,7 @@
     <div class="dr-head"><b>⚙ 設定</b><button id="drClose" class="dr-close" aria-label="閉じる">✕</button></div>
     <div class="blk">
       <div class="row base">
-        <span class="lbl">テンポ（8分音符）</span>
+        <span class="lbl">テンポ（1分間の刻みの数）</span>
         <span class="val-big"><span id="bpmVal">160</span><small>BPM</small></span>
       </div>
       <div class="row">
@@ -270,7 +273,7 @@
       </div>
       <div class="sub-box hide" id="tapBox">
         <div class="row"><span class="lbl2">叩く拍</span>
-          <div class="seg" id="tapTarget"><button data-v="all">全部の拍</button><button data-v="head">まとまりの頭だけ</button></div>
+          <div class="seg" id="tapTarget"><button data-v="all">全部の刻み</button><button data-v="head">拍の頭だけ</button></div>
         </div>
         <div class="hint" style="margin-top:8px">画面をタップ、または J・Enter キーで叩きます。<br>（タップ判定がONの間、画面タップでは停止しません）</div>
         <div class="row" style="margin-top:8px">
@@ -280,11 +283,11 @@
       </div>
 
       <div class="row">
-        <div><div class="lbl">補助を少しずつ消す</div><div class="hint">映像 → サブ拍 → 強拍 の順に消えて、また戻る</div></div>
+        <div><div class="lbl">補助を少しずつ消す</div><div class="hint">映像 → 刻み → 拍の頭 の順に消えて、また戻る</div></div>
         <button id="fadeSw" class="sw" aria-label="補助を少しずつ消す"></button>
       </div>
       <div class="sub-box hide" id="fadeBox">
-        <div class="hint">① 全部あり → ② 映像なし → ③ サブ拍なし → ④ 音もなし → ① 音が戻る（くり返し）</div>
+        <div class="hint">① 全部あり → ② 映像なし → ③ 刻みなし → ④ 音もなし → ① 音が戻る（くり返し）</div>
         <div class="row"><span class="lbl2">1段階の長さ</span>
           <div class="seg" id="fadeN"><button data-v="1">1小節</button><button data-v="2">2小節</button><button data-v="4">4小節</button></div>
         </div>
@@ -330,7 +333,7 @@
         <button class="btn" id="buildClear">ぜんぶ消す</button>
       </div>
       <div class="build-msg" id="buildMsg"></div>
-      <div class="hint">まとまりは2〜6個、合計16拍まで。保存したリズムは「リズムを選ぶ」に出てきて、次に開いたときも残ります。</div>
+      <div class="hint">拍は2〜6個、刻みは合計16個まで。保存したリズムは「リズムを選ぶ」に出てきて、次に開いたときも残ります。</div>
     </details>
 
     <!-- ポリリズム -->
@@ -338,14 +341,14 @@
       <summary>ポリリズム</summary>
       <div class="hint" style="margin-bottom:8px">2つのリズムを同時に鳴らします。<b style="color:#f472b6">高い音</b>と<b style="color:#38bdf8">低い音</b>が、1周の中で同じ時間をちがう数で分けます。</div>
       <div class="seg full" id="polySel"></div>
-      <div class="hint" style="margin-top:8px">選ぶとポリリズムのモードに切りかわります。サブ拍クリックをONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+      <div class="hint" style="margin-top:8px">選ぶとポリリズムのモードに切りかわります。刻みの音をONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
     </details>
 
     <!-- 授業で使う -->
     <details class="sec" open>
       <summary>授業で使う</summary>
       <div class="row">
-        <div><div class="lbl">再生前のカウント</div><div class="hint">そのリズムで1小節数えてから始まる（グループの頭で「1・2…」）</div></div>
+        <div><div class="lbl">再生前のカウント</div><div class="hint">そのリズムで1小節数えてから始まる（拍の頭で「1・2…」）</div></div>
         <button id="countSw" class="sw" aria-label="再生前のカウント"></button>
       </div>
       <div class="row">
@@ -373,12 +376,16 @@
         <button id="bigSw" class="sw" aria-label="大きな数字"></button>
       </div>
       <div class="row">
+        <div><div class="lbl">楽譜バー</div><div class="hint">画面の下に、拍子記号と8分音符のリズム譜を出す</div></div>
+        <button id="scoreSw" class="sw on" aria-label="楽譜バー"></button>
+      </div>
+      <div class="row">
         <span class="lbl">音の種類</span>
         <div class="seg" id="soundSel"><button data-v="click">クリック</button><button data-v="voice">声（パ・ン…）</button></div>
       </div>
       <div class="row">
-        <div><div class="lbl">サブ拍クリック</div><div class="hint" id="subDesc">グループ内の細かい拍も鳴らす</div></div>
-        <button id="subSw" class="sw on" aria-label="サブ拍クリック"></button>
+        <div><div class="lbl">刻みの音</div><div class="hint" id="subDesc">刻み（刻み1つ分）も鳴らす</div></div>
+        <button id="subSw" class="sw on" aria-label="刻みの音"></button>
       </div>
       <div class="row">
         <div><div class="lbl">指揮の図を左右反転</div><div class="hint" id="mirDesc">指揮者の後ろから見た向き</div></div>
@@ -423,7 +430,7 @@
 </div>
 
 <!-- モードの一覧（スマホ） -->
-<div id="modeSheet" class="modal hidden"><div class="modal-box wide"><h3>モードを選ぶ</h3><div id="sheetBody"></div>
+<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>モードを選ぶ</h3><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- くわしい説明 -->
 <div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
@@ -491,8 +498,8 @@ function buildPoly(groups) {
 
 /* 転がる図形を作る
    ・x/4 の拍子（2/4・3/4・4/4）：1拍＝1辺　→ 3/4 は三角形、4/4 は四角形（2/4 は2小節で四角形）
-   ・x/8 の拍子（5/8・6/8・7/8…）：8分音符1つ＝1辺 → 5/8 は五角形、6/8 は六角形
-     グループの頭の角だけ外にとがらせる → 頭の角で大きく「コトン」、途中の角は小さく「ころ」 */
+   ・x/8 の拍子（5/8・6/8・7/8…）：刻み1つ＝1辺 → 5/8 は五角形、6/8 は六角形
+     拍の頭の角だけ外にとがらせる → 頭の角で大きく「コトン」、途中の角は小さく「ころ」 */
 function buildShape(mt) {
   const quarter = mt.sigs.every(s => /\/4$/.test(s));
   if (quarter) {
@@ -545,7 +552,7 @@ const SET = {
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
-  countOn: true, stopMode: 'bar', blockAuto: false,
+  countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -565,49 +572,49 @@ const PA = '#f472b6', PB = '#38bdf8';   // ポリリズム：高い音／低い�
 /* モードの一覧：グループ・絵文字・1行の説明（line＝ふつう、short＝せまい画面）・くわしい説明 */
 const MODE_GROUPS = [['g1', 'きほん'], ['g2', 'ふしぎ'], ['g3', 'たのしい']];
 const MODE_INFO = {
-  A: { g: 'g1', em: '🔷', name: '多角形', line: '角が床に「コトッ」とつく瞬間に音が鳴る。とがった角＝グループの頭', short: '角が床につく瞬間に音。とがった角＝頭',
-       detail: ['1辺＝8分音符1つ（2/4・3/4・4/4は1辺＝1拍）。', 'とがった角（グループの頭）が床につくと大きく「コトン」、途中の角は小さく「ころ」。', '長い辺（トマト）は、角が持ち上がるのに時間がかかる＝タメ。', '白い線は重心の動き。点線はこれから進む道。'] },
-  B: { g: 'g1', em: '🏀', name: 'ボール', line: '奥の大きいボール＝グループ（2か3）、手前の小さいボール＝8分音符', short: '大きいボール＝グループ、小さい＝8分音符',
-       detail: ['大きいボールは、グループの頭ごとに次のブロックへ跳ぶ。', 'トマト（3）は高く長く跳ぶ。滞空時間が長いほど高くなる。', '手前の小さいボールは8分音符ごとに跳ねる。', '着地の瞬間に音が鳴り、ボールが少しつぶれる。'] },
+  A: { g: 'g1', em: '🔷', name: '多角形', line: '角が床に「コトッ」とつく瞬間に音が鳴る。とがった角＝拍の頭', short: '角が床につく瞬間に音。とがった角＝頭',
+       detail: ['1辺＝刻み1つ（2/4・3/4・4/4は1辺＝1拍）。', 'とがった角（拍の頭）が床につくと大きく「コトン」、途中の角は小さく「ころ」。', '長い辺（トマト）は、角が持ち上がるのに時間がかかる＝タメ。', '白い線は重心の動き。点線はこれから進む道。'] },
+  B: { g: 'g1', em: '🏀', name: 'ボール', line: '奥の大きいボール＝拍（刻み2つか3つ）、手前の小さいボール＝刻み', short: '大きいボール＝拍、小さい＝刻み',
+       detail: ['大きいボールは、拍の頭ごとに次のブロックへ跳ぶ。', 'トマト（3）は高く長く跳ぶ。滞空時間が長いほど高くなる。', '手前の小さいボールは刻みごとに跳ねる。', '着地の瞬間に音が鳴り、ボールが少しつぶれる。'] },
   C: { g: 'g1', em: '⭕', name: '円軌道', line: '光の球が1周する間が1周期。色の境目を通ると音が鳴る', short: '1周＝1周期。色の境目で音',
-       detail: ['円を、拍の長さで色分けしています（水色＝パン、黄色＝トマト）。', '2と3で、扇形の角度の広さがちがう。', '光の球が境目を通る瞬間＝グループの頭。中心から光が走る。', 'ふつうは1周＝1小節。交互パターンでは1周＝2小節。'] },
+       detail: ['円を、拍の長さで色分けしています（水色＝パン、黄色＝トマト）。', '2と3で、扇形の角度の広さがちがう。', '光の球が境目を通る瞬間＝拍の頭。中心から光が走る。', 'ふつうは1周＝1小節。交互パターンでは1周＝2小節。'] },
   D: { g: 'g1', em: '🎼', name: '指揮', line: '指揮の図形。打点で鋭く跳ね返り、長い拍（3）はゆっくり動く', short: '指揮の図形。打点で跳ね返る',
-       detail: ['1つの線が1拍（グループ）。打点は横一列に並び、打点でボールのように跳ねる。', '1拍目は高いところからまっすぐ振り下ろし、最後の拍のあと高く上がって戻る。', '長い拍（トマト）は、同じ形のままゆっくり動く。', '「設定」→「表示と音」で、左右反転（生徒から見た向き）にできる。'] },
-  E: { g: 'g1', em: '🪜', name: '階段', line: '8分音符ごとにぴょん、グループの頭で次の段へ（段の幅＝2か3）', short: '8分音符でぴょん、頭で次の段へ',
-       detail: ['ボールが8分音符ごとに小さく跳ねる。', 'グループの頭で次の段へ上がる（または下がる）。', '段の幅は、パン＝2、トマト＝3。'] },
+       detail: ['1つの線が1拍（パンかトマト）。打点は横一列に並び、打点でボールのように跳ねる。', '1拍目は高いところからまっすぐ振り下ろし、最後の拍のあと高く上がって戻る。', '長い拍（トマト）は、同じ形のままゆっくり動く。', '「設定」→「表示と音」で、左右反転（生徒から見た向き）にできる。'] },
+  E: { g: 'g1', em: '🪜', name: '階段', line: '刻みごとにぴょん、拍の頭で次の段へ（段の幅＝2か3）', short: '刻みでぴょん、頭で次の段へ',
+       detail: ['ボールが刻みごとに小さく跳ねる。', '拍の頭で次の段へ上がる（または下がる）。', '段の幅は、パン＝2、トマト＝3。'] },
   F: { g: 'g2', em: '🎶', name: 'ポリリズム', line: '針が角を通ると音が鳴る。真上で2つの音がそろう', short: '針が角を通ると音。真上でそろう',
        detail: ['2つのリズムを同時に鳴らします。高い音と低い音が、同じ時間をちがう数で分ける。', '外側の図形＝高い音、内側の図形＝低い音。', '組み合わせ（3対2など）は「設定」→「ポリリズム」で選べます。'] },
   G: { g: 'g3', em: '🚃', name: '電車', line: '車両の継ぎ目がレールの継ぎ目を通るとガタン！ パン＝短い車両、トマト＝長い車両', short: '継ぎ目でガタン！ パン＝短い車両',
-       detail: ['パンは短い車両、トマトは長い車両。', '車両の継ぎ目がレールの継ぎ目を通るとガタン（グループの頭）。', '車両の中の車輪が通るとコトン（サブ拍）。', '小節の頭の車両は色がちがう。'] },
-  H: { g: 'g2', em: '💠', name: '紋章', line: '外側の大きな点＝グループの頭、内側の点＝サブ拍。小節ごとに模様が育つ', short: '大きな点＝頭。模様が育つ',
-       detail: ['円の上を光が走り、拍ごとに点を打って線で結ぶ。', '外側の大きな点＝グループの頭（重心）。トマトはパンより深く内側へ入る。', '小節ごとに少し回転して重なり、万華鏡のように育つ。', '拍子ごとにちがう模様になる。「模様をリセット」で消せる。'] },
-  I: { g: 'g3', em: '🎆', name: '花火', line: '大きな花火＝グループの頭、小さな火花＝サブ拍。ピンクの花火＝小節の頭', short: '大きな花火＝頭、小さな火花＝サブ拍',
-       detail: ['グループの頭で大きな花火（ドン）、サブ拍で小さな火花（パチッ）。', 'トマトの花火は大きく、長く光る。', '小節の頭はピンクの二重の花火。', '開く場所は毎小節同じなので、くり返しが見える。'] },
-  J: { g: 'g2', em: '⚙️', name: '歯車', line: 'サブ拍の歯車の歯がかみ合う強拍のときだけ、強拍の歯車が回る', short: '歯がかみ合う強拍だけ、強拍の歯車が回る',
-       detail: ['サブ拍の歯車：1拍で1マス進み、1回転でちょうど1小節。', '歯は強拍のマスにだけある。歯のあいだは、パン＝2マス、トマト＝3マス。', '強拍の歯車：歯がかみ合う強拍のときだけ回り、サブ拍のあいだは止まっている。', '歯の真ん中どうしがかみ合う瞬間に音が鳴る。小節の頭の歯は緑。'] },
-  K: { g: 'g3', em: '💃', name: '踊る人', line: 'サブ拍はつま先で小刻みに、強拍でぐっと踏み込む（5/8・7/8はバルカン半島の民族舞踊でも使われる）', short: 'サブ拍は小刻みに、強拍で踏み込む',
-       detail: ['サブ拍では、つま先で小刻みに1歩ずつ進む。', '強拍（グループの頭）で、ひざを曲げてぐっと踏み込み、腕を大きくひらく。', '色つきの大きな足あと＝強拍、小さな点＝サブ拍。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
+       detail: ['パンは短い車両、トマトは長い車両。', '車両の継ぎ目がレールの継ぎ目を通るとガタン（拍の頭）。', '車両の中の車輪が通るとコトン（刻み）。', '小節の頭の車両は色がちがう。'] },
+  H: { g: 'g2', em: '💠', name: '紋章', line: '外側の大きな点＝拍の頭、内側の点＝刻み。小節ごとに模様が育つ', short: '大きな点＝頭。模様が育つ',
+       detail: ['円の上を光が走り、刻みごとに点を打って線で結ぶ。', '外側の大きな点＝拍の頭（重心）。トマトはパンより深く内側へ入る。', '小節ごとに少し回転して重なり、万華鏡のように育つ。', '拍子ごとにちがう模様になる。「模様をリセット」で消せる。'] },
+  I: { g: 'g3', em: '🎆', name: '花火', line: '大きな花火＝拍の頭、小さな火花＝刻み。ピンクの花火＝小節の頭', short: '大きな花火＝頭、小さな火花＝刻み',
+       detail: ['拍の頭で大きな花火（ドン）、刻みで小さな火花（パチッ）。', 'トマトの花火は大きく、長く光る。', '小節の頭はピンクの二重の花火。', '開く場所は毎小節同じなので、くり返しが見える。'] },
+  J: { g: 'g2', em: '⚙️', name: '歯車', line: '刻みの歯車の歯がかみ合う拍の頭のときだけ、拍の歯車が回る', short: '歯がかみ合う拍の頭だけ、拍の歯車が回る',
+       detail: ['刻みの歯車：1刻みで1マス進み、1回転でちょうど1小節。', '歯は拍の頭のマスにだけある。歯のあいだは、パン＝2マス、トマト＝3マス。', '拍の歯車：歯がかみ合う拍の頭のときだけ回り、刻みのあいだは止まっている。', '歯の真ん中どうしがかみ合う瞬間に音が鳴る。小節の頭の歯は緑。'] },
+  K: { g: 'g3', em: '💃', name: '踊る人', line: '刻みはつま先で小刻みに、拍の頭でぐっと踏み込む（5/8・7/8はバルカン半島の民族舞踊でも使われる）', short: '刻みは小刻みに、拍の頭で踏み込む',
+       detail: ['刻みでは、つま先で小刻みに1歩ずつ進む。', '拍の頭で、ひざを曲げてぐっと踏み込み、腕を大きくひらく。', '色つきの大きな足あと＝拍の頭、小さな点＝刻み。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
 };
-MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝まとまりの頭', short: '当たる瞬間に音。高いドミノ＝頭',
-  detail: ['8分音符1つ＝ドミノ1枚。1拍かけて倒れ、次のドミノに当たった瞬間に音が鳴る。', 'まとまりの頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯がまとまりの長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
-MODE_INFO.O = { g: 'g3', em: '🤹', name: 'ジャグリング', line: 'パンは低く、トマトは高く投げる。手に落ちる瞬間＝まとまりの頭', short: 'パンは低く、トマトは高く投げる',
-  detail: ['まとまり1つ＝1回の投げ。左右の手で交互に投げる。', '空中にいる時間が長いほど高く上がる（2拍の投げより3拍の投げは約2倍の高さ）。本物のジャグリングと同じしくみ。', 'ボールの道の上の点は8分音符ごとの位置。てっぺん近くでは点の間がせまい＝ゆっくり動く。', '手に落ちる瞬間に音が鳴る。軌道が残り、小節ごとに同じ形がくり返される。'] };
-MODE_INFO.P = { g: 'g2', em: '💧', name: 'しずく', line: 'しずくが水面に落ちる瞬間に音。大きな波紋＝まとまりの頭', short: '大きな波紋＝まとまりの頭',
-  detail: ['8分音符の数だけ、しずくが落ちる場所が横に並ぶ（1周期ぶん）。', 'しずくは上から落ちてきて、ちょうど拍の瞬間に水面に着く。落ちてくる間が「予告」。', 'まとまりの頭は大きなしずく。トマトの波紋はパンより大きく、長く広がる。', '毎小節、同じ場所に同じしずくが落ちるので、波紋の模様がくり返される。'] };
+MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', short: '当たる瞬間に音。高いドミノ＝頭',
+  detail: ['刻み1つ＝ドミノ1枚。刻み1つぶんの時間で倒れ、次のドミノに当たった瞬間に音が鳴る。', '拍の頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯が拍の長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
+MODE_INFO.O = { g: 'g3', em: '🤹', name: 'ジャグリング', line: 'パンは低く、トマトは高く投げる。手に落ちる瞬間＝拍の頭', short: 'パンは低く、トマトは高く投げる',
+  detail: ['1拍＝1回の投げ。左右の手で交互に投げる。', '空中にいる時間が長いほど高く上がる（刻み2つの投げより、刻み3つの投げは約2倍の高さ）。本物のジャグリングと同じしくみ。', 'ボールの道の上の点は刻みごとの位置。てっぺん近くでは点の間がせまい＝ゆっくり動く。', '手に落ちる瞬間に音が鳴る。軌道が残り、小節ごとに同じ形がくり返される。'] };
+MODE_INFO.P = { g: 'g2', em: '💧', name: 'しずく', line: 'しずくが水面に落ちる瞬間に音。大きな波紋＝拍の頭', short: '大きな波紋＝拍の頭',
+  detail: ['刻みの数だけ、しずくが落ちる場所が横に並ぶ（1周期ぶん）。', 'しずくは上から落ちてきて、ちょうど刻みの瞬間に水面に着く。落ちてくる間が「予告」。', '拍の頭は大きなしずく。トマトの波紋はパンより大きく、長く広がる。', '毎小節、同じ場所に同じしずくが落ちるので、波紋の模様がくり返される。'] };
 MODE_INFO.Q = { g: 'g3', em: '🍮', name: 'ゼリー', line: 'サクランボが乗った瞬間にゼリーがぷるん。トマトのゼリーは大きく長くゆれる', short: '乗った瞬間にぷるん。トマトは長くゆれる',
-  detail: ['まとまり1つ＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー。', 'サクランボがゼリーからゼリーへ跳びうつり、乗った瞬間（まとまりの頭）にゼリーがつぶれて、ぷるんぷるんとゆれる。', 'トマトのゼリーは大きく、長くゆれる。サブ拍では小さく「ぷるっ」。', '小節の頭のゼリーには緑の印。サクランボは毎小節、同じ道を跳ぶ。'] };
-MODE_INFO.R = { g: 'g2', em: '🕰️', name: '振り子', line: '振り子が鐘に当たる瞬間＝まとまりの頭。ひもが長いトマトは、ゆっくり振れる', short: '鐘に当たる瞬間＝頭。トマトはゆっくり',
-  detail: ['左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘がある。', 'まとまりの頭で振り子が鐘に当たり、その勢いでそのまとまりの振り子が飛び出す（ニュートンのゆりかごと同じ）。', '行って戻る時間はひもの長さで決まる。トマトのひもはパンの2.25倍で、時間は1.5倍（2拍と3拍）。本物の振り子と同じしくみ。', '弧の上の点は8分音符ごとの位置。'] };
+  detail: ['1拍＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー。', 'サクランボがゼリーからゼリーへ跳びうつり、乗った瞬間（拍の頭）にゼリーがつぶれて、ぷるんぷるんとゆれる。', 'トマトのゼリーは大きく、長くゆれる。刻みでは小さく「ぷるっ」。', '小節の頭のゼリーには緑の印。サクランボは毎小節、同じ道を跳ぶ。'] };
+MODE_INFO.R = { g: 'g2', em: '🕰️', name: '振り子', line: '振り子が鐘に当たる瞬間＝拍の頭。ひもが長いトマトは、ゆっくり振れる', short: '鐘に当たる瞬間＝頭。トマトはゆっくり',
+  detail: ['左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘がある。', '拍の頭で振り子が鐘に当たり、その勢いでその拍の振り子が飛び出す（ニュートンのゆりかごと同じ）。', '行って戻る時間はひもの長さで決まる。トマトのひもはパンの2.25倍で、時間は1.5倍（刻み2つと3つ）。本物の振り子と同じしくみ。', '弧の上の点は刻みごとの位置。'] };
 MODE_INFO.S = { g: 'g3', em: '🎮', name: 'ノーツ', line: '流れてくる大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）', short: '丸が線に重なった瞬間にタップ！',
-  detail: ['右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面をタップ（または J・Enter キー）。', '大きな丸＝まとまりの頭（パ＝パン、ト＝トマト）。うしろの帯の長さ＝まとまりの長さ。小さな点＝サブ拍。', 'このモードでは、タップ判定の設定がOFFでも叩ける（判定はまとまりの頭だけ）。映像と音のズレ補正も判定に使う。', '「ぴったり」が続くと連続の数が増える。見のがしや早すぎ・遅すぎで、とぎれる。'] };
-MODE_INFO.T = { g: 'g2', em: '🌸', name: '花', line: 'まとまりの頭で花が開き、8分音符ごとに花びらが2枚ずつふえる', short: '頭で花が開き、花びらがふえる',
-  detail: ['まとまり1つ＝花1つ。まとまりの頭で、つぼみがポンと開く。', '8分音符ごとに花びらが2枚ずつふえる（パン＝4枚の小さな花、トマト＝6枚の大きな花）。', '1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く。', '同じリズムなら、どの列も同じ並び。花だんの模様で「くり返し」が見える。'] };
-MODE_INFO.U = { g: 'g3', em: '🐸', name: 'カエル', line: 'ハスの葉に着地する瞬間＝まとまりの頭。葉の間かく：パン＝2、トマト＝3', short: '着地の瞬間＝頭。トマトは遠くへ',
-  detail: ['ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝8分音符1つ）。', 'カエルはまとまりの頭で葉に着地して「ケロッ」。トマトは遠く、高く跳ぶ。', '水面の小さな点はサブ拍の位置。カエルの影が通ると波紋が広がる。', '小節の頭の葉には、ハスの花が咲いている。'] };
-MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛けを1拍に1つずつ鳴らして進む。大きな仕掛け＝まとまりの頭', short: '大きな仕掛け＝まとまりの頭',
-  detail: ['左上から右下へ、玉が仕掛けを1拍に1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。拍の数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
+  detail: ['右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面をタップ（または J・Enter キー）。', '大きな丸＝拍の頭（パ＝パン、ト＝トマト）。うしろの帯の長さ＝拍の長さ。小さな点＝刻み。', 'このモードでは、タップ判定の設定がOFFでも叩ける（判定は拍の頭だけ）。映像と音のズレ補正も判定に使う。', '「ぴったり」が続くと連続の数が増える。見のがしや早すぎ・遅すぎで、とぎれる。'] };
+MODE_INFO.T = { g: 'g2', em: '🌸', name: '花', line: '拍の頭で花が開き、刻みごとに花びらが2枚ずつふえる', short: '頭で花が開き、花びらがふえる',
+  detail: ['1拍＝花1つ。拍の頭で、つぼみがポンと開く。', '刻みごとに花びらが2枚ずつふえる（パン＝4枚の小さな花、トマト＝6枚の大きな花）。', '1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く。', '同じリズムなら、どの列も同じ並び。花だんの模様で「くり返し」が見える。'] };
+MODE_INFO.U = { g: 'g3', em: '🐸', name: 'カエル', line: 'ハスの葉に着地する瞬間＝拍の頭。葉の間かく：パン＝2、トマト＝3', short: '着地の瞬間＝頭。トマトは遠くへ',
+  detail: ['ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝刻み1つ）。', 'カエルは拍の頭で葉に着地して「ケロッ」。トマトは遠く、高く跳ぶ。', '水面の小さな点は刻みの位置。カエルの影が通ると波紋が広がる。', '小節の頭の葉には、ハスの花が咲いている。'] };
+MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛けを刻み1つごとに1つずつ鳴らして進む。大きな仕掛け＝拍の頭', short: '大きな仕掛け＝拍の頭',
+  detail: ['左上から右下へ、玉が仕掛けを刻み1つごとに1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。刻みの数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
 MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える', short: '着地の瞬間にタップ！',
-  detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（まとまりの頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
+  detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -638,15 +645,21 @@ function initAudio() {
   const b = ctx.createBuffer(1, 1, 22050), s = ctx.createBufferSource(); s.buffer = b; s.connect(ctx.destination); s.start(0);
 }
 
-function playAccent(t) {        // 強拍：880Hz → 110Hz の急速ピッチダウン（ディケイ 0.08秒）
+function playAccent(t, bar = false) {   // 拍の頭：880Hz → 110Hz（中くらい）／小節の頭：1320Hz から、いちばん強く高い音
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = 'triangle';
-  o.frequency.setValueAtTime(880, t);
-  o.frequency.exponentialRampToValueAtTime(110, t + 0.08);
+  o.frequency.setValueAtTime(bar ? 1320 : 880, t);
+  o.frequency.exponentialRampToValueAtTime(bar ? 140 : 110, t + (bar ? 0.1 : 0.08));
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(1.0, t + 0.002);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.1);
+  g.gain.exponentialRampToValueAtTime(bar ? 1.0 : 0.62, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + (bar ? 0.11 : 0.08));
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.13);
+  if (bar) {   // 小節の頭は、高い「チン」を重ねる
+    const p = ctx.createOscillator(), pg = ctx.createGain();
+    p.type = 'sine'; p.frequency.setValueAtTime(1760, t);
+    pg.gain.setValueAtTime(0.0001, t); pg.gain.exponentialRampToValueAtTime(0.28, t + 0.002); pg.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+    p.connect(pg); pg.connect(bus); p.start(t); p.stop(t + 0.2);
+  }
 }
 function playClick(t, level = 1) {   // 弱拍：1200Hz の乾いたクリック（ディケイ 0.02秒）
   const o = ctx.createOscillator(), g = ctx.createGain();
@@ -656,7 +669,7 @@ function playClick(t, level = 1) {   // 弱拍：1200Hz の乾いたクリック
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
   o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.03);
 }
-/* 電車の音：ガタン（グループの頭）／コトン（サブ拍） */
+/* 電車の音：ガタン（拍の頭）／コトン（刻み） */
 function playClank(t, strong) {
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = strong ? 1500 : 2600; f.Q.value = strong ? 1.6 : 2.2;
@@ -679,7 +692,7 @@ function playClank(t, strong) {
     r.connect(rg); rg.connect(bus); r.start(t); r.stop(t + 0.06);
   }
 }
-/* 花火の音：ドン（まとまりの頭）／パチッ（サブ拍）。トマトは余韻を長く */
+/* 花火の音：ドン（拍の頭）／パチッ（刻み）。トマトは余韻を長く */
 function playFirework(t, head, L, barHead) {
   if (head) {
     const o = ctx.createOscillator(), g = ctx.createGain(), tail = L === 3 ? 0.55 : 0.32;
@@ -705,7 +718,7 @@ function playFirework(t, head, L, barHead) {
     }
   }
 }
-/* 歯車の音：カチッ（歯がかみ合う）。まとまりの頭は「ガシャン」、小節の頭はさらに重く */
+/* 歯車の音：カチッ（歯がかみ合う）。拍の頭は「ガシャン」、小節の頭はさらに重く */
 function playGear(t, head, L, barHead) {
   const bp = (f, q) => { const x = ctx.createBiquadFilter(); x.type = 'bandpass'; x.frequency.value = f; x.Q.value = q; return x; };
   if (head) {
@@ -737,6 +750,13 @@ function playGear(t, head, L, barHead) {
     og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.35, t + 0.001); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
     o.connect(og); og.connect(bus); o.start(t); o.stop(t + 0.05);
   }
+}
+/* 小節の頭に重ねる、短い鈴の音 */
+function playBell(t, f, a) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.35);
 }
 /* 再生前のカウントの音（木をたたいたような音。最初の1つは高く） */
 function playCount(t, first) {
@@ -813,8 +833,8 @@ function vNasal(t, len, f0, amp) {
   g.gain.setTargetAtTime(0.0001, t + len * 0.75, len * 0.1);
   o.connect(lp); lp.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.08);
 }
-function playSyl(t, syl, acc, beatDur) {
-  const len = clamp(beatDur * 0.72, 0.07, 0.22), f0 = acc ? 215 : 172, amp = acc ? 0.95 : 0.5;
+function playSyl(t, syl, acc, beatDur, bar = false) {   // 小節の頭は高く強く、拍の頭は中くらい、刻みは小さく
+  const len = clamp(beatDur * 0.72, 0.07, 0.22), f0 = bar ? 250 : acc ? 210 : 172, amp = bar ? 1.0 : acc ? 0.78 : 0.45;
   if (syl === 'パ') { vBurst(t, 0.012, 'lowpass', 1600, 0.6 * amp); vVowel(t + 0.006, 'a', len, f0, amp); }
   else if (syl === 'ト') { vBurst(t, 0.016, 'highpass', 3800, 0.55 * amp); vVowel(t + 0.012, 'o', len, f0, 0.6 * amp); }
   else if (syl === 'マ') { vNasal(t, 0.05, f0, 0.45 * amp); vVowel(t + 0.035, 'a', len - 0.02, f0, 0.85 * amp); }
@@ -822,7 +842,7 @@ function playSyl(t, syl, acc, beatDur) {
 }
 
 /* ----- 補助を少しずつ消す練習：小節ごとの段階 -----
-   0：全部あり　1：映像なし　2：サブ拍なし（映像もなし）　3：音もなし */
+   0：全部あり　1：映像なし　2：刻みなし（映像もなし）　3：音もなし */
 function stageForBar(b) {
   if (!SET.fadeOn) return 0;
   const N = SET.fadeN, S = SET.fadeS, r = mod(b, 3 * N + S);
@@ -843,10 +863,10 @@ function logTarget(time, head, sc) {
 
 /* モードごとの音（ないモードはふつうのクリック） */
 const MODE_SOUND = {
-  G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
+  G: (t, h, L, b) => { playClank(t, h); if (b) playBell(t, 1568, 0.2); }, I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
   K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
   P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b), R: (t, h, L, b) => playPendulum(t, h, L, b), T: (t, h, L, b) => playFlower(t, h, L, b), U: (t, h, L, b) => playFrog(t, h, L, b),
-  L: (t, h, L, b, k, bar) => playKarakuri(t, h, L, b, k, bar), M: (t, h, L, b) => playBlock(t, h, L, b),
+  L: (t, h, L, b, k, bar) => playKarakuri(t, h, L, b, k, bar), M: (t, h, L, b) => { playBlock(t, h, L, b); if (b) playBell(t, 1760, 0.18); },
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
@@ -856,7 +876,7 @@ function scheduleMeta() {
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime); }
+    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur, barHead) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime, barHead); }
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
@@ -869,7 +889,7 @@ function scheduleMeta() {
 function schedulePoly() {
   if (polyK === 0) {
     polyCur = SET.poly.slice(); onBarStart(); polyCycle++;
-    polyTc = Math.max(polyCur[0], polyCur[1]) * 2 * 60 / bpm;   // 多い方の1拍 ＝ 8分音符2つぶん
+    polyTc = Math.max(polyCur[0], polyCur[1]) * 2 * 60 / bpm;   // 多い方の1拍 ＝ 刻み2つぶん
   }
   const [a, b] = polyCur, ab = a * b, dur = polyTc / ab, stg = curStage;
   const hitA = polyK % b === 0, hitB = polyK % a === 0, down = polyK === 0;
@@ -926,7 +946,7 @@ function start() {
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
-  if (SET.countOn) {   // 再生前のカウント：そのリズムで1小節（グループの頭で「1・2…」）
+  if (SET.countOn) {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
     const beats = [];
     if (mode === 'F') {
       const n = Math.max(SET.poly[0], SET.poly[1]), d = 2 * 60 / bpm;
@@ -1092,11 +1112,12 @@ function frame() {
   cx.fillStyle = bg; cx.fillRect(0, 0, W, H);
 
   // 画面の配置（全モード共通）：上＝拍子の表示、まん中＝絵、その下＝1行の説明、いちばん下＝カウント帯
-  const stripH = SET.big ? clamp(H * (H < 700 ? 0.25 : 0.3), 100, 420) : clamp(H * 0.15, 56, 120);
+  const stripH = SET.big ? clamp(H * (H < 760 ? 0.2 : 0.27), 90, 400) : clamp(H * 0.15, 56, 120);
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
   const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
-  const sceneH = H - stripH - bandH - capH, belowY = sceneH + capH;
-  if (hide) drawHidden(stage, belowY, stripH, bandH);
+  const scoreH = SET.scoreOn && mode !== 'F' ? Math.round(SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) : 0;   // 大きな数字のときは楽譜を少し小さく
+  const sceneH = H - stripH - bandH - capH - scoreH, belowY = sceneH + capH;
+  if (hide) drawHidden(stage, belowY, stripH + scoreH, bandH);
   else if (mode === 'F') {
     const ps = getPolyState(now);
     drawPoly(ps, now, sceneH);
@@ -1125,7 +1146,9 @@ function frame() {
     else if (mode === 'M') drawBlocks(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
-    drawStrip(st, belowY + bandH, stripH);
+    if (scoreH) drawScore(st, now, belowY + bandH, scoreH);
+    drawStrip(st, belowY + bandH + scoreH, stripH);
+    drawBarMark(now, st.m, sceneH);
   }
   if (!hide) drawCaption(sceneH, capH, capFs);
   placeHelp(hide ? -1 : sceneH + capH / 2);
@@ -1139,8 +1162,125 @@ function frame() {
   if (showBa) { const tp = Math.round(104 * K) + 'px'; if (ba.style.top !== tp) ba.style.top = tp; }
   if (!hide) drawTapFx(sceneH, capH, capFs);
   drawReturnBanner(sceneH);
+  drawSigTip();
   requestAnimationFrame(frame);
 }
+
+/* ---------- 共通：拍子の言葉（例：5/8 ＝ 2拍子（短い拍＋長い拍）） ---------- */
+function meterOf(groups) {
+  const n = groups.length, nm = ['', '1拍子', '2拍子', '3拍子', '4拍子', '5拍子', '6拍子'][n] || `${n}拍子`;
+  const same = groups.every(L => L === groups[0]);
+  return { name: nm, detail: same ? `1拍＝刻み${groups[0]}つ` : groups.map(L => L === 2 ? '短い拍' : '長い拍').join('＋') };
+}
+function meterText(m, short) {
+  const parts = m.bars.map(bg => meterOf(bg));
+  if (short) return parts.map(p => p.name).join(' → ');
+  return parts.map((p, b) => `${m.sigs[b]} ＝ ${p.name}（${p.detail}）`).join(' → ');
+}
+
+/* ---------- 共通：小節の頭の印（どのモードでも同じ：緑の光） ---------- */
+function barHeadAge(now, m) {
+  let best = 9;
+  for (const a of accents) { if (a.meta !== m || !m.barStartGroup.includes(a.g)) continue; const age = now - a.t; if (age >= 0 && age < best) best = age; }
+  return best;
+}
+function drawBarMark(now, m, sceneH) {
+  const age = barHeadAge(now, m); if (age > 0.7) return;
+  const q = age / 0.7;
+  cx.strokeStyle = hexA(LIME, 0.55 * (1 - q)); cx.lineWidth = (6 - 4 * q) * K;
+  rr(3 * K, 3 * K, W - 6 * K, sceneH - 6 * K, 14 * K); cx.stroke();
+}
+
+/* ---------- 共通：楽譜バー（1段のリズム譜） ----------
+   拍子記号・8分音符（拍ごとに連桁でつなぐ）・拍の頭にアクセント記号・小節線・くり返し記号
+   いま鳴っている音符が光る。拍子記号をタップすると、意味の説明が出る */
+let sigHits = [], sigTip = null;
+function drawScore(st, now, y0, h) {
+  const m = st.m, pad = 10 * K, has = st.has;
+  rr(pad, y0 + 3 * K, W - 2 * pad, h - 6 * K, 10 * K);
+  cx.fillStyle = 'rgba(241,245,249,0.96)'; cx.fill();
+  const ink = '#0f172a', lineY = y0 + h * 0.66;
+  const tsw = h * 0.42, ggap = h * 0.16, bgap = h * 0.22;
+  // 横の配置を数える
+  const sigShown = m.bars.map((bg, b) => b === 0 || m.sigs[b] !== m.sigs[b - 1]);
+  let fixed = 2 * pad + 18 * K + 26 * K;   // 左右の余白と、最後のくり返し記号
+  m.bars.forEach((bg, b) => { fixed += (sigShown[b] ? tsw : 0) + (bg.length - 1) * ggap + (b ? bgap : 0); });
+  const sp = Math.max(8, Math.min((W - fixed) / m.total, h * 0.75));
+  const nh = Math.min(h * 0.11, 9 * K + 2, sp * 0.3);
+  const contentW = fixed - 2 * pad + sp * m.total, xStart = (W - contentW) / 2 + 4 * K;
+  cx.strokeStyle = hexA(ink, 0.55); cx.lineWidth = 1.2 * K;
+  cx.beginPath(); cx.moveTo(xStart - 6 * K, lineY); cx.lineTo(xStart + contentW - 14 * K, lineY); cx.stroke();
+  sigHits = [];
+  let x = xStart, sub = 0;
+  const barAge = barHeadAge(now, m);
+  m.bars.forEach((bg, b) => {
+    if (b) {   // 小節線
+      cx.strokeStyle = ink; cx.lineWidth = 1.6 * K;
+      cx.beginPath(); cx.moveTo(x + bgap * 0.3, lineY - h * 0.36); cx.lineTo(x + bgap * 0.3, lineY + h * 0.2); cx.stroke();
+      x += bgap;
+    }
+    if (sigShown[b]) {   // 拍子記号
+      const [nu, de] = m.sigs[b].split('/'), fs = h * 0.3, cxs = x + tsw * 0.42;
+      cx.font = `900 ${fs}px Georgia, "Times New Roman", serif`; cx.fillStyle = ink; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText(nu, cxs, lineY - fs * 0.52); cx.fillText(de, cxs, lineY + fs * 0.5);
+      sigHits.push({ x0: x, x1: x + tsw, y0: y0, y1: y0 + h, sig: m.sigs[b], cx: cxs, bar: b });
+      x += tsw;
+    }
+    bg.forEach((L, gi) => {
+      const g = m.barStartGroup[b] + gi, xs = [];
+      for (let k = 0; k < L; k++) { xs.push(x + sp * (k + 0.5)); }
+      const stemTop = lineY - h * 0.44, col = COLORS[L], curG = has && st.g === g;
+      xs.forEach((nx, k) => {
+        const on = has && st.sub === sub + k, head = k === 0;
+        if (on) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
+        cx.fillStyle = on ? col : (curG ? hexA(col, 0.95) : ink);
+        cx.save(); cx.translate(nx, lineY); cx.rotate(-0.38);
+        cx.beginPath(); cx.ellipse(0, 0, nh * 1.25, nh * 0.85, 0, 0, Math.PI * 2); cx.fill(); cx.restore(); cx.shadowBlur = 0;
+        cx.strokeStyle = cx.fillStyle; cx.lineWidth = 1.6 * K;
+        cx.beginPath(); cx.moveTo(nx + nh * 1.1, lineY - nh * 0.3); cx.lineTo(nx + nh * 1.1, stemTop); cx.stroke();
+        if (head) {   // アクセント記号
+          const ay = y0 + h * 0.1, aw = nh * 1.4;
+          cx.strokeStyle = on || curG ? col : ink; cx.lineWidth = 2 * K;
+          cx.beginPath(); cx.moveTo(nx - aw * 0.6, ay - aw * 0.45); cx.lineTo(nx + aw * 0.8, ay); cx.lineTo(nx - aw * 0.6, ay + aw * 0.45); cx.stroke();
+        }
+        if (on && head && b === m.barOfGroup[g] && gi === 0 && barAge < 0.7) {   // 小節の頭の印
+          const q = barAge / 0.7; cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+          cx.beginPath(); cx.arc(nx, lineY, nh * 2 + 18 * K * q, 0, Math.PI * 2); cx.stroke();
+        }
+      });
+      // 連桁（拍ごとに1本でつなぐ）
+      cx.fillStyle = curG ? col : ink;
+      cx.fillRect(xs[0] + nh * 1.1 - 0.8 * K, stemTop, xs[xs.length - 1] - xs[0] + 1.6 * K, Math.max(3, h * 0.07));
+      x += sp * L + (gi < bg.length - 1 ? ggap : 0);
+      sub += L;
+    });
+  });
+  // くり返し記号（周期）
+  const rx = x + 12 * K;
+  cx.fillStyle = ink;
+  cx.beginPath(); cx.arc(rx - 7 * K, lineY - h * 0.12, 2.4 * K, 0, Math.PI * 2); cx.arc(rx - 7 * K, lineY + h * 0.05, 2.4 * K, 0, Math.PI * 2); cx.fill();
+  cx.fillRect(rx, lineY - h * 0.36, 1.6 * K, h * 0.56); cx.fillRect(rx + 4 * K, lineY - h * 0.36, 4.5 * K, h * 0.56);
+  if (!sigTip && W > 520) txt('拍子記号をタップすると説明', W - pad - 12 * K, y0 + h - 9 * K, Math.max(11, 10 * K), '#64748b', 700, 'right');
+}
+function sigExplain(sig) {
+  const [nu, de] = sig.split('/').map(Number), name = de === 8 ? '8分音符' : de === 4 ? '4分音符' : `${de}分音符`;
+  const lines = [`下の ${de} ＝ ${name}を数える`, `上の ${nu} ＝ 1小節に${name}が ${nu} つ`];
+  if (de === 4) lines.push(`（8分音符なら ${nu * 2} つ ＝ 刻み ${nu * 2} つ）`);
+  return lines;
+}
+function drawSigTip() {
+  if (!sigTip) return;
+  const age = (performance.now() - sigTip.t) / 4500; if (age > 1) { sigTip = null; return; }
+  const al = age < 0.85 ? 1 : 1 - (age - 0.85) / 0.15, lines = sigExplain(sigTip.sig), fs = Math.max(14, 15 * K);
+  cx.font = `800 ${fs}px ${FONT}`;
+  const w = Math.max(...lines.map(l => cx.measureText(l).width)) + 32 * K, h = lines.length * fs * 1.5 + 22 * K;
+  const x = clamp(sigTip.x - w * 0.2, 8 * K, W - w - 8 * K), y = sigTip.y - h - 10 * K;
+  cx.globalAlpha = al;
+  rr(x, y, w, h, 12 * K); cx.fillStyle = 'rgba(11,18,34,0.97)'; cx.fill(); cx.strokeStyle = LIME; cx.lineWidth = 2 * K; cx.stroke();
+  lines.forEach((l, i) => txt(l, x + 16 * K, y + 11 * K + fs * 0.75 + i * fs * 1.5, i === 2 ? fs * 0.85 : fs, i === 0 ? '#bef264' : i === 1 ? '#f8fafc' : '#a3b1c6', 800, 'left'));
+  cx.globalAlpha = 1;
+}
+function hitSig(px, py) { return sigHits.find(h => px >= h.x0 && px <= h.x1 && py >= h.y0 && py <= h.y1); }
 
 /* ---------- 共通：1行の説明（くわしくは「？」） ---------- */
 function drawCaption(y0, h, fs) {
@@ -1187,11 +1327,26 @@ function drawHeader(st) {
     x += 6 * K;
   });
   if (pendingMeta) txt(`→ 次の小節から「${pendingMeta.preset.note}」`, pad, y + 24 * K, Math.max(13, 13 * K), LIME, 800, 'left');
-  else txt(m.preset.note, pad, y + 24 * K, Math.max(13, 13 * K), '#a3b1c6', 600, 'left');
+  else {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
+    const fs2 = Math.max(13, 13.5 * K), maxW = W - 2 * pad - 110 * K;
+    let t = meterText(m) + '　' + m.preset.note;
+    cx.font = `800 ${fs2}px ${FONT}`;
+    if (cx.measureText(t).width > maxW) t = meterText(m);
+    if (cx.measureText(t).width > maxW) t = meterText(m, true) + '　' + m.preset.note;
+    if (cx.measureText(t).width > maxW) t = meterText(m, true);
+    txt(t, pad, y + 24 * K, fs2, '#e2e8f0', 800, 'left');
+  }
   const ramp = SET.rampOn && playing;
   const tempoY = y + (x > W - 120 * K ? 24 * K : 0);
   txt(ramp ? `♪ = ${bpm} → ${SET.rampEnd}` : `♪ = ${bpm}`, W - pad, tempoY, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
-  if (st.has && tempoY === y) txt(`${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, W - pad, y + 24 * K, Math.max(13, 12 * K), '#a3b1c6', 600, 'right');
+  if (st.has && tempoY === y) {
+    const mt = `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, mfs = Math.max(13, 12 * K);
+    txt(mt, W - pad, y + 24 * K, mfs, '#a3b1c6', 600, 'right');
+    cx.font = `600 ${mfs}px ${FONT}`;
+    const lx = W - pad - cx.measureText(mt).width - 12 * K, age = barHeadAge(audioNow(), m), q = age < 0.7 ? 1 - age / 0.7 : 0;   // 小節の頭のランプ
+    cx.fillStyle = q > 0 ? hexA(LIME, 0.4 + 0.6 * q) : 'rgba(100,116,139,0.5)'; cx.beginPath(); cx.arc(lx, y + 24 * K, 5 * K, 0, Math.PI * 2); cx.fill();
+    if (q > 0) { cx.strokeStyle = hexA(LIME, q); cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(lx, y + 24 * K, 5 * K + (1 - q) * 14 * K, 0, Math.PI * 2); cx.stroke(); }
+  }
 }
 
 /* ---------- 共通：下のカウント帯（パ・ン・ト・マ・ト ／ 大きな数字） ---------- */
@@ -1231,7 +1386,7 @@ function drawStrip(st, y0, h) {
 }
 
 /* ---------- 共通：練習の帯（段階の表示とタップの記録） ---------- */
-const STAGE_NAMES = ['① 全部あり', '② 映像なし', '③ サブ拍なし', '④ 音なし'];
+const STAGE_NAMES = ['① 全部あり', '② 映像なし', '③ 刻みなし', '④ 音なし'];
 function drawBand(y0, h, stage, hide) {
   const pad = 14 * K, cy = y0 + h / 2;
   cx.fillStyle = 'rgba(11,18,34,0.8)'; cx.fillRect(0, y0, W, h);
@@ -1291,7 +1446,7 @@ function drawHidden(stage, sceneH, stripH, bandH) {
   const msg = [
     null,
     ['② 映像なし', '音だけを聞いて、拍を感じよう'],
-    ['③ サブ拍なし', 'まとまりの頭の音だけ。あいだは頭の中で数えよう'],
+    ['③ 刻みなし', '拍の頭の音だけ。あいだは頭の中で数えよう'],
     ['④ 音なし', '頭の中で数え続けよう。音が戻ったとき、ぴったり合うかな？'],
   ][stage];
   const col = stage === 3 ? '#f472b6' : LIME;
@@ -1324,8 +1479,9 @@ function drawReturnBanner(sceneH) {
 /* ---------- モードA：転がる図形 ---------- */
 function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
-  const top = 112 * K, groundY = ah - Math.max(22 * K, ah * 0.07);
-  const Rpx = Math.max(24, Math.min((groundY - top) / 2.15, W * 0.2)), u = Rpx / P.R;
+  const top = 112 * K, gMax = ah - Math.max(22 * K, ah * 0.07);
+  const Rpx = Math.max(24, Math.min((gMax - top) / 2.3, W * (W < 640 ? 0.3 : 0.2))), u = Rpx / P.R;
+  const groundY = Math.min(gMax, top + (gMax - top) / 2 + Rpx * 1.15);   // 図形が上下のまん中あたりに来るように
   const span = 1e9;   // 画面がついていくので、はしで折り返さない
   const X = k => Math.floor(k / N) * P.perim + P.prefix[mod(k, N)];
   const ease = t => 0.3 * t + 0.7 * t * t;   // 持ち上がりはゆっくり、倒れる瞬間は速く（コトッ）
@@ -1344,7 +1500,7 @@ function drawRoll(st, now, ah) {
   const SH = [0];
   const shapeName = { 3: '三角形', 4: '四角形', 5: '五角形', 6: '六角形', 7: '七角形', 8: '八角形' }[N] || `${N}角形`;
 
-  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 8分音符　とがった角 ＝ グループの頭'}`, W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 刻み　とがった角 ＝ 拍の頭'}`, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 
   // 地面
   cx.strokeStyle = '#334155'; cx.lineWidth = 2 * K;
@@ -1397,7 +1553,7 @@ function drawRoll(st, now, ah) {
     cx.stroke(); cx.setLineDash([]);
   }
 
-  // 衝撃波：強拍は大きなリング、途中の拍は小さなリング
+  // 衝撃波：拍の頭は大きなリング、途中の拍は小さなリング
   for (const a of accents) {
     if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.9) continue;
@@ -1464,7 +1620,7 @@ function drawRoll(st, now, ah) {
     // 重心
     cx.shadowColor = '#ffffff'; cx.shadowBlur = 12 * K;
     cx.fillStyle = '#f8fafc'; cx.beginPath(); cx.arc(C[0], C[1], 5 * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
-    // 角：グループの頭は大きく
+    // 角：拍の頭は大きく
     V.forEach((q, i) => {
       const piv = i === j, head = U[i].head;
       if (piv) { cx.shadowColor = LIME; cx.shadowBlur = 18 * K; }
@@ -1486,7 +1642,7 @@ function drawBounce(st, now, ah) {
   const frontY = ah - tileH - 8 * K, backY = frontY - avail * 0.28;
   const hMax = Math.max(30, backY - top - 42 * K);
   const hBig = L => hMax * (L / 3) ** 2;          // 大きいボール：h ∝ T²
-  const hSmall = avail * 0.1;                      // 小さいボール：8分音符ごと
+  const hSmall = avail * 0.1;                      // 小さいボール：刻みごと
   const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
   const Lk = k => m.groups[mod(k, G)];
   const bigY = (L, q) => { const g = q / L; return backY - 4 * hBig(L) * g * (1 - g); };
@@ -1523,10 +1679,10 @@ function drawBounce(st, now, ah) {
     txt(`${L === 2 ? 'パン' : 'トマト'}（${L}）`, x0 + w / 2, backY + 11 * K, 11 * K, cur ? '#ffffff' : hexA(col, 0.8), 800);
     if (cur) {
       const topY = backY - hBig(L);
-      txt(`滞空 ${L}拍`, x0 + w / 2, topY - 34 * K, 13 * K, col, 800);
+      txt(`滞空 刻み${L}つ`, x0 + w / 2, topY - 34 * K, 13 * K, col, 800);
       txt(`高さ ×${L === 2 ? '1' : '2.25'}`, x0 + w / 2, topY - 17 * K, 12 * K, hexA(col, 0.8), 600);
     }
-    // 手前：小さいボールの軌道と、8分音符のタイル
+    // 手前：小さいボールの軌道と、刻みのタイル
     for (let s = 0; s < L; s++) {
       const lit = cur && qNow >= s, tx = x0 + s * u;
       cx.setLineDash([2 * K, 4 * K]); cx.strokeStyle = hexA(col, cur ? 0.6 : 0.2); cx.lineWidth = 1.5 * K;
@@ -1540,7 +1696,7 @@ function drawBounce(st, now, ah) {
     }
   }
 
-  // 大きいボールの着地（強拍）
+  // 大きいボールの着地
   for (const a of accents) {
     if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.5) continue;
@@ -1589,7 +1745,7 @@ function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
   const R = Math.max(40, Math.min(W * 0.4, (ah - top) / 2 - 26 * K));
-  txt(`光の球が1周 ＝ ${m.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  txt(`光の球が1周 ＝ ${m.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   const A0 = -Math.PI / 2, ang = (v, tt = T) => A0 + 2 * Math.PI * v / tt;
 
   // セクター
@@ -1679,7 +1835,7 @@ function drawCharBall(x, yBottom, r, sq, colA, colB, dirX, now) {
 }
 
 /* ---------- モードE：階段をのぼりおり ----------
-   ・8分音符ごとに小さく跳ねる　・グループの頭で次の段へ（1段の幅 ＝ グループの長さ）
+   ・刻みごとに小さく跳ねる　・拍の頭で次の段へ（1段の幅 ＝ グループの長さ）
    ・1小節目はのぼり、2小節目はくだり（交互パターンは小節ごとに のぼり／くだり） */
 let stairCamY = null, stairPops = [];
 function drawStairs(st, now, ah) {
@@ -1730,7 +1886,7 @@ function drawStairs(st, now, ah) {
     cx.fillStyle = hexA(col, cur ? 0.9 : 0.55);
     cx.beginPath(); cx.moveTo(x0, yT); cx.lineTo(x0 + dep, yT - dep * 0.7); cx.lineTo(x0 + w + dep, yT - dep * 0.7); cx.lineTo(x0 + w, yT); cx.closePath(); cx.fill();
     cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(x0, yT); cx.lineTo(x0 + w, yT); cx.stroke();
-    // 8分音符の目印と言葉
+    // 刻みの目印と言葉
     for (let s = 0; s < Lk(k); s++) {
       const lit = cur && q >= s;
       txt(SYL[Lk(k)][s], x0 + (s + 0.5) * u, yT + 20 * K, Math.min(18 * K, u * 0.4), lit ? '#ffffff' : hexA(col, 0.85), s === 0 ? 900 : 600);
@@ -1749,7 +1905,7 @@ function drawStairs(st, now, ah) {
     }
   }
 
-  // 着地のエフェクト（強拍＝星、8分音符＝輪）
+  // 着地のエフェクト（拍の頭＝星、8分音符＝輪）
   for (const a of accents) {
     if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.6) continue;
@@ -1907,7 +2063,7 @@ function drawConduct(st, now, ah) {
       cx.lineTo(c[0] + Math.cos(an + 2.5) * z, c[1] + Math.sin(an + 2.5) * z); cx.lineTo(c[0] + Math.cos(an - 2.5) * z, c[1] + Math.sin(an - 2.5) * z);
       cx.closePath(); cx.fill();
     }
-    for (let k = 1; k < L; k++) {   // 8分音符の位置
+    for (let k = 1; k < L; k++) {   // 刻みの位置
       const q = P(patPos(pg, b, k / L)), lit = cur && lt * L >= k;
       cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.8);
       cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5.5 : 4) * K, 0, Math.PI * 2); cx.fill();
@@ -1949,13 +2105,13 @@ function drawConduct(st, now, ah) {
 /* ---------- モードG：電車 ----------
    ・パン＝短い車両（8分音符2つぶん）、トマト＝長い車両（3つぶん）。車両の長さは拍の長さに比例
    ・電車は左へ走る（画面は電車について行くので、景色とレールが右へ流れる）
-   ・レールの継ぎ目は「1小節ぶんの長さ」ごとにある → 継ぎ目が車両の継ぎ目（＝グループの頭）を通る瞬間に「ガタン」、
-     車両の中の車輪（＝サブ拍）を通る瞬間に「コトン」。小節の頭の車両は色を変える
+   ・レールの継ぎ目は「1小節ぶんの長さ」ごとにある → 継ぎ目が車両の継ぎ目（＝拍の頭）を通る瞬間に「ガタン」、
+     車両の中の車輪（＝刻み）を通る瞬間に「コトン」。小節の頭の車両は色を変える
    ・交互パターンでは、2小節ぶんの編成（例：2+3 の次に 3+2）がくり返しつながる */
 const hash01 = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 function drawTrain(st, now, ah) {
   const m = st.m, T = m.total, G = m.groups.length, dur = 60 / bpm;
-  const u = W / clamp(T * 1.3, 10, 26);                       // 8分音符1つぶんの長さ（画面上）
+  const u = W / clamp(T * 1.3, 10, 26);                       // 刻み1つぶんの長さ（画面上）
   const s = st.has ? st.sc + st.frac : 0;                     // 走った距離（8分音符いくつぶんか）
   const shift = s * u;                                        // 景色が右へ流れた量
   const railY = ah * 0.76, wr = clamp(u * 0.13, 5, 18);
@@ -2081,7 +2237,7 @@ function drawTrain(st, now, ah) {
       cx.strokeStyle = 'rgba(15,23,42,0.6)'; cx.lineWidth = 1.5 * K; cx.stroke();
       cx.fillStyle = 'rgba(15,23,42,0.35)'; cx.fillRect(bx0 + 4 * K, carTop + 4 * K, bw - 8 * K, 4 * K);   // 屋根
       cx.fillStyle = head ? hexA(col, 1) : 'rgba(15,23,42,0.45)'; cx.fillRect(bx0, carBot - carH * 0.2, bw, carH * 0.07);   // 帯
-      // 窓（8分音符1つに1枚）：いま継ぎ目の上にある拍の窓が光る
+      // 窓（刻み1つに1枚）：いま継ぎ目の上にある拍の窓が光る
       for (let k = 0; k < L; k++) {
         const wx0 = X(cs + k) + 0.14 * u, ww = 0.72 * u, wy = carTop + carH * 0.2, wh = carH * 0.36;
         const lit = st.has && mod(s - (cs + k), T) < 1;
@@ -2100,7 +2256,7 @@ function drawTrain(st, now, ah) {
       cx.fillStyle = '#475569'; cx.fillRect(x0 - 4 * K, carBot - carH * 0.3, 8 * K, 6 * K);
     }
   }
-  // 車輪（8分音符の位置ごと。車両の継ぎ目の車輪は大きめ）
+  // 車輪（刻みの位置ごと。車両の継ぎ目の車輪は大きめ）
   for (let c = 0; X(c) < W + wr; c++) {
     if (X(c) < -wr) continue;
     const gi = m.subToGroup[mod(c, T)], joint = m.starts[gi] === mod(c, T);
@@ -2133,9 +2289,9 @@ function drawWheel(x, y, r, s) {
 }
 
 /* ---------- モードH：拍子の紋章 ----------
-   ・円のまわりを光が走り、8分音符ごとに点を打って直線でつなぐ（1周 ＝ 1小節。交互パターンは2小節）
-   ・まとまりの頭（重心）の点は外側の円の上に大きく。サブ拍の点は内側に入る
-     パンは浅く（1段）、トマトは深く（2段）入るので、まとまりの長さが模様の「とがり方」に出る
+   ・円のまわりを光が走り、刻みごとに点を打って直線でつなぐ（1周 ＝ 1小節。交互パターンは2小節）
+   ・拍の頭（重心）の点は外側の円の上に大きく。刻みの点は内側に入る
+     パンは浅く（1段）、トマトは深く（2段）入るので、拍の長さが模様の「とがり方」に出る
    ・1周するたびに模様を少し回して重ねる → 万華鏡のように育つ。拍子ごとに違う模様になる */
 let emblemBase = 0, emblemKey = '';
 function emblemReset() { emblemBase = -1; }
@@ -2222,8 +2378,8 @@ function drawEmblem(st, now, ah) {
 }
 
 /* ---------- モードI：花火 ----------
-   ・まとまりの頭で大きな花火が開く（ちょうど拍の瞬間に開くよう、少し前から玉を打ち上げる）
-   ・サブ拍では、いま開いている花火のまわりに小さな火花
+   ・拍の頭で大きな花火が開く（ちょうど拍の瞬間に開くよう、少し前から玉を打ち上げる）
+   ・刻みでは、いま開いている花火のまわりに小さな火花
    ・トマトの花火はパンより大きく、余韻（光っている時間）が長い。小節の頭はピンクの二重の花火
    ・花火の開く場所は小節ごとに同じ → くり返し（周期）が見える
    火の粉は毎フレーム「開いてからの時間」で位置を計算するので、どの端末でも同じ動きになる */
@@ -2310,7 +2466,7 @@ function drawFireworks(st, now, ah) {
           cx.fillStyle = `rgba(255,255,255,${alphaMul * (1 - dt / 0.12)})`;
           cx.beginPath(); cx.arc(sp.x, sp.y, R * 0.25 * (1 + dt * 4), 0, Math.PI * 2); cx.fill();
         }
-      } else if (dt < 0.45) {                                   // サブ拍：小さな火花
+      } else if (dt < 0.45) {                                   // 刻み：小さな火花
         const n = 12, q = dt / 0.45, R2 = base * 0.05;
         const ox = sp.x + (hash01(p * 3) - 0.5) * base * 0.18, oy = sp.y + (hash01(p * 5) - 0.3) * base * 0.12;
         for (let i = 0; i < n; i++) {
@@ -2353,11 +2509,11 @@ function drawFireworks(st, now, ah) {
 }
 
 /* ---------- モードJ：歯車 ----------
-   ・サブ拍の歯車：1拍（8分音符）で1マス進み、一定の速さで回り続ける。1回転でちょうど1周期（1小節）。
-     歯は「グループの頭（強拍）」のマスにだけついている。歯と歯のあいだは、パン＝2マス、トマト＝3マス。
-   ・強拍の歯車：ふつうの歯車。サブ拍の歯車の歯がかみ合うとき（強拍）だけ、歯1つぶん回る。
-     歯のないマスが通るあいだ（サブ拍）は止まっている。
-   ・歯と歯が真正面でかみ合う瞬間が、グループの頭（音が鳴る）。小節の頭の歯は緑でふちどる。
+   ・刻みの歯車：1拍（8分音符）で1マス進み、一定の速さで回り続ける。1回転でちょうど1周期（1小節）。
+     歯は「拍の頭」のマスにだけついている。歯と歯のあいだは、パン＝2マス、トマト＝3マス。
+   ・拍の歯車：ふつうの歯車。刻みの歯車の歯がかみ合うときだけ、歯1つぶん回る。
+     歯のないマスが通るあいだ（刻み）は止まっている。
+   ・歯と歯が真正面でかみ合う瞬間が、拍の頭（音が鳴る）。小節の頭の歯は緑でふちどる。
    ・歯の形と間隔は2つの歯車で同じなので、きちんとかみ合う（ぶつからないことは計算で確認） */
 const GT = { ta: 0.7, td: 0.85, rw: 0.2, tw: 0.1 };   // 歯の形（歯の高さ・根もとの太さ・先の太さ）
 function gearGeom(L, s) {
@@ -2395,20 +2551,20 @@ function toothPoly(x, y, L, s, th) {   // 歯を1本だけ
 
 function drawGears(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
-  const M = G * Math.ceil(6 / G);                           // 強拍の歯車の歯の数（グループの数の倍数＝周期ごとに同じ並び）
+  const M = G * Math.ceil(6 / G);                           // 拍の歯車の歯の数（グループの数の倍数＝周期ごとに同じ並び）
   const pad = 12 * K, top = 112 * K, bottom = ah - 8 * K, ta = GT.ta;
   const aW = W - 2 * pad, aH = bottom - top, mx = Math.max(N, M);
   const sHor = Math.min(aW / (2 * N + 2 * M + 2 * ta), aH / (2 * (mx + ta)));
   const sVer = Math.min(aW / (2 * (mx + ta)), (aH - 16 * K) / (2 * N + 2 * M + 2 * ta));
   const vert = sVer > sHor * 1.08, s = Math.max(3, vert ? sVer : sHor);
-  const phi = vert ? Math.PI / 2 : 0;                        // サブ拍の歯車から見た、かみ合う点の向き
+  const phi = vert ? Math.PI / 2 : 0;                        // 刻みの歯車から見た、かみ合う点の向き
   const gs = gearGeom(N, s), gt = gearGeom(M, s), dist = gs.rp + gt.rp, tot = gs.rt + dist + gt.rt;
   let xs, ys, xt, yt;
   if (!vert) { xs = (W - tot) / 2 + gs.rt; ys = (top + bottom) / 2; xt = xs + dist; yt = ys; }
   else { xs = W / 2; ys = top + (bottom - top - tot) / 2 + gs.rt; xt = xs; yt = ys + dist; }
   const ws = gs.w, wt = gt.w;
 
-  // いま、どこまで進んだか（S＝サブ拍の歯車の進み、A＝強拍の歯車の進み。どちらも歯1つぶんを1とする）
+  // いま、どこまで進んだか（S＝刻みの歯車の進み、A＝拍の歯車の進み。どちらも歯1つぶんを1とする）
   const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0;
   const S = has ? st.sc + st.frac : 0, P = has ? st.sc - kCur : 0, gAbs = has ? st.step : 0;
   const A = gAbs + clamp(S - (P - 0.5), 0, 1) + clamp(S - (P + L - 0.5), 0, 1);   // 歯がかみ合っている間だけ進む
@@ -2428,7 +2584,7 @@ function drawGears(st, now, ah) {
   cx.strokeStyle = 'rgba(148,163,184,0.15)'; cx.lineWidth = 2 * K; cx.setLineDash([3 * K, 6 * K]);
   cx.beginPath(); cx.moveTo(xs, ys); cx.lineTo(xt, yt); cx.stroke(); cx.setLineDash([]);
 
-  // ===== サブ拍の歯車 =====
+  // ===== 刻みの歯車 =====
   const SUBC = '#94a3b8', mask = [];
   for (let k = 0; k < N; k++) mask.push(m.starts.includes(k));
   gearPoly(xs, ys, N, s, rotS, mask);
@@ -2453,7 +2609,7 @@ function drawGears(st, now, ah) {
     cx.fillStyle = isBarHead(k) ? LIME : head ? '#ffffff' : 'rgba(226,232,240,0.55)';
     cx.beginPath(); cx.arc(xs + Math.cos(a) * gs.rr * 0.97, ys + Math.sin(a) * gs.rr * 0.97, Math.min(r, 6 * K), 0, Math.PI * 2); cx.fill();
   }
-  // 歯（強拍のマスにだけある）
+  // 歯（拍の頭のマスにだけある）
   m.groups.forEach((Lg, gi) => {
     const h = m.starts[gi];
     toothPoly(xs, ys, N, s, rotS + h * ws);
@@ -2467,7 +2623,7 @@ function drawGears(st, now, ah) {
     const lab = has ? SYL[L][clamp(kCur, 0, L - 1)] : '▶', fs = Math.min(hubR * 1.1, 46 * K);
     if (fs >= 7) txt(lab, xs, ys + 0.5, fs, kCur === 0 && has ? COLORS[L] : '#ffffff', 900); }
 
-  // ===== 強拍の歯車 =====
+  // ===== 拍の歯車 =====
   const TC = '#e2e8f0';
   gearPoly(xt, yt, M, s, rotT);
   cx.fillStyle = '#0d1730'; cx.fill();
@@ -2499,7 +2655,7 @@ function drawGears(st, now, ah) {
     const fs = Math.min(hubR * 0.5, 22 * K);
     if (fs >= 7) txt(L === 2 ? 'パン' : 'トマト', xt, yt + 0.5, fs, COLORS[L], 900); }
 
-  // かみ合う点：強拍で火花、サブ拍は小さな「カチ」
+  // かみ合う点：拍の頭で火花、刻みは小さな「カチ」
   const cpx = xs + Math.cos(phi) * gs.rp, cpy = ys + Math.sin(phi) * gs.rp;
   if (has && ageS < 0.28) {
     const q = ageS / 0.28, head = kCur === 0, bar = head && m.barStartSub.includes(st.sub);
@@ -2519,21 +2675,21 @@ function drawGears(st, now, ah) {
 
   // 名前
   const nfs = (narrow ? 10.5 : 12) * K;
-  txt('サブ拍の歯車（1回転＝1小節）', xs, ys - gs.rt - 9 * K, nfs, '#cbd5e1', 800);
-  if (vert) txt('強拍の歯車', xt + gt.rt * 0.75, yt + gt.rt * 0.95, nfs, '#cbd5e1', 800, 'left');
-  else txt('強拍の歯車', xt, yt - gt.rt - 9 * K, nfs, '#cbd5e1', 800);
+  txt('刻みの歯車（1回転＝1小節）', xs, ys - gs.rt - 9 * K, nfs, '#cbd5e1', 800);
+  if (vert) txt('拍の歯車', xt + gt.rt * 0.75, yt + gt.rt * 0.95, nfs, '#cbd5e1', 800, 'left');
+  else txt('拍の歯車', xt, yt - gt.rt - 9 * K, nfs, '#cbd5e1', 800);
 
   // 文字
-  if (barFlash > 0) txt('小節の頭！ サブ拍の歯車が1回転して、もとの位置にもどった', W / 2, 80 * K, 13 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
-  else if (!has) txt('▶ 再生すると、サブ拍の歯車が回りはじめます', W / 2, 80 * K, 13 * K, '#94a3b8', 700);
-  else if (moving) txt('歯がかみ合っている間だけ、強拍の歯車が回る', W / 2, 80 * K, 12.5 * K, hexA(COLORS[L], 0.95), 800);
+  if (barFlash > 0) txt('小節の頭！ 刻みの歯車が1回転して、もとの位置にもどった', W / 2, 80 * K, 13 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
+  else if (!has) txt('▶ 再生すると、刻みの歯車が回りはじめます', W / 2, 80 * K, 13 * K, '#e2e8f0', 700);
+  else if (moving) txt('歯がかみ合っている間だけ、拍の歯車が回る', W / 2, 80 * K, 12.5 * K, hexA(COLORS[L], 0.95), 800);
 }
 
 
 /* ---------- モードK：踊る人 ----------
-   シルエットの人が、バレエのように踊る。サブ拍ではつま先で小刻みに1歩ずつ進み、強拍（グループの頭）でぐっと踏み込む。
-   足が床についた瞬間に音が鳴り、足あとが残る（強拍＝色つきの大きな足あと）。足あとの並びが小節ごとにくり返される。
-   時間はすべて「何番目のサブ拍か（sc）＋拍の中の位置（frac）」から求める。 */
+   シルエットの人が、バレエのように踊る。刻みではつま先で小刻みに1歩ずつ進み、拍の頭でぐっと踏み込む。
+   足が床についた瞬間に音が鳴り、足あとが残る（拍の頭＝色つきの大きな足あと）。足あとの並びが小節ごとにくり返される。
+   時間はすべて「何番目の刻みか（sc）＋拍の中の位置（frac）」から求める。 */
 function ikLimb(hx, hy, fx, fy, len, sgn) {   // 2つの関節（ひざ・ひじ）を持つ手足の形
   let dx = fx - hx, dy = fy - hy, d = Math.hypot(dx, dy);
   if (d > len * 0.999) { const k = len * 0.999 / d; dx *= k; dy *= k; d = len * 0.999; }
@@ -2553,7 +2709,7 @@ function footPrint(x, y, w, col, a, dash) {
 }
 function drawDancer(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
-  // 足がつく場所：1拍で1歩。強拍の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
+  // 足がつく場所：1拍で1歩。拍の頭の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
   const EX = 0.6, cnt = [];
   { let c = 0; for (let j = 0; j < N; j++) { if (m.starts.includes(j)) c++; cnt.push(c); } }
   const isHead = j => m.starts.includes(mod(j, N));
@@ -2577,7 +2733,7 @@ function drawDancer(st, now, ah) {
   cx.fillStyle = gr; cx.fillRect(0, fy, W, band);
   cx.strokeStyle = 'rgba(203,213,225,0.55)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(0, fy); cx.lineTo(W, fy); cx.stroke();
 
-  // これまでの足あと：強拍＝色つきの大きな足あと、サブ拍＝つま先の小さな点
+  // これまでの足あと：拍の頭＝色つきの大きな足あと、刻み＝つま先の小さな点
   const barXs = [];
   if (has) {
     for (let j = k, n = 0; j >= 0 && n < 90; j--, n++) {
@@ -2611,7 +2767,7 @@ function drawDancer(st, now, ah) {
     if (xb - xa > 46 * K) txt('1小節', (xa + xb) / 2, y + 10 * K, (narrow ? 10 : 11.5) * K, hexA('#a3e635', cur ? 0.95 : 0.5), 800);
   }
 
-  // 床に足がついた瞬間の波（強拍は大きく、サブ拍は小さく）
+  // 床に足がついた瞬間の波（拍の頭は大きく、刻みは小さく）
   let barFlash = 0;
   for (const a of accents) {
     if (a.meta !== m) continue;
@@ -2631,11 +2787,11 @@ function drawDancer(st, now, ah) {
 
   // ===== 人 =====
   const headNow = has && isHead(k), nextHead = has && isHead(k + 1), barNow = has && m.barStartSub.includes(mod(k, N));
-  // 足：今ついている足（stance）と、次へ運ぶ足（swing）。サブ拍はつま先で小刻みに、強拍の前は高く上げて踏み込む
+  // 足：今ついている足（stance）と、次へ運ぶ足（swing）。刻みはつま先で小刻みに、拍の頭の前は高く上げて踏み込む
   const s = has ? clamp((f - (nextHead ? 0.18 : 0.08)) / (nextHead ? 0.8 : 0.84), 0, 1) : 0, se = s * s * (3 - 2 * s), arcS = Math.sin(Math.PI * s);
   const xS = has ? sx(X(k)) : ax + 0.3 * u, xW = has ? sx(X(k - 1) + (X(k + 1) - X(k - 1)) * se) : ax - 0.3 * u;
   const lift = arcS * (nextHead ? 0.3 : 0.08) * Lt;
-  const pl = headNow ? Math.pow(1 - clamp(f / 0.9, 0, 1), 1.5) : 0;                 // 強拍：ひざを深く曲げて踏み込む（プリエ）
+  const pl = headNow ? Math.pow(1 - clamp(f / 0.9, 0, 1), 1.5) : 0;                 // 拍の頭：ひざを深く曲げて踏み込む（プリエ）
   const plDepth = (L === 3 ? 0.3 : 0.25) * (barNow ? 1.15 : 1) * Lt;
   const prep = nextHead ? Math.sin(Math.PI * clamp((f - 0.15) / 0.75, 0, 1)) : 0;   // 踏み込む前に、すっと伸び上がる
   const subDip = has && !headNow ? 0.045 * Lt * Math.exp(-ageS / 0.07) : 0;
@@ -2660,14 +2816,14 @@ function drawDancer(st, now, ah) {
     limb([hxp, hyp, kk.kx, kk.ky, kk.fx, kk.fy, kk.fx + fl * (1 - 0.45 * rel), kk.fy + toeH * rel + (1 - rel) * 1.5 * K], c, lw);
   };
   const arm = (ang, c) => { const hx2 = shx + Math.sin(ang) * al * 0.92, hy2 = shy + Math.cos(ang) * al * 0.92; const kk = ikLimb(shx, shy, hx2, hy2, al, -1); limb([shx, shy, kk.kx, kk.ky, kk.fx, kk.fy], c, aw); };
-  // 腕：サブ拍はやわらかく横にひろげたまま、強拍で大きくひらく（前の腕は上へ、うしろの腕はうしろへ）
+  // 腕：刻みはやわらかく横にひろげたまま、拍の頭で大きくひらく（前の腕は上へ、うしろの腕はうしろへ）
   const open = headNow ? Math.pow(Math.sin(Math.PI * clamp(f * 1.05, 0, 1)), 0.6) * (L === 3 ? 1 : 0.75) * (barNow ? 1.15 : 1) : 0;
   const breathe = has ? 0.1 * Math.sin(2 * Math.PI * f) : 0;
   const aA = 1.25 + breathe - prep * 0.35 + open * 1.25, aB = 1.0 - breathe - prep * 0.25 - open * 1.7;
   arm(aB, FAR); leg(ankW, 1, FAR);
   limb([hxp, hyp, shx, shy], NEAR, 0.18 * hB);
   cx.fillStyle = NEAR; cx.beginPath(); cx.arc(hdx, hdy, headR, 0, Math.PI * 2); cx.fill();
-  { // 腰の帯（今のグループの色）。強拍で光る
+  { // 腰の帯（今のグループの色）。拍の頭で光る
     if (headNow) { cx.shadowColor = col; cx.shadowBlur = 16 * K * (0.4 + pl); }
     limb([hxp - Math.cos(lean) * 0.1 * hB, hyp + Math.sin(lean) * 0.1 * hB, hxp + Math.cos(lean) * 0.1 * hB, hyp - Math.sin(lean) * 0.1 * hB], col, 0.07 * hB);
     cx.shadowBlur = 0; }
@@ -2676,10 +2832,10 @@ function drawDancer(st, now, ah) {
   // 文字
   if (has) txt((L === 2 ? 'パン' : 'トマト') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 80 * K, 15 * K, col, 900);
   if (barFlash > 0) txt('小節の頭！ 足あとの並びが、もう一度はじまる', W / 2, 100 * K, 12.5 * K, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
-  else if (!has) txt('▶ 再生すると、踊りはじめます', W / 2, 90 * K, 13 * K, '#94a3b8', 700);
+  else if (!has) txt('▶ 再生すると、踊りはじめます', W / 2, 90 * K, 13 * K, '#e2e8f0', 700);
 }
 
-/* 足音：床をふむ「ドン」（グループの頭）と、つま先の「トン」（サブ拍） */
+/* 足音：床をふむ「ドン」（拍の頭）と、つま先の「トン」（刻み） */
 function playStep(t, head, L, barHead) {
   if (head) {
     const o = ctx.createOscillator(), g = ctx.createGain(), len = L === 3 ? 0.2 : 0.13;
@@ -2709,9 +2865,9 @@ function playStep(t, head, L, barHead) {
 }
 
 /* ---------- モード：ドミノ倒し ----------
-   ・8分音符1つ＝ドミノ1枚。まとまりの頭は背の高いドミノ（トマトの頭がいちばん高い）、サブ拍は小さなドミノ
-   ・ドミノは1拍かけて倒れ、次のドミノに当たった瞬間に音が鳴る（＝次の拍）
-   ・地面の色の帯がまとまりの長さ（パン＝2枚、トマト＝3枚）。小節の頭には旗が立つ */
+   ・刻み1つ＝ドミノ1枚。拍の頭は背の高いドミノ（トマトの頭がいちばん高い）、刻みは小さなドミノ
+   ・ドミノは刻み1つぶんの時間で倒れ、次のドミノに当たった瞬間に音が鳴る（＝次の拍）
+   ・地面の色の帯が拍の長さ（パン＝2枚、トマト＝3枚）。小節の頭には旗が立つ */
 function drawDomino(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   const top = 112 * K, gy = ah - Math.max(48 * K, ah * 0.13);
@@ -2799,14 +2955,14 @@ function drawDomino(st, now, ah) {
     if (d.bar) barFlash = 1 - q;
   }
   if (barFlash > 0) txt('小節の頭！ 同じ並びのドミノが、また倒れはじめる', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、ドミノが倒れはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? '背の高いドミノ ＝ まとまりの頭' : '背の高いドミノ ＝ まとまりの頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、ドミノが倒れはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? '背の高いドミノ ＝ 拍の頭' : '背の高いドミノ ＝ 拍の頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
 /* ---------- モード：ジャグリング ----------
-   ・まとまり1つ＝1回の投げ。パン（2拍）は低く、トマト（3拍）は高く投げる（空中にいる時間が長いほど高い：高さ ∝ 時間²）
-   ・左右の手で交互に投げる。手に落ちた瞬間（＝まとまりの頭）に音
-   ・ボールの上の点は8分音符ごとの位置。てっぺんでは点の間がせまい（ゆっくり）
+   ・1拍＝1回の投げ。パン（2拍）は低く、トマト（3拍）は高く投げる（空中にいる時間が長いほど高い：高さ ∝ 時間²）
+   ・左右の手で交互に投げる。手に落ちた瞬間（＝拍の頭）に音
+   ・ボールの上の点は刻みごとの位置。てっぺんでは点の間がせまい（ゆっくり）
    ・これまでの軌道が残り、小節ごとに同じ形がくり返される */
 function drawJuggle(st, now, ah) {
   const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has, narrow = W < 640;
@@ -2830,7 +2986,7 @@ function drawJuggle(st, now, ah) {
     arcPath(fromSide(nn), Lg, 0, 1); cx.stroke();
     for (let k = 1; k < Lg; k++) { const p = pathPt(fromSide(nn), Lg, k / Lg); cx.fillStyle = hexA('#e2e8f0', a); cx.beginPath(); cx.arc(p[0], p[1], 2.5 * K, 0, Math.PI * 2); cx.fill(); }
   }
-  // いまの軌道：これから飛ぶ道は点線、8分音符ごとの位置に点
+  // いまの軌道：これから飛ぶ道は点線、刻みごとの位置に点
   const side = fromSide(n), col = COLORS[L];
   cx.setLineDash([4 * K, 6 * K]); cx.strokeStyle = hexA(col, 0.7); cx.lineWidth = 2 * K; arcPath(side, L, gp, 1); cx.stroke(); cx.setLineDash([]);
   cx.strokeStyle = col; cx.lineWidth = 3.5 * K; arcPath(side, L, 0, gp); cx.stroke();
@@ -2840,7 +2996,7 @@ function drawJuggle(st, now, ah) {
     if (lit && kCur === k && ageS < 0.25) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.25); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(p[0], p[1], (6 + 30 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
   }
   { const apex = pathPt(side, L, 0.5);
-    txt(`${L === 2 ? 'パン' : 'トマト'}（空中に ${L} 拍）`, apex[0], apex[1] - 22 * K, Math.max(13, 14 * K), col, 900); }
+    txt(`${L === 2 ? 'パン' : 'トマト'}（空中に 刻み${L}つ）`, apex[0], apex[1] - 22 * K, Math.max(13, 14 * K), col, 900); }
 
   // 人（シンプルな形）
   const bob = 3 * K * Math.exp(-ageS / 0.07) + 5 * K * Math.exp(-ageH / 0.1) * (kCur === 0 ? 1 : 0);
@@ -2879,10 +3035,10 @@ function drawJuggle(st, now, ah) {
   cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(bp[0] - br * 0.3, bp[1] - br * 0.65, br * 0.28, 0, Math.PI * 2); cx.fill();
 
   if (barFlash > 0) txt('小節の頭！ 同じ投げ方をもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
 }
 
-/* ドミノの音：カタッ（サブ拍）／カタン（まとまりの頭、低く重い） */
+/* ドミノの音：カタッ（刻み）／カタン（拍の頭、低く重い） */
 function playDomino(t, head, L, barHead) {
   const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
   s.buffer = getNoise(); f.type = 'bandpass'; f.frequency.value = head ? 1800 : 3200; f.Q.value = 1.5;
@@ -2899,7 +3055,7 @@ function playDomino(t, head, L, barHead) {
     b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.4);
   }
 }
-/* ジャグリングの音：パシッ（手に落ちる＝まとまりの頭）／小さなチッ（サブ拍） */
+/* ジャグリングの音：パシッ（手に落ちる＝拍の頭）／小さなチッ（刻み） */
 function playJuggle(t, head, L, barHead) {
   if (head) {
     const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), ng = ctx.createGain();
@@ -2925,9 +3081,9 @@ function playJuggle(t, head, L, barHead) {
 }
 
 /* ---------- モード：しずくと波紋 ----------
-   ・池の上に、8分音符の数だけ「しずくの落ちる場所」が横に並ぶ（1周期ぶん）
-   ・しずくは上から落ちてきて、ちょうど拍の瞬間に水面に着く（落ちてくる間が「予告」）
-   ・まとまりの頭は大きなしずく → 大きな波紋（トマトはパンより大きく、長く広がる）。サブ拍は小さなしずく
+   ・池の上に、刻みの数だけ「しずくの落ちる場所」が横に並ぶ（1周期ぶん）
+   ・しずくは上から落ちてきて、ちょうど刻みの瞬間に水面に着く（落ちてくる間が「予告」）
+   ・拍の頭は大きなしずく → 大きな波紋（トマトはパンより大きく、長く広がる）。刻みは小さなしずく
    ・毎小節、同じ場所に同じ大きさのしずくが落ちるので、波紋の重なりが同じ模様でくり返される */
 function drawDrops(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
@@ -2988,7 +3144,7 @@ function drawDrops(st, now, ah) {
   }
   cx.restore();
 
-  // しぶき（まとまりの頭で、水が王冠のようにはねる）
+  // しぶき（拍の頭で、水が王冠のようにはねる）
   if (has) {
     const j = Math.floor(S), d = info(j), age = (S - j) * dur;
     if (d.head && age < 0.45) {
@@ -3000,7 +3156,7 @@ function drawDrops(st, now, ah) {
       }
     }
   }
-  // 落ちてくるしずく（予告）：ちょうど拍の瞬間に水面に着く
+  // 落ちてくるしずく（予告）：ちょうど刻みの瞬間に水面に着く
   for (let j = Math.max(0, Math.floor(S) + 1); j <= Math.floor(S) + Math.ceil(Tf / dur) + 1; j++) {
     const tl = (j - S) * dur; if (tl > Tf || tl < 0) continue;
     const d = info(j), p = 1 - tl / Tf, y = dropTop + (waterY - dropTop) * p * p, x = xOf(d.i);
@@ -3012,15 +3168,15 @@ function drawDrops(st, now, ah) {
   }
 
   if (barFlash > 0) txt('小節の頭！ 同じ場所に、同じしずくがもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? '大きなしずく ＝ まとまりの頭' : '大きなしずく ＝ まとまりの頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? '大きなしずく ＝ 拍の頭' : '大きなしずく ＝ 拍の頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
 /* ---------- モード：ぷるぷるゼリー ----------
-   ・まとまり1つ＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー（はばが拍の数に比例）
-   ・サクランボがゼリーからゼリーへ跳びうつる。着地の瞬間（まとまりの頭）にゼリーがぐにゃっとつぶれて、ぷるんぷるんとゆれる
-   ・トマトのゼリーは大きく、長くゆれる。サブ拍では小さく「ぷるっ」
-   ・サクランボの跳ぶ高さと時間もまとまりの長さで変わる（トマトは高く長く） */
+   ・1拍＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー（はばが拍の数に比例）
+   ・サクランボがゼリーからゼリーへ跳びうつる。着地の瞬間（拍の頭）にゼリーがぐにゃっとつぶれて、ぷるんぷるんとゆれる
+   ・トマトのゼリーは大きく、長くゆれる。刻みでは小さく「ぷるっ」
+   ・サクランボの跳ぶ高さと時間も拍の長さで変わる（トマトは高く長く） */
 function drawJelly(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, has = st.has;
   const top = 116 * K, plateY = ah - Math.max(30 * K, (ah - top) * 0.12);
@@ -3051,7 +3207,7 @@ function drawJelly(st, now, ah) {
     const b = box(gi), col = COLORS[b.L], act = has && gi === g, t = lastHit(gi);
     const big = b.L === 3 ? 1 : 0.7, tau = (b.L === 3 ? 0.9 : 0.55), om = 2 * Math.PI * (b.L === 3 ? 3.2 : 4.2);
     let sy = 1 - 0.32 * big * Math.exp(-t / tau) * Math.cos(om * t);                       // 縦ののび縮み
-    if (act && kCur > 0) sy -= 0.07 * Math.exp(-ageS / 0.1) * Math.cos(30 * ageS);           // サブ拍の「ぷるっ」
+    if (act && kCur > 0) sy -= 0.07 * Math.exp(-ageS / 0.1) * Math.cos(30 * ageS);           // 刻みの「ぷるっ」
     const sx = 1 / Math.sqrt(Math.max(0.4, sy)), lean = 0.12 * big * Math.exp(-t / tau) * Math.sin(om * t * 0.5);
     const w = b.w * 0.86 * sx, h = b.h * sy, xb = b.cxx, yb = plateY;
     // 形（上がせまいプリン形。上はゆれて左右にずれる）
@@ -3073,7 +3229,7 @@ function drawJelly(st, now, ah) {
     b.topY = yb - h * 1.04; b.topX = xb + sh;
     box[gi] = b;
   }
-  // サクランボ：ゼリー g から次のゼリーへ、まとまりの長さをかけて跳ぶ
+  // サクランボ：ゼリー g から次のゼリーへ、拍の長さをかけて跳ぶ
   const bA = box[g] || box(g), gn = (g + 1) % G, bB = box[gn] || box(gn);
   const u = has ? clamp((kCur + st.frac) / L, 0, 1) : 0;
   // はじめの少しの間はゼリーに乗ったまま（つぶれてから跳ぶ）
@@ -3087,7 +3243,7 @@ function drawJelly(st, now, ah) {
     cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.5); cx.lineWidth = 2 * K; cx.beginPath();
     for (let i = 0; i <= 30; i++) { const f = i / 30, px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f); i ? cx.lineTo(px, py - cr) : cx.moveTo(px, py - cr); }
     cx.stroke(); cx.setLineDash([]);
-    for (let k = 1; k < L; k++) {   // 8分音符ごとの位置
+    for (let k = 1; k < L; k++) {   // 刻みごとの位置
       const f = clamp((k / L - 0.12) / 0.88, 0, 1), px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f), lit = kCur >= k;
       cx.fillStyle = lit ? '#ffffff' : 'rgba(226,232,240,0.45)'; cx.beginPath(); cx.arc(px, py - cr, (lit ? 4.5 : 3) * K, 0, Math.PI * 2); cx.fill();
     }
@@ -3105,11 +3261,11 @@ function drawJelly(st, now, ah) {
     if (bar) barFlash = 1 - q;
   }
   if (barFlash > 0) txt('小節の頭！ サクランボが最初のゼリーにもどった', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? 'ゼリーの大きさ ＝ まとまりの長さ' : 'ゼリーの大きさ ＝ まとまりの長さ（パン 2 ／ トマト 3）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? 'ゼリーの大きさ ＝ 拍の長さ' : 'ゼリーの大きさ ＝ 拍の長さ（パン＝刻み2つ ／ トマト＝刻み3つ）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
-/* しずくの音：ポチャン（まとまりの頭、トマトは低く長く）／ピチョ（サブ拍） */
+/* しずくの音：ポチャン（拍の頭、トマトは低く長く）／ピチョ（刻み） */
 function playDrop(t, head, L, barHead) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   const f0 = head ? (L === 3 ? 420 : 560) : 1100, f1 = head ? (L === 3 ? 1100 : 1400) : 2100, len = head ? (L === 3 ? 0.16 : 0.12) : 0.06;
@@ -3129,7 +3285,7 @@ function playDrop(t, head, L, barHead) {
     b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.55);
   }
 }
-/* ゼリーの音：ぷるん（まとまりの頭、トマトは低く長く震える）／ぽよ（サブ拍） */
+/* ゼリーの音：ぷるん（拍の頭、トマトは低く長く震える）／ぽよ（刻み） */
 function playJelly(t, head, L, barHead) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   if (head) {
@@ -3153,10 +3309,10 @@ function playJelly(t, head, L, barHead) {
 
 /* ---------- モード：振り子 ----------
    ・左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘（かね）がある
-   ・まとまりの頭で、振り子が鐘に当たって「カーン」。当たった勢いで、そのまとまりの振り子が飛び出し、
-     外へ振れて戻ってくる（ニュートンのゆりかごと同じ）。戻ってきて鐘に当たる瞬間が、次のまとまりの頭
+   ・拍の頭で、振り子が鐘に当たって「カーン」。当たった勢いで、その拍の振り子が飛び出し、
+     外へ振れて戻ってくる（ニュートンのゆりかごと同じ）。戻ってきて鐘に当たる瞬間が、次の拍の頭
    ・振り子が行って戻る時間は、ひもの長さで決まる（ひもが2.25倍長いと、時間は1.5倍＝2拍と3拍）。本物の振り子と同じしくみ
-   ・弧の上の点は8分音符ごとの位置 */
+   ・弧の上の点は刻みごとの位置 */
 function drawPendulum(st, now, ah) {
   const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has;
   const top = 118 * K, bobY = ah - Math.max(40 * K, (ah - top) * 0.16);
@@ -3176,7 +3332,7 @@ function drawPendulum(st, now, ah) {
   cx.fillStyle = '#334155'; rr(cxC - W * 0.46, Math.min(pend[3].py, pend[2].py) - 8 * K, W * 0.92, 8 * K, 4 * K); cx.fill();
   cx.strokeStyle = 'rgba(148,163,184,0.5)'; cx.lineWidth = 3 * K;
   cx.beginPath(); cx.moveTo(pend[2].px, pend[3].py - 4 * K); cx.lineTo(pend[2].px, pend[2].py); cx.stroke();   // 短い振り子をつるす柱
-  // 弧（振れる道）と8分音符の点
+  // 弧（振れる道）と刻みの点
   for (const Lp of [2, 3]) {
     const p = pend[Lp], col = COLORS[Lp], act = has && Lp === L;
     cx.strokeStyle = hexA(col, act ? 0.5 : 0.18); cx.lineWidth = 2 * K; cx.setLineDash([3 * K, 6 * K]);
@@ -3213,14 +3369,14 @@ function drawPendulum(st, now, ah) {
     if (act && kCur > 0 && ageS < 0.2) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], br + (4 + 20 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
   }
   if (bar && hit > 0) txt('小節の頭！ 同じ順番で、もう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, hit * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
 /* ---------- モード：流れるノーツ（音ゲー風） ----------
    ・右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面タップ（または J・Enter キー）で叩く
-   ・大きな丸＝まとまりの頭（パン＝水色、トマト＝黄色）。うしろの帯の長さ＝まとまりの長さ（2か3）。小さな点＝サブ拍
-   ・このモードでは、タップ判定の設定がOFFでも叩ける（判定はまとまりの頭だけ）。ズレ補正も判定に使う
+   ・大きな丸＝拍の頭（パン＝水色、トマト＝黄色）。うしろの帯の長さ＝拍の長さ（2か3）。小さな点＝刻み
+   ・このモードでは、タップ判定の設定がOFFでも叩ける（判定は拍の頭だけ）。ズレ補正も判定に使う
    ・連続で「ぴったり」が続くと、数が増えていく */
 let noteCombo = 0, noteBest = 0, noteMissT = 0;
 function drawNotes(st, now, ah) {
@@ -3285,11 +3441,11 @@ function drawNotes(st, now, ah) {
   if (noteCombo >= 2) txt(`${noteCombo} 連続ぴったり！`, W / 2, laneY + laneH / 2 + 34 * K, comboFs, noteCombo >= 10 ? '#fde047' : LIME, 900);
   else if (performance.now() - noteMissT < 900) txt('連続がとぎれた…', W / 2, laneY + laneH / 2 + 34 * K, Math.max(15, 16 * K), '#94a3b8', 800);
   txt(`ぴったり ${s.p}　早い ${s.e}　遅い ${s.l}　いちばん長い連続 ${noteBest}`, W / 2, laneY - laneH / 2 - 34 * K, Math.max(12, 12.5 * K), '#a3b1c6', 700);
-  if (!has) txt('▶ 再生して、ノーツが線に重なった瞬間にタップ（J・Enterキーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
-  else txt(W < 640 ? '線に重なった瞬間にタップ！' : '大きな丸が線に重なった瞬間に、画面をタップ（J・Enter キーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  if (!has) txt('▶ 再生して、ノーツが線に重なった瞬間にタップ（J・Enterキーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
+  else txt(W < 640 ? '線に重なった瞬間にタップ！' : '大きな丸が線に重なった瞬間に、画面をタップ（J・Enter キーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
-/* 振り子の音：カーン（鐘に当たる＝まとまりの頭。パンは高く、トマトは低く）／コッ（サブ拍） */
+/* 振り子の音：カーン（鐘に当たる＝拍の頭。パンは高く、トマトは低く）／コッ（刻み） */
 function playPendulum(t, head, L, barHead) {
   if (head) {
     const f = L === 3 ? 784 : 1046, len = barHead ? 0.7 : 0.45;
@@ -3312,7 +3468,7 @@ function playPendulum(t, head, L, barHead) {
 }
 
 /* ---------- モード：花が咲く ----------
-   ・まとまり1つ＝花1つ。まとまりの頭で、つぼみがポンと開く。サブ拍ごとに花びらが2枚ずつふえる
+   ・1拍＝花1つ。拍の頭で、つぼみがポンと開く。刻みごとに花びらが2枚ずつふえる
      （パン＝4枚の小さな花、トマト＝6枚の大きな花）
    ・1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く
    ・同じリズムなら、どの列も同じ並び → 花だんの模様で「くり返し」が見える */
@@ -3366,7 +3522,7 @@ function drawFlowers(st, now, ah) {
         cx.fillStyle = hexA('#22c55e', 0.8 * al); cx.beginPath(); cx.ellipse(hx, hy, bs * 0.7, bs * 0.45, 0, 0, Math.PI); cx.fill();
         return;
       }
-      // 花びら（2枚ずつ。サブ拍ごとにふえる）
+      // 花びら（2枚ずつ。刻みごとにふえる）
       const n = L * 2;
       for (let p = 0; p < petals * 2; p++) {
         const pair = Math.floor(p / 2), tp = d === 0 && has && gi === g ? (kCur - pair + st.frac) * dur : 9;
@@ -3390,14 +3546,14 @@ function drawFlowers(st, now, ah) {
     });
   }
   if (barFlash > 0) txt('小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? '花びら2枚 ＝ 8分音符1つ' : '花びら2枚 ＝ 8分音符1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? '花びら2枚 ＝ 刻み1つ' : '花びら2枚 ＝ 刻み1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
 /* ---------- モード：カエルのハス跳び ----------
-   ・ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝8分音符1つ）
-   ・カエルは、まとまりの頭で葉に着地して「ケロッ」。トマトは遠くまで、高く大きくジャンプする
-   ・水面の小さな点はサブ拍の位置。カエルの影が通ると、波紋が広がる
+   ・ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝刻み1つ）
+   ・カエルは、拍の頭で葉に着地して「ケロッ」。トマトは遠くまで、高く大きくジャンプする
+   ・水面の小さな点は刻みの位置。カエルの影が通ると、波紋が広がる
    ・小節の頭の葉にはハスの花が咲いている → 同じ並びの葉が、小節ごとにくり返される */
 function drawFrog(st, now, ah) {
   const m = st.m, N = m.total, G = m.groups.length, dur = 60 / bpm, has = st.has;
@@ -3415,7 +3571,7 @@ function drawFrog(st, now, ah) {
   cx.fillStyle = wg; cx.fillRect(0, waterY, W, ah - waterY);
   cx.strokeStyle = 'rgba(165,243,252,0.35)'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.moveTo(0, waterY); cx.lineTo(W, waterY); cx.stroke();
   const j0 = Math.floor(cam - ax / u) - 3, j1 = Math.ceil(cam + (W - ax) / u) + 3;
-  // サブ拍の点と、通ったときの波紋
+  // 刻みの点と、通ったときの波紋
   for (let j = Math.max(0, j0); j <= j1; j++) {
     const d = info(j), x = sx(j); if (d.head) continue;
     cx.fillStyle = 'rgba(207,250,254,0.5)'; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, 3 * K, 1.5 * K, 0, 0, Math.PI * 2); cx.fill();
@@ -3443,7 +3599,7 @@ function drawFrog(st, now, ah) {
       if (d.bar) barFlash = 1 - q;
     }
   }
-  // カエル：頭の葉から次の葉へ、まとまりの長さをかけて跳ぶ
+  // カエル：頭の葉から次の葉へ、拍の長さをかけて跳ぶ
   const hMax = waterY - top - 50 * K, hOf = Lg => Math.max(20, hMax * (Lg / 3) * (Lg / 3));
   const crouch = 0.14;                                                       // 着地してから、ぐっとかがむ時間（まとまりのはじめ）
   const p = has ? clamp(((kCur + st.frac) / L - crouch) / (1 - crouch), 0, 1) : 0;
@@ -3473,11 +3629,11 @@ function drawFrog(st, now, ah) {
   }
   if (has && kCur > 0 && ageS < 0.18 && !air) { cx.fillStyle = hexA('#fef9c3', 0.9); cx.beginPath(); cx.arc(fx + bw * 0.6, by + bh * 0.5, fs * 0.18 * (1 - ageS / 0.18), 0, Math.PI * 2); cx.fill(); }   // のどを鳴らす
   if (barFlash > 0) txt('小節の頭！ ハスの花の葉にもどってきた', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
-/* 花の音：ポン（開く＝まとまりの頭。パンは高く、トマトは低く）／ピン（花びら＝サブ拍） */
+/* 花の音：ポン（開く＝拍の頭。パンは高く、トマトは低く）／ピン（花びら＝刻み） */
 function playFlower(t, head, L, barHead) {
   const f = head ? (L === 3 ? 659 : 784) : 1568, len = head ? 0.5 : 0.18;
   [[1, head ? 0.55 : 0.18], [2, head ? 0.18 : 0.06], [4, 0.05]].forEach(([r, a]) => {
@@ -3493,7 +3649,7 @@ function playFlower(t, head, L, barHead) {
     o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.55);
   }
 }
-/* カエルの音：ケロッ＋ぽちゃ（着地＝まとまりの頭）／小さなケ（サブ拍） */
+/* カエルの音：ケロッ＋ぽちゃ（着地＝拍の頭）／小さなケ（刻み） */
 function playFrog(t, head, L, barHead) {
   const o = ctx.createOscillator(), am = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
   const len = head ? (L === 3 ? 0.16 : 0.12) : 0.05;
@@ -3517,9 +3673,9 @@ function playFrog(t, head, L, barHead) {
 }
 
 /* ---------- モード：からくり ----------
-   ・左上から右下へ、玉が仕掛けを1拍に1つずつ鳴らしながら進む（1小節ぶんの装置）
-   ・パン＝ばね台（頭）→ ドミノ（サブ拍）／トマト＝卓上ベル（頭）→ 鉄琴の板2枚（サブ拍）
-   ・まとまりの頭は大きな仕掛け。小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通って左上にもどり、
+   ・左上から右下へ、玉が仕掛けを刻み1つごとに1つずつ鳴らしながら進む（1小節ぶんの装置）
+   ・パン＝ばね台（頭）→ ドミノ（刻み）／トマト＝卓上ベル（頭）→ 鉄琴の板2枚（刻み）
+   ・拍の頭は大きな仕掛け。小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通って左上にもどり、
      次の小節の最初の仕掛けにちょうど落ちる。倒れたドミノはスッと元にもどる
    ・交互パターンでは、2小節目は色と仕掛け（太鼓・おりん）が変わる */
 function drawKarakuri(st, now, ah) {
@@ -3635,12 +3791,12 @@ function drawKarakuri(st, now, ah) {
     cx.fillStyle = gr; cx.beginPath(); cx.arc(bx, by, r, 0, Math.PI * 2); cx.fill();
   }
   if (barFlash > 0) txt('小節の頭！ 旗が立って、また最初の仕掛けから', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
-  else if (!has) txt('▶ 再生すると、玉が転がりはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
-  else txt(W < 640 ? '大きな仕掛け ＝ まとまりの頭' : '大きな仕掛け（ばね・ベル）＝ まとまりの頭。1拍に1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  else if (!has) txt('▶ 再生すると、玉が転がりはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
+  else txt(W < 640 ? '大きな仕掛け ＝ 拍の頭' : '大きな仕掛け（ばね・ベル）＝ 拍の頭。刻み1つごとに1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 
 /* ---------- モード：ブロック積み（ゲーム） ----------
-   ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（まとまりの頭）に画面タップ（または J・Enter キー）
+   ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面タップ（または J・Enter キー）
    ・判定は「ぴったり／早い／遅い」。1小節ぶんのブロックが全部決まると、列が光って消える
    ・叩きそびれたブロックの列は消えずに残る（4列まで）
    ・「見るだけ」にすると、自動で積まれる。判定には映像と音のズレ補正の値も使う */
@@ -3660,7 +3816,7 @@ function drawBlocks(st, now, ah) {
   const wellW = cs * Nmax, wx = (W - wellW) / 2, floorY = ah - 10 * K, wellTop = floorY - cs * (maxRows + 3);
   const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0;
   const barNo = has ? st.measure * B + m.barOfGroup[g] : 0, gAbs = has ? st.step : -1;
-  const headScOf = (bn, i) => {   // bn 小節目の i 番目のまとまりの頭（サブ拍の通し番号）
+  const headScOf = (bn, i) => {   // bn 小節目の i 番目の拍の頭（刻みの通し番号）
     const cyc = Math.floor(bn / B), b = mod(bn, B); return cyc * N + m.starts[m.barStartGroup[b] + i];
   };
   // 見のがし：頭を過ぎても叩かれなかったブロック
@@ -3744,8 +3900,8 @@ function drawBlocks(st, now, ah) {
   if (!nar) txt(`いちばん長い連続 ${blockBest}`, sx, sy0 + 26 * K, Math.max(12, 13 * K), '#a3b1c6', 700, al);
   if (blockCombo >= 2 && !auto) txt(`${blockCombo} 連続ぴったり！`, nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(15, (16 + Math.min(blockCombo, 20) * 0.6) * K), blockCombo >= 10 ? '#fde047' : LIME, 900, al);
   if (auto) txt('見るだけ（自動）', nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(13, 14 * K), '#94a3b8', 800, al);
-  if (!has) txt(auto ? '▶ 再生すると、ブロックが自動で積まれます' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
-  else txt(auto ? 'まとまりの頭でブロックが着地する' : (nar ? '着地の瞬間にタップ！' : 'ブロックが着地する瞬間に、画面をタップ（J・Enter キーでも）'), W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+  if (!has) txt(auto ? '▶ 再生すると、ブロックが自動で積まれます' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
+  else txt(auto ? '拍の頭でブロックが着地する' : (nar ? '着地の瞬間にタップ！' : 'ブロックが着地する瞬間に、画面をタップ（J・Enter キーでも）'), W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
 const G_ = m => m.groups.length;
 
@@ -3777,7 +3933,7 @@ function playKarakuri(t, head, L, barHead, k, bar) {
   }
   if (barHead) { [1318, 1568, 2093].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(), tt = t + 0.06 + i * 0.05; o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, tt); g.gain.exponentialRampToValueAtTime(0.12, tt + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.3); o.connect(g); g.connect(bus); o.start(tt); o.stop(tt + 0.35); }); }
 }
-/* ブロックの音：ゴトッ（着地＝まとまりの頭）／ピッ（サブ拍） */
+/* ブロックの音：ゴトッ（着地＝拍の頭）／ピッ（刻み） */
 function playBlock(t, head, L, barHead) {
   const o = ctx.createOscillator(), g = ctx.createGain();
   if (head) {
@@ -3921,7 +4077,7 @@ function updateBarRhythm() {
   if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
   const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
   $('#barR1').textContent = p.bars.map((bg, b) => (b === 0 || sigs[b] !== sigs[b - 1] ? sigs[b] + ' ' : '') + '[' + bg.join('+') + ']').join(' → ');
-  $('#barR2').textContent = pendingMeta ? '次の小節から切りかわります' : p.note + '（押して選ぶ）';
+  $('#barR2').textContent = pendingMeta ? '次の小節から切りかわります' : `${meterText(activeMeta, true)}・${p.note}（押して選ぶ）`;
 }
 
 /* ----- リズム・プリセット ----- */
@@ -3935,7 +4091,7 @@ function presetLabel(p) {
 function presetButton(p, extraClass, onDelete) {
   const b = document.createElement('button');
   b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' ? ' on' : '');
-  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${p.note}</div>`;
+  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>`;
   b.onclick = () => selectPreset(p);
   if (onDelete) {
     const d = document.createElement('span');
@@ -4025,7 +4181,7 @@ function refreshPanels() {
   $('#rampBox').classList.toggle('hide', !SET.rampOn);
   $('#practiceTag').classList.toggle('show', SET.tapOn || SET.fadeOn || SET.rampOn);
   $('#rsVal').textContent = SET.rampStart; $('#reVal').textContent = SET.rampEnd;
-  $('#subDesc').textContent = subOn ? 'グループ内の細かい拍も鳴らす' : '拍頭（強拍）だけ鳴らす';
+  $('#subDesc').textContent = subOn ? '刻み（刻み1つ分）も鳴らす' : '拍頭だけ鳴らす';
   $('#latTag').textContent = latencyMs ? `${latencyMs > 0 ? '+' : ''}${latencyMs}ms` : '';
   $('#latTag').classList.toggle('show', !!latencyMs);
 }
@@ -4057,6 +4213,7 @@ $('#reDown').onclick = () => stepRamp('rampEnd', -5); $('#reUp').onclick = () =>
 
 /* ----- 表示と音 ----- */
 bindSwitch('#bigSw', () => SET.big, v => { SET.big = v; });
+bindSwitch('#scoreSw', () => SET.scoreOn, v => { SET.scoreOn = v; });
 bindSeg('#soundSel', () => SET.voice ? 'voice' : 'click', v => { SET.voice = v === 'voice'; });
 bindSwitch('#subSw', () => subOn, v => { subOn = v; SET.subOn = v; });
 $('#vol').oninput = e => {
@@ -4161,7 +4318,9 @@ document.querySelectorAll('.modal').forEach(m => {
 $('#drClose').onclick = closeDrawer;
 $('#barSet').onclick = () => $('#app').classList.contains('dr-open') ? closeDrawer() : openDrawer();
 $('#barRhythm').onclick = () => openDrawer(mode === 'F' ? 'secPoly' : 'secRhythm');
-$('#modeCur').onclick = () => openModal('#modeSheet');
+$('#modeCur').onclick = () => { openModal('#modeSheet'); updateMoreHint(); };
+function updateMoreHint() { const b = $('#sheetBox'); $('#moreHint').classList.toggle('off', b.scrollTop + b.clientHeight >= b.scrollHeight - 30); }
+$('#sheetBox').addEventListener('scroll', updateMoreHint);
 $('#mPrev').onclick = () => stepMode(-1);
 $('#mNext').onclick = () => stepMode(1);
 $('#helpBtn').onclick = e => {
@@ -4169,7 +4328,7 @@ $('#helpBtn').onclick = e => {
   const info = MODE_INFO[mode];
   $('#helpTitle').textContent = `${info.em} ${info.name}`;
   $('#helpList').innerHTML = info.detail.map(t => `<li>${t}</li>`).join('');
-  $('#helpNote').innerHTML = '<b class="c2">パン</b>＝2拍のまとまり、<b class="c3">トマト</b>＝3拍のまとまり。まとまりの頭（強拍）が「重心」です。';
+  $('#helpNote').innerHTML = '<b class="c2">パン</b>＝刻み2つの拍（短い拍）、<b class="c3">トマト</b>＝刻み3つの拍（長い拍）。<br>強さは3段階：<b class="c-lime">小節の頭</b> ＞ <b>拍の頭</b> ＞ 刻み。拍の頭が「重心」です。';
   openModal('#helpPop');
 };
 
@@ -4366,8 +4525,15 @@ $('#bpm').oninput = e => setBpm(+e.target.value);
 $('#bpmDown').onclick = () => setBpm(bpm - 5);
 $('#bpmUp').onclick = () => setBpm(bpm + 5);
 const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
-cv.addEventListener('pointerdown', e => { if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+const cvPos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら、説明を出す（再生・タップ判定はしない）
+  const [px, py] = cvPos(e), hs = SET.scoreOn && mode !== 'F' && hitSig(px, py);
+  if (hs) { e.preventDefault(); e.stopImmediatePropagation(); sigTip = { t: performance.now(), sig: hs.sig, x: hs.x0, y: hs.y0 }; cv.dataset.sigHit = '1'; return; }
+  cv.dataset.sigHit = '';
+}, true);
+cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
 cv.addEventListener('click', () => {
+  if (cv.dataset.sigHit) { cv.dataset.sigHit = ''; return; }
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
   if (!tapActive()) togglePlay();
 });
