@@ -599,6 +599,10 @@ MODE_INFO.R = { g: 'g2', em: '🕰️', name: '振り子', line: '振り子が�
   detail: ['左にパンの振り子（短いひも）、右にトマトの振り子（長いひも）。まん中に鐘がある。', 'まとまりの頭で振り子が鐘に当たり、その勢いでそのまとまりの振り子が飛び出す（ニュートンのゆりかごと同じ）。', '行って戻る時間はひもの長さで決まる。トマトのひもはパンの2.25倍で、時間は1.5倍（2拍と3拍）。本物の振り子と同じしくみ。', '弧の上の点は8分音符ごとの位置。'] };
 MODE_INFO.S = { g: 'g3', em: '🎮', name: 'ノーツ', line: '流れてくる大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）', short: '丸が線に重なった瞬間にタップ！',
   detail: ['右から流れてくるノーツが、左の判定ラインに重なった瞬間に、画面をタップ（または J・Enter キー）。', '大きな丸＝まとまりの頭（パ＝パン、ト＝トマト）。うしろの帯の長さ＝まとまりの長さ。小さな点＝サブ拍。', 'このモードでは、タップ判定の設定がOFFでも叩ける（判定はまとまりの頭だけ）。映像と音のズレ補正も判定に使う。', '「ぴったり」が続くと連続の数が増える。見のがしや早すぎ・遅すぎで、とぎれる。'] };
+MODE_INFO.T = { g: 'g2', em: '🌸', name: '花', line: 'まとまりの頭で花が開き、8分音符ごとに花びらが2枚ずつふえる', short: '頭で花が開き、花びらがふえる',
+  detail: ['まとまり1つ＝花1つ。まとまりの頭で、つぼみがポンと開く。', '8分音符ごとに花びらが2枚ずつふえる（パン＝4枚の小さな花、トマト＝6枚の大きな花）。', '1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く。', '同じリズムなら、どの列も同じ並び。花だんの模様で「くり返し」が見える。'] };
+MODE_INFO.U = { g: 'g3', em: '🐸', name: 'カエル', line: 'ハスの葉に着地する瞬間＝まとまりの頭。葉の間かく：パン＝2、トマト＝3', short: '着地の瞬間＝頭。トマトは遠くへ',
+  detail: ['ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝8分音符1つ）。', 'カエルはまとまりの頭で葉に着地して「ケロッ」。トマトは遠く、高く跳ぶ。', '水面の小さな点はサブ拍の位置。カエルの影が通ると波紋が広がる。', '小節の頭の葉には、ハスの花が咲いている。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -836,7 +840,7 @@ function logTarget(time, head, sc) {
 const MODE_SOUND = {
   G: (t, h) => playClank(t, h), I: (t, h, L, b) => playFirework(t, h, L, b), J: (t, h, L, b) => playGear(t, h, L, b),
   K: (t, h, L, b) => playStep(t, h, L, b), N: (t, h, L, b) => playDomino(t, h, L, b), O: (t, h, L, b) => playJuggle(t, h, L, b),
-  P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b), R: (t, h, L, b) => playPendulum(t, h, L, b),
+  P: (t, h, L, b) => playDrop(t, h, L, b), Q: (t, h, L, b) => playJelly(t, h, L, b), R: (t, h, L, b) => playPendulum(t, h, L, b), T: (t, h, L, b) => playFlower(t, h, L, b), U: (t, h, L, b) => playFrog(t, h, L, b),
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
@@ -1109,6 +1113,8 @@ function frame() {
     else if (mode === 'Q') drawJelly(st, now, sceneH);
     else if (mode === 'R') drawPendulum(st, now, sceneH);
     else if (mode === 'S') drawNotes(st, now, sceneH);
+    else if (mode === 'T') drawFlowers(st, now, sceneH);
+    else if (mode === 'U') drawFrog(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     drawStrip(st, belowY + bandH, stripH);
@@ -3290,6 +3296,211 @@ function playPendulum(t, head, L, barHead) {
     o.type = 'triangle'; o.frequency.setValueAtTime(1500, t); o.frequency.exponentialRampToValueAtTime(1100, t + 0.03);
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.28, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
     o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.06);
+  }
+}
+
+/* ---------- モード：花が咲く ----------
+   ・まとまり1つ＝花1つ。まとまりの頭で、つぼみがポンと開く。サブ拍ごとに花びらが2枚ずつふえる
+     （パン＝4枚の小さな花、トマト＝6枚の大きな花）
+   ・1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く
+   ・同じリズムなら、どの列も同じ並び → 花だんの模様で「くり返し」が見える */
+function drawFlowers(st, now, ah) {
+  const m = st.m, dur = 60 / bpm, has = st.has, B = m.nBars;
+  const top = 112 * K, front = ah - Math.max(30 * K, (ah - top) * 0.1);
+  const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0, ageS = has ? st.frac * dur : 9;
+  const barNow = has ? st.measure * B + m.barOfGroup[g] : -1;           // 何番目の小節か（0から）
+  const barStartT = has ? (st.sub - m.barStartSub[m.barOfGroup[g]] + st.frac) * dur : 9;
+  const shift = has ? clamp(barStartT / 0.45, 0, 1) : 1, sh = 1 - Math.pow(1 - shift, 3);  // 列が奥へ下がる動き
+  const rows = 3, span = Math.min(W * 0.9, W - 30 * K);
+  const rowY = d => { const e = d - 1 + sh; return front - (front - top) * 0.34 * (1 - Math.pow(0.55, e + 0.0001)) / 0.45; };  // d：何列うしろか（0＝いま咲いている列）
+  const rowS = d => Math.pow(0.62, d - 1 + sh);
+  const bloom = t => t < 0 ? 0 : 1 + 0.25 * Math.exp(-t / 0.12) * Math.sin(t * 28) - Math.exp(-t / 0.05);   // ポンと開いて、少しゆれる
+
+  // 地面
+  const gr = cx.createLinearGradient(0, top, 0, ah);
+  gr.addColorStop(0, 'rgba(20,83,45,0)'); gr.addColorStop(1, 'rgba(22,101,52,0.45)');
+  cx.fillStyle = gr; cx.fillRect(0, top, W, ah - top);
+
+  let barFlash = 0;
+  for (let d = rows; d >= 0; d--) {
+    const bi = barNow - d; if (has && bi < 0) continue; if (!has && d > 0) continue;
+    const b = mod(bi < 0 ? 0 : bi, B), gs = m.bars[b], Nb = gs.reduce((a, v) => a + v, 0), g0 = m.barStartGroup[b];
+    const y = d === 0 ? front : rowY(d), sc = d === 0 ? 1 : rowS(d), al = d === 0 ? 1 : clamp(1 - (d - 1 + sh) * 0.22, 0.15, 1);
+    if (d === 0 && has) { /* いまの列 */ }
+    const w = span * (0.6 + 0.4 * sc), x0 = (W - w) / 2, u = w / Nb;
+    cx.strokeStyle = hexA('#86efac', 0.25 * al); cx.lineWidth = 1.5 * K;
+    cx.beginPath(); cx.moveTo(x0, y); cx.lineTo(x0 + w, y); cx.stroke();
+    let acc = 0;
+    gs.forEach((L, i) => {
+      const gi = g0 + i, x = x0 + (acc + L / 2) * u; acc += L;
+      const col = COLORS[L], R = Math.min(u * L * 0.3, (front - top) * 0.19) * sc, stem = R * 1.7;
+      const isBar = i === 0;
+      // この花はいつ開いたか（いまの列だけ動く）
+      let open = 1, petals = L, tOpen = 9, bud = 0;
+      if (d === 0 && has) {
+        if (gi < g) { open = 1; petals = L; tOpen = 9; }
+        else if (gi === g) { tOpen = (kCur + st.frac) * dur; petals = kCur + 1; open = bloom(tOpen); }
+        else { open = 0; petals = 0; bud = gi === g + 1 && kCur === m.groups[g] - 1 ? st.frac : 0; }
+      } else if (!has) { open = 0; petals = 0; }
+      // くき
+      cx.strokeStyle = hexA('#4ade80', 0.8 * al); cx.lineWidth = Math.max(1.5, 3 * K * sc);
+      cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x - R * 0.2, y - stem * 0.5, x, y - stem); cx.stroke();
+      cx.fillStyle = hexA('#22c55e', 0.7 * al);
+      cx.beginPath(); cx.ellipse(x + R * 0.3, y - stem * 0.4, R * 0.35, R * 0.14, -0.5, 0, Math.PI * 2); cx.fill();
+      const hx = x, hy = y - stem;
+      if (open <= 0) {   // つぼみ（次に咲く花は、直前にふくらむ）
+        const bs = R * (0.35 + 0.25 * bud);
+        cx.fillStyle = hexA(col, 0.55 * al); cx.beginPath(); cx.ellipse(hx, hy - bs * 0.3, bs * 0.6, bs, 0, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = hexA('#22c55e', 0.8 * al); cx.beginPath(); cx.ellipse(hx, hy, bs * 0.7, bs * 0.45, 0, 0, Math.PI); cx.fill();
+        return;
+      }
+      // 花びら（2枚ずつ。サブ拍ごとにふえる）
+      const n = L * 2;
+      for (let p = 0; p < petals * 2; p++) {
+        const pair = Math.floor(p / 2), tp = d === 0 && has && gi === g ? (kCur - pair + st.frac) * dur : 9;
+        const s = d === 0 && has && gi === g ? (pair === 0 ? open : bloom(tp)) : 1;
+        if (s <= 0) continue;
+        const a = -Math.PI / 2 + (p % 2 ? Math.PI : 0) + pair * Math.PI / L;
+        cx.save(); cx.translate(hx, hy); cx.rotate(a);
+        cx.fillStyle = hexA(col, (0.85) * al); cx.strokeStyle = hexA('#ffffff', 0.55 * al); cx.lineWidth = Math.max(1, 1.5 * K * sc);
+        cx.beginPath(); cx.ellipse(R * 0.55 * s, 0, R * 0.5 * s, R * (L === 3 ? 0.24 : 0.3) * s, 0, 0, Math.PI * 2); cx.fill(); cx.stroke();
+        cx.restore();
+      }
+      const cr = R * 0.28 * Math.max(0.6, open);
+      if (d === 0 && has && gi === g && tOpen < 0.4) { cx.shadowColor = isBar ? LIME : col; cx.shadowBlur = 30 * K * (1 - tOpen / 0.4); }
+      cx.fillStyle = hexA(isBar ? LIME : '#fde047', al); cx.beginPath(); cx.arc(hx, hy, cr, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      if (d === 0 && has && gi === g && tOpen < 0.5) {   // 開いた瞬間の光の輪
+        const q = tOpen / 0.5; cx.strokeStyle = hexA(isBar ? LIME : col, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+        cx.beginPath(); cx.arc(hx, hy, R * (0.8 + 1.2 * q), 0, Math.PI * 2); cx.stroke();
+        if (isBar) barFlash = 1 - q;
+      }
+      if (d === 0 && R > 14) txt(L === 2 ? 'パン' : 'トマト', x, y + 14 * K, Math.max(12, 13 * K), hexA(col, 0.9), 800);
+    });
+  }
+  if (barFlash > 0) txt('小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? '花びら2枚 ＝ 8分音符1つ' : '花びら2枚 ＝ 8分音符1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* ---------- モード：カエルのハス跳び ----------
+   ・ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝8分音符1つ）
+   ・カエルは、まとまりの頭で葉に着地して「ケロッ」。トマトは遠くまで、高く大きくジャンプする
+   ・水面の小さな点はサブ拍の位置。カエルの影が通ると、波紋が広がる
+   ・小節の頭の葉にはハスの花が咲いている → 同じ並びの葉が、小節ごとにくり返される */
+function drawFrog(st, now, ah) {
+  const m = st.m, N = m.total, G = m.groups.length, dur = 60 / bpm, has = st.has;
+  const top = 112 * K, waterY = ah - Math.max(52 * K, (ah - top) * 0.28);
+  const u = Math.max(22 * K, Math.min(W / 11, (waterY - top) * 0.32));
+  const S = has ? st.sc + st.frac : 0, ax = W * 0.38, cam = S;
+  const sx = j => ax + (j - cam) * u;
+  const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0, headSc = has ? st.sc - kCur : 0;
+  const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
+  const info = j => { const i = mod(j, N), gi = m.subToGroup[i], Lg = m.groups[gi], k = i - m.starts[gi]; return { gi, Lg, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+
+  // 水
+  const wg = cx.createLinearGradient(0, waterY, 0, ah);
+  wg.addColorStop(0, '#0e7490'); wg.addColorStop(1, '#083344');
+  cx.fillStyle = wg; cx.fillRect(0, waterY, W, ah - waterY);
+  cx.strokeStyle = 'rgba(165,243,252,0.35)'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.moveTo(0, waterY); cx.lineTo(W, waterY); cx.stroke();
+  const j0 = Math.floor(cam - ax / u) - 3, j1 = Math.ceil(cam + (W - ax) / u) + 3;
+  // サブ拍の点と、通ったときの波紋
+  for (let j = Math.max(0, j0); j <= j1; j++) {
+    const d = info(j), x = sx(j); if (d.head) continue;
+    cx.fillStyle = 'rgba(207,250,254,0.5)'; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, 3 * K, 1.5 * K, 0, 0, Math.PI * 2); cx.fill();
+    if (has) { const age = (S - j) * dur; if (age >= 0 && age < 0.8) { const q = age / 0.8; cx.strokeStyle = hexA('#cffafe', 0.6 * (1 - q)); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, (4 + 26 * q) * K, (1.5 + 6 * q) * K, 0, 0, Math.PI * 2); cx.stroke(); } }
+  }
+  // ハスの葉
+  let barFlash = 0;
+  for (let j = Math.max(0, j0); j <= j1; j++) {
+    const d = info(j); if (!d.head) continue;
+    const x = sx(j), col = COLORS[d.Lg], age = has ? (S - j) * dur : 9;
+    const sink = age >= 0 && age < 0.6 ? 6 * K * Math.exp(-age / 0.15) * Math.cos(age * 20) : 0, pr = Math.min(u * 0.75, 40 * K);
+    cx.fillStyle = '#15803d'; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0.25, Math.PI * 2 - 0.05); cx.lineTo(x, waterY + 4 * K + sink); cx.closePath(); cx.fill();
+    cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0, Math.PI * 2); cx.stroke();
+    txt(d.Lg === 2 ? 'パン' : 'トマト', x, waterY + pr * 0.3 + 18 * K, Math.max(12, 13 * K), hexA(col, 0.95), 800);
+    if (d.bar) {   // ハスの花
+      const fx = x + pr * 0.55, fy = waterY + sink - 2 * K, fr = pr * 0.3;
+      for (let p = 0; p < 5; p++) { const a = -Math.PI / 2 + (p - 2) * 0.45; cx.fillStyle = '#f9a8d4'; cx.beginPath(); cx.ellipse(fx + Math.cos(a) * fr * 0.5, fy + Math.sin(a) * fr * 0.5, fr * 0.5, fr * 0.22, a, 0, Math.PI * 2); cx.fill(); }
+      cx.fillStyle = LIME; cx.beginPath(); cx.arc(fx, fy, fr * 0.2, 0, Math.PI * 2); cx.fill();
+    }
+    if (has && age >= 0 && age < 0.6) {   // 着地の水しぶき
+      const q = age / 0.6;
+      cx.strokeStyle = hexA(d.bar ? LIME : '#cffafe', 1 - q); cx.lineWidth = 2.5 * K * (1 - q) + 0.5;
+      cx.beginPath(); cx.ellipse(x, waterY + 6 * K, pr * (1 + q * 1.4), pr * 0.3 * (1 + q * 1.4), 0, 0, Math.PI * 2); cx.stroke();
+      for (let i = 0; i < 6; i++) { const a = Math.PI * (0.15 + 0.7 * i / 5), v = pr * (d.Lg === 3 ? 1.1 : 0.8); cx.fillStyle = hexA('#cffafe', 1 - q); cx.beginPath(); cx.arc(x - Math.cos(a) * v * q * 1.4, waterY - Math.sin(a) * v * 4 * q * (1 - q), 2.4 * K, 0, Math.PI * 2); cx.fill(); }
+      if (d.bar) barFlash = 1 - q;
+    }
+  }
+  // カエル：頭の葉から次の葉へ、まとまりの長さをかけて跳ぶ
+  const hMax = waterY - top - 50 * K, hOf = Lg => Math.max(20, hMax * (Lg / 3) * (Lg / 3));
+  const crouch = 0.14;                                                       // 着地してから、ぐっとかがむ時間（まとまりのはじめ）
+  const p = has ? clamp(((kCur + st.frac) / L - crouch) / (1 - crouch), 0, 1) : 0;
+  const fx = sx(headSc + L * p), fyBase = waterY - 2 * K, fy = fyBase - 4 * hOf(L) * p * (1 - p);
+  const fs = Math.max(14, Math.min(u * 0.55, 34 * K));
+  // 跳ぶ道
+  if (has) {
+    cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.55); cx.lineWidth = 2 * K; cx.beginPath();
+    for (let i = 0; i <= 30; i++) { const q = i / 30, x = sx(headSc + L * q), y = fyBase - 4 * hOf(L) * q * (1 - q); i ? cx.lineTo(x, y - fs * 0.6) : cx.moveTo(x, y - fs * 0.6); }
+    cx.stroke(); cx.setLineDash([]);
+    for (let k = 1; k < L; k++) { const q = clamp((k / L - crouch) / (1 - crouch), 0, 1), x = sx(headSc + L * q), y = fyBase - 4 * hOf(L) * q * (1 - q), lit = kCur >= k; cx.fillStyle = lit ? '#ffffff' : 'rgba(226,232,240,0.5)'; cx.beginPath(); cx.arc(x, y - fs * 0.6, (lit ? 4.5 : 3) * K, 0, Math.PI * 2); cx.fill(); }
+  }
+  // 影
+  cx.fillStyle = `rgba(0,0,0,${0.35 * (1 - 0.6 * (fyBase - fy) / Math.max(1, hMax))})`; cx.beginPath(); cx.ellipse(fx, waterY + 5 * K, fs * 0.6, fs * 0.15, 0, 0, Math.PI * 2); cx.fill();
+  // カエルの体（つぶれ・のび）
+  const land = has ? Math.exp(-ageH / 0.08) : 0, air = p > 0 && p < 1;
+  const sqY = air ? 1.12 : 1 - 0.28 * land - (has && p === 0 ? 0.12 * Math.sin(Math.PI * clamp((kCur + st.frac) / L / crouch, 0, 1)) : 0), sqX = 1 / Math.sqrt(sqY);
+  const bw = fs * 0.62 * sqX, bh = fs * 0.5 * sqY, by = fy - bh;
+  cx.fillStyle = '#4ade80'; cx.beginPath(); cx.ellipse(fx, by, bw, bh, 0, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = '#bbf7d0'; cx.beginPath(); cx.ellipse(fx + bw * 0.15, by + bh * 0.35, bw * 0.55, bh * 0.45, 0, 0, Math.PI * 2); cx.fill();
+  if (air) { cx.strokeStyle = '#22c55e'; cx.lineWidth = fs * 0.12; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(fx - bw * 0.6, by + bh * 0.4); cx.lineTo(fx - bw * 1.3, by + bh * 1.1); cx.stroke(); }
+  for (const s of [-1, 1]) {   // 目
+    const ex = fx + bw * 0.35 + s * bw * 0.32, ey = by - bh * 0.85;
+    cx.fillStyle = '#4ade80'; cx.beginPath(); cx.arc(ex, ey, fs * 0.17, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(ex, ey, fs * 0.12, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#0f172a'; cx.beginPath(); cx.arc(ex + fs * 0.03, ey, fs * 0.06, 0, Math.PI * 2); cx.fill();
+  }
+  if (has && kCur > 0 && ageS < 0.18 && !air) { cx.fillStyle = hexA('#fef9c3', 0.9); cx.beginPath(); cx.arc(fx + bw * 0.6, by + bh * 0.5, fs * 0.18 * (1 - ageS / 0.18), 0, Math.PI * 2); cx.fill(); }   // のどを鳴らす
+  if (barFlash > 0) txt('小節の頭！ ハスの花の葉にもどってきた', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#94a3b8', 700);
+  else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#cbd5e1', 700);
+}
+
+/* 花の音：ポン（開く＝まとまりの頭。パンは高く、トマトは低く）／ピン（花びら＝サブ拍） */
+function playFlower(t, head, L, barHead) {
+  const f = head ? (L === 3 ? 659 : 784) : 1568, len = head ? 0.5 : 0.18;
+  [[1, head ? 0.55 : 0.18], [2, head ? 0.18 : 0.06], [4, 0.05]].forEach(([r, a]) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f * r, t);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + len / r);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.05);
+  });
+  if (barHead) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(1046, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.15, t + 0.07); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.55);
+  }
+}
+/* カエルの音：ケロッ＋ぽちゃ（着地＝まとまりの頭）／小さなケ（サブ拍） */
+function playFrog(t, head, L, barHead) {
+  const o = ctx.createOscillator(), am = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  const len = head ? (L === 3 ? 0.16 : 0.12) : 0.05;
+  o.type = 'sawtooth'; o.frequency.setValueAtTime(head ? (L === 3 ? 170 : 210) : 320, t); o.frequency.linearRampToValueAtTime(head ? 260 : 360, t + len);
+  lfo.frequency.value = 45; lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+  f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 2;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? 0.9 : 0.35, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(am); am.connect(f); f.connect(g); g.connect(bus); o.start(t); o.stop(t + len + 0.02); lfo.start(t); lfo.stop(t + len + 0.02);
+  if (head) {
+    const w = ctx.createOscillator(), wg = ctx.createGain();
+    w.type = 'sine'; w.frequency.setValueAtTime(380, t); w.frequency.exponentialRampToValueAtTime(900, t + 0.08);
+    wg.gain.setValueAtTime(0.0001, t); wg.gain.exponentialRampToValueAtTime(0.4, t + 0.004); wg.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+    w.connect(wg); wg.connect(bus); w.start(t); w.stop(t + 0.14);
+  }
+  if (barHead) {
+    const b = ctx.createOscillator(), bg = ctx.createGain();
+    b.type = 'sine'; b.frequency.setValueAtTime(1318, t + 0.03);
+    bg.gain.setValueAtTime(0.0001, t); bg.gain.exponentialRampToValueAtTime(0.14, t + 0.04); bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+    b.connect(bg); bg.connect(bus); b.start(t); b.stop(t + 0.45);
   }
 }
 
