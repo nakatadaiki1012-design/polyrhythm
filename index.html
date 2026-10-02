@@ -52,6 +52,21 @@
   .stage-btn { position: absolute; left: 12px; top: 120px; padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 800;
                background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
   .stage-btn:active { background: #334155; }
+  .quiz { position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 24px)); z-index: 5; }
+  .qbox { background: rgba(15,26,48,0.96); border: 1px solid #334155; border-radius: 18px; padding: 16px 18px; box-shadow: 0 16px 50px rgba(0,0,0,.5); text-align: center; }
+  .qbox h3 { margin: 4px 0 10px; font-size: 22px; } .qbox p { margin: 6px 0 12px; font-size: 15px; color: #cbd5e1; }
+  .qnum { font-size: 14px; color: #94a3b8; font-weight: 800; }
+  .qbtn { display: block; width: 100%; margin: 8px 0; padding: 12px 10px; border-radius: 14px; font-size: 17px; font-weight: 800; background: #1e293b; border: 1px solid #334155; color: #e2e8f0; }
+  .qbtn.on { background: #22d3ee; color: #0f172a; border-color: #22d3ee; }
+  .qbtn.main { background: #a3e635; color: #0f172a; border-color: #a3e635; }
+  .qbtn.listen { background: #fbbf24; color: #0f172a; border-color: #fbbf24; }
+  .qbtn.right { background: #166534; border-color: #4ade80; } .qbtn.wrong { background: #7f1d1d; border-color: #fb7185; }
+  .quiz.mini { top: auto; bottom: var(--qb, 120px); transform: translateX(-50%); width: min(720px, calc(100% - 16px)); }
+  .quiz.mini .qbox { padding: 8px 12px; } .quiz.mini .qres { margin: 2px 0 4px; font-size: 16px; }
+  .qrow { display: flex; gap: 8px; } .qrow .qbtn { margin: 4px 0; padding: 9px 6px; font-size: 15px; }
+  .qopts { display: grid; gap: 0 8px; } .qlist .qbtn { font-size: 14px; text-align: left; }
+  .qres { margin: 10px 0 4px; font-size: 18px; font-weight: 900; } .qres.ok { color: #4ade80; } .qres.ng { color: #fb7185; }
+  @media (max-width: 599px) { .qbox h3 { font-size: 19px; } .qbtn { font-size: 15px; padding: 10px 8px; } .quiz { top: 50%; } }
   .stage-btn.on { background: #a3e635; color: #0f172a; border-color: #a3e635; }
   .help-btn { position: absolute; right: 10px; width: 34px; height: 34px; border-radius: 50%; font-size: 18px; font-weight: 900;
               background: rgba(15,23,42,.85); border: 1px solid #475569; color: #e2e8f0; }
@@ -198,6 +213,7 @@
   .preset.on { border-color: #a3e635; box-shadow: 0 0 0 1px #a3e635 inset, 0 0 16px rgba(163,230,53,.25); background: #15233a; }
   .p-title { font-size: 14px; font-weight: 800; }
   .p-note { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+  .p-song { font-size: 11px; color: #fcd34d; margin-top: 4px; line-height: 1.5; }
   .p-del { position: absolute; top: 4px; right: 6px; width: 24px; height: 24px; border-radius: 6px; color: #94a3b8; font-size: 14px; line-height: 24px; text-align: center; }
   .p-del:hover { background: #334155; color: #f1f5f9; }
 
@@ -236,7 +252,7 @@
 
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
+    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="top:auto;bottom:12px;left:12px">⚖ 組み合わせ・表示</button><div id="quizUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
     <!-- ===== 設定の引き出し ===== -->
     <aside id="drawer" aria-label="設定">
@@ -259,7 +275,8 @@
       <div id="presets" class="grid2"></div>
       <div class="hint" style="margin-top:8px">
         <b class="c2">2</b>＝「パン」　<b class="c3">3</b>＝「トマト」。<br>
-        再生中に切り替えると、次の小節の頭から変わります。［ ］キーでも切り替えられます。
+        再生中に切り替えると、次の小節の頭から変わります。［ ］キーでも切り替えられます。<br>
+        🎵 は、その拍子が使われている曲の例です。※5/4・7/4 などの曲は、数える音符が4分音符なだけで、考え方は同じです。
       </div>
     </details>
 
@@ -342,6 +359,16 @@
       <div class="hint" style="margin-bottom:8px">2つのリズムを同時に鳴らします。<b style="color:#f472b6">高い音</b>と<b style="color:#38bdf8">低い音</b>が、1周の中で同じ時間をちがう数で分けます。</div>
       <div class="seg full" id="polySel"></div>
       <div class="hint" style="margin-top:8px">選ぶとポリリズムのモードに切りかわります。刻みの音をONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+    </details>
+
+    <!-- くらべる -->
+    <details class="sec" id="secCompare">
+      <summary>くらべる</summary>
+      <div class="lbl2" style="margin-bottom:6px">組み合わせ</div>
+      <div class="seg full" id="cmpPairSel" style="flex-direction:column"></div>
+      <div class="row"><span class="lbl2">表示</span><div class="seg" id="cmpStyleSel"><button data-v="domino">ドミノ</button><button data-v="train">電車</button><button data-v="orbit">円軌道</button></div></div>
+      <div class="row"><span class="lbl2">鳴らす</span><div class="seg" id="cmpSoundSel"><button data-v="both">両方</button><button data-v="top">上だけ</button><button data-v="bottom">下だけ</button></div></div>
+      <div class="hint" style="margin-top:8px">選ぶと「くらべる」モードに切りかわります。上の段＝木の高い音、下の段＝太鼓の低い音。</div>
     </details>
 
     <!-- 授業で使う -->
@@ -453,10 +480,10 @@ const LIME = '#a3e635';
 const SYL = { 2: ['パ', 'ン'], 3: ['ト', 'マ', 'ト'] };
 const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
 const PRESETS = [
-  { cat: 'basic', sig: '2/4', bars: [[2, 2]], note: '2拍子（パン・パン）' },
-  { cat: 'basic', sig: '3/4', bars: [[2, 2, 2]], note: '3拍子' },
-  { cat: 'basic', sig: '4/4', bars: [[2, 2, 2, 2]], note: '4拍子' },
-  { cat: 'basic', sig: '6/8', bars: [[3, 3]], note: '2つ振り（トマト×2）' },
+  { cat: 'basic', sig: '2/4', bars: [[2, 2]], note: 'パン＋パン' },
+  { cat: 'basic', sig: '3/4', bars: [[2, 2, 2]], note: 'パン×3' },
+  { cat: 'basic', sig: '4/4', bars: [[2, 2, 2, 2]], note: 'パン×4' },
+  { cat: 'basic', sig: '6/8', bars: [[3, 3]], note: 'トマト＋トマト' },
   { cat: 'odd', sig: '5/8', bars: [[2, 3]], note: 'パン＋トマト' },
   { cat: 'odd', sig: '5/8', bars: [[3, 2]], note: 'トマト＋パン' },
   { cat: 'odd', sig: '7/8', bars: [[2, 2, 3]], note: 'パン＋パン＋トマト' },
@@ -465,7 +492,18 @@ const PRESETS = [
   { cat: 'alt', sig: '5/8', bars: [[2, 3], [3, 2]], note: '2+3 と 3+2 を交互に' },
   { cat: 'alt', sig: '7/8', bars: [[2, 2, 3], [3, 2, 2]], note: '2+2+3 と 3+2+2 を交互に' },
   { cat: 'alt', sigs: ['6/8', '3/4'], bars: [[3, 3], [2, 2, 2]], note: '6/8 と 3/4 を交互に（ヘミオラ）' },
+  { cat: 'odd', sig: '9/8', bars: [[2, 2, 2, 3]], note: 'パン×3＋トマト' },   // あとから追加（URLの番号がずれないよう、いちばん最後に置く）
 ];
+/* この拍子が使われている曲の例（音は入れない。曲名と作曲者だけ） */
+const Q4 = '（4分音符で書かれた曲。数える音符がちがうだけで、考え方は同じ）';
+const SONGS = {
+  '5/8': '5拍子の曲：ホルスト「火星」（組曲『惑星』）、チャイコフスキー 交響曲第6番 第2楽章、デイヴ・ブルーベック・カルテット「テイク・ファイヴ」（作曲 ポール・デズモンド）※どれも5/4',
+  '7/8': '7拍子の曲：ピンク・フロイド「マネー」※7/4',
+  '8/8': '3+3+2 の曲：バルトーク「ブルガリアのリズムによる6つの舞曲」第6曲',
+  '9/8': '2+2+2+3 の曲：デイヴ・ブルーベック「トルコ風ブルー・ロンド」',
+  '6/8→3/4': '6/8 と 3/4 の交互：バーンスタイン「アメリカ」（ミュージカル『ウエスト・サイド物語』）',
+};
+const songOf = p => { const sg = (p.sigs || p.bars.map(() => p.sig)).join('→'); return SONGS[sg] || (p.sigs ? null : SONGS[p.sig]) || null; };
 const CATS = [['basic', 'ふつうの拍子'], ['odd', '変拍子'], ['alt', '交互にくり返す']];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const mod = (a, n) => ((a % n) + n) % n;
@@ -552,7 +590,7 @@ const SET = {
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
-  countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true,
+  countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -615,6 +653,10 @@ MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛�
   detail: ['左上から右下へ、玉が仕掛けを刻み1つごとに1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。刻みの数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
 MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える', short: '着地の瞬間にタップ！',
   detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
+MODE_INFO.V = { g: 'g2', em: '⚖️', name: 'くらべる', line: '2つのリズムを上下にならべる。刻みの数は同じで、拍の頭の位置だけがちがう', short: '刻みは同じ、拍の頭の位置がちがう',
+  detail: ['上下2段に、2つのリズムを同じテンポ・同じ時間の目もりで並べる。', '縦の点線＝刻み（8分音符）。どちらも同じ数。まん中の ▼▲ がそれぞれの拍の頭、◆ は両方そろう所。', '上の段は木の高い音、下の段は太鼓の低い音。「組み合わせ・表示」で、片方だけ鳴らすこともできる。', '6/8 と 3/4 を同時に鳴らすと、2つの拍と3つの拍が重なる「ヘミオラ（2対3）」になる。'] };
+MODE_INFO.W = { g: 'g2', em: '👂', name: '当てる', line: '音だけを聞いて、リズムを当てよう。答えると映像と楽譜で正解が見られる', short: '音だけ聞いて、リズムを当てよう',
+  detail: ['映像をかくして、音だけ2小節鳴らす。「2+3？ 3+2？」「何拍子？」などを選ぶ。', '答えると、映像（円軌道）と楽譜バーつきで、もう一度鳴る。', 'むずかしさは3段階：やさしい（2択・刻みあり）／ふつう（3択）／むずかしい（3択・刻みなし・テンポ速め）。', '10問で結果が出る。まちがえた問題は、もう一度聞ける。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -876,7 +918,8 @@ function scheduleMeta() {
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
-    if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur, barHead) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime, barHead); }
+    if (mode === 'V') scheduleCompare(nextTime, m, curSub, subCounter);
+    else if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur, barHead) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime, barHead); }
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
@@ -909,6 +952,7 @@ function scheduler() {
   if (stopAt !== null) return;
   while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
     if (stopReq && atBarBoundary()) { stopAt = nextTime; return; }   // 小節の終わりで止める
+    if (quizStopBars && mode === 'W' && barCount >= quizStopBars && atBarBoundary()) { stopAt = nextTime; return; }   // クイズは2小節だけ
     if (mode === 'F') schedulePoly(); else scheduleMeta();
   }
 }
@@ -938,15 +982,15 @@ function resetCounters() {
   polyK = 0; polyCycle = -1;
   queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0;
 }
-function start() {
+function start(noCount) {
   initAudio(); if (ctx.state !== 'running') ctx.resume();
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
-  if (SET.rampOn) setBpm(SET.rampStart);
+  if (SET.rampOn && mode !== 'W') setBpm(SET.rampStart);
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
-  if (SET.countOn) {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
+  if (SET.countOn && !noCount && mode !== 'W') {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
     const beats = [];
     if (mode === 'F') {
       const n = Math.max(SET.poly[0], SET.poly[1]), d = 2 * 60 / bpm;
@@ -990,6 +1034,7 @@ function stop() {
   if (bus) { const b = bus; b.gain.setValueAtTime(0, ctx.currentTime); setTimeout(() => b.disconnect(), 300); bus = null; }
   keepAwake(false);
   updatePlayBtn();
+  if (mode === 'W' && typeof quizUI === 'function') quizUI();
 }
 function togglePlay() { playing ? requestStop() : start(); }
 /* 再生したまま F モードとほかのモードを行き来するときは、頭から数え直す */
@@ -1117,7 +1162,9 @@ function frame() {
   const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
   const scoreH = SET.scoreOn && mode !== 'F' ? Math.round(SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) : 0;   // 大きな数字のときは楽譜を少し小さく
   const sceneH = H - stripH - bandH - capH - scoreH, belowY = sceneH + capH;
+  const quizHide = mode === 'W' && quiz.phase !== 'reveal';
   if (hide) drawHidden(stage, belowY, stripH + scoreH, bandH);
+  else if (quizHide) drawQuizHidden(now, sceneH, belowY + bandH, scoreH + stripH);
   else if (mode === 'F') {
     const ps = getPolyState(now);
     drawPoly(ps, now, sceneH);
@@ -1144,14 +1191,17 @@ function frame() {
     else if (mode === 'U') drawFrog(st, now, sceneH);
     else if (mode === 'L') drawKarakuri(st, now, sceneH);
     else if (mode === 'M') drawBlocks(st, now, sceneH);
+    else if (mode === 'V') drawCompare(st, now, sceneH);
+    else if (mode === 'W') drawOrbit(st, now, sceneH);
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     if (scoreH) drawScore(st, now, belowY + bandH, scoreH);
     drawStrip(st, belowY + bandH + scoreH, stripH);
     drawBarMark(now, st.m, sceneH);
   }
-  if (!hide) drawCaption(sceneH, capH, capFs);
+  if (!hide && !quizHide) drawCaption(sceneH, capH, capFs);
   placeHelp(hide ? -1 : sceneH + capH / 2);
+  if (mode === 'W') { const qb = Math.round(H - sceneH + 6) + 'px'; if (cv.dataset.qb !== qb) { cv.dataset.qb = qb; $('#quizUI').style.setProperty('--qb', qb); } }
   if (bandH) drawBand(belowY, bandH, stage, hide);
   if (playing && countInfo && now < countInfo.end + 0.05) drawCount(now, sceneH);
   const eb = document.getElementById('emblemReset'), showEb = mode === 'H' && !hide;
@@ -3952,6 +4002,238 @@ function playBlock(t, head, L, barHead) {
   }
 }
 
+/* ---------- モード：くらべる ----------
+   ・上下2段に、2つのリズムを同じテンポ・同じ時間の目もりで並べる
+   ・縦の点線＝8分音符（刻み）の位置。どちらも同じ数。ちがうのは「拍の頭」の位置だけ
+   ・上の段と下の段で音色を変える（片方だけ鳴らすこともできる） */
+const CMP_PAIRS = [
+  { title: '5/8 2+3 と 3+2', a: 4, b: 5 },
+  { title: '6/8 と 3/4', a: 3, b: 1, hemiola: true },
+  { title: '4/4 と 8/8（3+3+2）', a: 2, b: 8 },
+  { title: '7/8 2+2+3 と 3+2+2', a: 6, b: 7 },
+  { title: '自分で作ったリズムどうし', custom: true },
+];
+let compareMeta = makeMeta(PRESETS[5]);
+function comparePresets(i) {
+  const pr = CMP_PAIRS[i] || CMP_PAIRS[0];
+  if (pr.custom) {
+    if (customs.length >= 2) return [customPreset(customs[1]), customPreset(customs[0])];
+    if (customs.length === 1) return [customPreset(customs[0]), customPreset(customs[0].slice().reverse())];
+    return [PRESETS[4], PRESETS[5]];
+  }
+  return [PRESETS[pr.a], PRESETS[pr.b]];
+}
+function applyComparePair() {
+  const [A, B] = comparePresets(SET.cmpPair);
+  selected = A; compareMeta = makeMeta(B);
+  activeMeta = makeMeta(A); pendingMeta = null;
+  if (playing) restartTimeline(); else { lastNote = null; accents = []; }
+  renderPresets(); updateBarRhythm(); renderCompareSel();
+}
+function compareSound(t, laneA, head, L, bar) {   // 上の段＝木の高い音、下の段＝太鼓の低い音
+  if (SET.cmpSound === 'top' && !laneA) return;
+  if (SET.cmpSound === 'bottom' && laneA) return;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  if (laneA) {
+    o.type = 'triangle'; o.frequency.setValueAtTime(head ? (bar ? 1760 : 1320) : 2200, t); o.frequency.exponentialRampToValueAtTime(head ? 900 : 1700, t + 0.05);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? (bar ? 0.75 : 0.55) : 0.18, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + (head ? 0.08 : 0.03));
+  } else {
+    o.type = 'sine'; o.frequency.setValueAtTime(head ? (bar ? 220 : 180) : 320, t); o.frequency.exponentialRampToValueAtTime(head ? 65 : 200, t + 0.12);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? (bar ? 1.0 : 0.8) : 0.3, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + (head ? 0.16 : 0.05));
+  }
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2);
+}
+function scheduleCompare(t, m, curSubA, sc) {
+  const gA = m.subToGroup[curSubA], headA = m.starts[gA] === curSubA;
+  if (headA || subOn) compareSound(t, true, headA, m.groups[gA], headA && m.barStartSub.includes(curSubA));
+  const B = compareMeta, jB = mod(sc, B.total), gB = B.subToGroup[jB], headB = B.starts[gB] === jB;
+  if (headB || subOn) compareSound(t, false, headB, B.groups[gB], headB && B.barStartSub.includes(jB));
+}
+function drawCompare(st, now, ah) {
+  const A = st.m, B = compareMeta, has = st.has, dur = 60 / bpm, narrow = W < 640;
+  const top = 116 * K, pad = 16 * K, gapMid = 30 * K, laneH = (ah - top - gapMid - 14 * K) / 2;
+  const Nmax = Math.max(A.total, B.total), x0 = pad + (narrow ? 0 : 6 * K), span = W - 2 * pad, step = span / Nmax;
+  const S = has ? st.sc + st.frac : 0;
+  const pr = CMP_PAIRS[SET.cmpPair] || CMP_PAIRS[0];
+  const lanes = [{ m: A, y: top, name: '上', col: '#f9a8d4' }, { m: B, y: top + laneH + gapMid, name: '下', col: '#7dd3fc' }];
+  const posIn = mt => has ? mod(S, mt.total) : -1;
+  // 縦の点線（刻み）。両方の段をつらぬく
+  for (let i = 0; i <= Nmax; i++) {
+    const x = x0 + i * step;
+    cx.strokeStyle = 'rgba(148,163,184,0.22)'; cx.lineWidth = 1; cx.setLineDash([2 * K, 4 * K]);
+    cx.beginPath(); cx.moveTo(x, top - 4 * K); cx.lineTo(x, top + 2 * laneH + gapMid + 4 * K); cx.stroke(); cx.setLineDash([]);
+  }
+  // 拍の頭が両方でそろう所／ずれる所（まん中のすき間に印）
+  for (let i = 0; i < Nmax; i++) {
+    const hA = i < A.total && A.starts.includes(mod(i, A.total)), hB = i < B.total && B.starts.includes(mod(i, B.total));
+    if (!hA && !hB) continue;
+    const x = x0 + i * step + 2 * K, y = top + laneH + gapMid / 2;
+    if (hA && hB) { cx.fillStyle = '#ffffff'; cx.beginPath(); cx.moveTo(x, y - 7 * K); cx.lineTo(x + 6 * K, y); cx.lineTo(x, y + 7 * K); cx.lineTo(x - 6 * K, y); cx.closePath(); cx.fill(); }
+    else { cx.fillStyle = hA ? lanes[0].col : lanes[1].col; cx.beginPath(); if (hA) { cx.moveTo(x - 6 * K, y - 6 * K); cx.lineTo(x + 6 * K, y - 6 * K); cx.lineTo(x, y + 2 * K); } else { cx.moveTo(x - 6 * K, y + 6 * K); cx.lineTo(x + 6 * K, y + 6 * K); cx.lineTo(x, y - 2 * K); } cx.closePath(); cx.fill(); }
+  }
+  lanes.forEach((ln, li) => {
+    const mt = ln.m, p = posIn(mt), jp = Math.floor(p), f = p - jp, y0 = ln.y, y1 = ln.y + laneH, sig = mt.bars.map((bg, b) => mt.sigs[b]).join('→');
+    cx.fillStyle = li ? 'rgba(14,116,144,0.10)' : 'rgba(190,24,93,0.10)'; rr(x0 - 6 * K, y0 - 2 * K, span + 12 * K, laneH + 4 * K, 10 * K); cx.fill();
+    txt(`${ln.name}：${sig} [${mt.bars.map(b => b.join('+')).join(' → ')}]　${meterText(mt, true)}`, x0 + 4 * K, y0 + 13 * K, Math.max(13, 13.5 * K), ln.col, 900, 'left');
+    const yb = y1 - 8 * K, hMax = laneH - 34 * K;
+    if (SET.cmpStyle === 'orbit') {
+      const R = Math.min(hMax * 0.5, span * 0.18), ccx = W / 2, ccy = y0 + 26 * K + (laneH - 26 * K) / 2, T = mt.total, a0 = -Math.PI / 2;
+      mt.groups.forEach((L, gi) => {
+        const s0 = a0 + 2 * Math.PI * mt.starts[gi] / T, s1 = s0 + 2 * Math.PI * L / T, cur = has && gi === mt.subToGroup[jp];
+        cx.beginPath(); cx.moveTo(ccx, ccy); cx.arc(ccx, ccy, R, s0, s1); cx.closePath(); cx.fillStyle = hexA(COLORS[L], cur ? 0.35 : 0.12); cx.fill();
+        cx.strokeStyle = hexA(COLORS[L], 0.9); cx.lineWidth = 5 * K; cx.beginPath(); cx.arc(ccx, ccy, R, s0 + 0.02, s1 - 0.02); cx.stroke();
+        cx.strokeStyle = '#e2e8f0'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(ccx, ccy); cx.lineTo(ccx + Math.cos(s0) * R * 1.08, ccy + Math.sin(s0) * R * 1.08); cx.stroke();
+      });
+      if (has) { const an = a0 + 2 * Math.PI * p / T; cx.fillStyle = '#ffffff'; cx.shadowColor = ln.col; cx.shadowBlur = 18 * K; cx.beginPath(); cx.arc(ccx + Math.cos(an) * R, ccy + Math.sin(an) * R, 7 * K, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0; }
+    } else if (SET.cmpStyle === 'train') {
+      const ch = Math.min(hMax * 0.55, 60 * K), cy0 = yb - ch - 10 * K;
+      mt.groups.forEach((L, gi) => {
+        const xa = x0 + mt.starts[gi] * step + 3 * K, w = L * step - 6 * K, cur = has && gi === mt.subToGroup[jp], col = COLORS[L], bar = mt.barStartGroup.includes(gi);
+        if (cur) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
+        cx.fillStyle = hexA(col, cur ? 0.85 : 0.45); rr(xa, cy0, w, ch, 8 * K); cx.fill(); cx.shadowBlur = 0;
+        cx.strokeStyle = bar ? LIME : 'rgba(255,255,255,0.6)'; cx.lineWidth = (bar ? 3 : 1.5) * K; cx.stroke();
+        txt(L === 2 ? 'パン' : 'トマト', xa + w / 2, cy0 + ch / 2, Math.max(12, Math.min(ch * 0.4, 16 * K)), '#0f172a', 900);
+        for (let k = 0; k < L; k++) { const wx = x0 + (mt.starts[gi] + k + 0.5) * step; cx.fillStyle = '#1e293b'; cx.beginPath(); cx.arc(wx, cy0 + ch + 5 * K, 6 * K, 0, Math.PI * 2); cx.fill(); cx.strokeStyle = '#94a3b8'; cx.lineWidth = 1.5 * K; cx.stroke(); }
+      });
+      cx.strokeStyle = '#64748b'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(x0, cy0 + ch + 12 * K); cx.lineTo(x0 + mt.total * step, cy0 + ch + 12 * K); cx.stroke();
+    } else {   // ドミノ
+      for (let i = 0; i < mt.total; i++) {
+        const gi = mt.subToGroup[i], L = mt.groups[gi], head = mt.starts[gi] === i, bar = head && mt.barStartSub.includes(i), col = COLORS[L];
+        const h = Math.min(hMax, step * 2.4) * (head ? (L === 3 ? 0.95 : 0.8) : 0.5), w = Math.max(4, Math.min(step * 0.28, h * 0.24)), x = x0 + (i + 0.5) * step;
+        let ang = 0;
+        if (has) { if (i < jp) ang = 1.15; else if (i === jp) ang = 1.15 * Math.min(1, f * f * 1.4); }
+        if (has && jp === 0 && i > 0 && f < 0.25) ang = 1.15 * (1 - f / 0.25) * 0;   // 周期の頭で全部立ち直る
+        cx.save(); cx.translate(x + w / 2, yb); cx.rotate(ang);
+        cx.fillStyle = hexA(col, head ? 0.95 : 0.55); rr(-w, -h, w, h, 3 * K); cx.fill();
+        cx.strokeStyle = bar ? LIME : 'rgba(255,255,255,0.75)'; cx.lineWidth = (bar ? 2.5 : 1.2) * K; cx.stroke();
+        cx.restore();
+      }
+      cx.strokeStyle = 'rgba(203,213,225,0.5)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(x0, yb); cx.lineTo(x0 + mt.total * step, yb); cx.stroke();
+    }
+    // 拍の頭の光（その瞬間）
+    if (has) {
+      const gi = mt.subToGroup[jp], isHead = mt.starts[gi] === jp, age = f * dur;
+      if (isHead && age < 0.35 && SET.cmpStyle !== 'orbit') {
+        const q = age / 0.35, x = x0 + (jp + 0.5) * step, bar = mt.barStartSub.includes(jp);
+        cx.strokeStyle = hexA(bar ? LIME : ln.col, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
+        cx.beginPath(); cx.arc(x, y0 + laneH * 0.55, (10 + 30 * q) * K, 0, Math.PI * 2); cx.stroke();
+      }
+    }
+  });
+  // いまの位置（同じ時間の線）
+  if (has && SET.cmpStyle !== 'orbit') {
+    const pA = posIn(A), x = x0 + pA * step;
+    cx.strokeStyle = 'rgba(255,255,255,0.85)'; cx.lineWidth = 2.5 * K;
+    cx.beginPath(); cx.moveTo(x, top - 6 * K); cx.lineTo(x, top + 2 * laneH + gapMid + 6 * K); cx.stroke();
+  }
+  let msg = '刻み（縦の点線）の数は同じ。ちがうのは、拍の頭（▼▲）の位置だけ';
+  if (pr.hemiola) msg = narrow ? '同時に鳴らすとヘミオラ（2対3）' : '同時に鳴らすと、2つの拍と3つの拍が重なる＝ヘミオラ（2対3）';
+  else if (narrow) msg = '刻みの数は同じ。拍の頭の位置だけちがう';
+  txt(msg, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 800);
+}
+
+/* ---------- モード：聴き取りクイズ（当てる） ----------
+   映像をかくして音だけ2小節鳴らし、「2+3？ 3+2？」「何拍子？」などを選ぶ。答えると映像と楽譜で正解を見せる */
+const QUIZ_LEVELS = { easy: 'やさしい（2択・刻みあり）', normal: 'ふつう（3択）', hard: 'むずかしい（3択・刻みなし・速め）' };
+const quiz = { phase: 'setup', level: 'easy', list: [], i: 0, base: null };
+function qPreset(groups, sig) {
+  const total = groups.reduce((a, v) => a + v, 0);
+  return { cat: 'quiz', sig: sig || `${total}/8`, bars: [groups.slice()], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
+}
+function quizMakeQuestion(level) {
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const easy = [
+    () => ({ ask: '2＋3？ それとも 3＋2？', opts: [{ t: '2＋3（パン＋トマト）', p: qPreset([2, 3]) }, { t: '3＋2（トマト＋パン）', p: qPreset([3, 2]) }] }),
+    () => ({ ask: '6/8（2拍子）？ それとも 3/4（3拍子）？', opts: [{ t: '6/8 ＝ 2拍子（トマト＋トマト）', p: qPreset([3, 3], '6/8') }, { t: '3/4 ＝ 3拍子（パン×3）', p: qPreset([2, 2, 2], '3/4') }] }),
+    () => ({ ask: '何拍子？', opts: [{ t: '2拍子', p: pick([qPreset([2, 2], '2/4'), qPreset([3, 3], '6/8'), qPreset([2, 3]), qPreset([3, 2])]) }, { t: '3拍子', p: pick([qPreset([2, 2, 2], '3/4'), qPreset([2, 2, 3]), qPreset([3, 2, 2]), qPreset([3, 3, 2])]) }] }),
+  ];
+  const normal = [
+    () => ({ ask: '何拍子？', opts: [{ t: '2拍子', p: pick([qPreset([2, 2], '2/4'), qPreset([3, 3], '6/8'), qPreset([2, 3]), qPreset([3, 2])]) }, { t: '3拍子', p: pick([qPreset([2, 2, 2], '3/4'), qPreset([2, 2, 3]), qPreset([3, 2, 2]), qPreset([3, 3, 2])]) }, { t: '4拍子', p: pick([qPreset([2, 2, 2, 2], '4/4'), qPreset([2, 2, 2, 3])]) }] }),
+    () => ({ ask: '7/8 の並びはどれ？', opts: [{ t: '2＋2＋3', p: qPreset([2, 2, 3]) }, { t: '2＋3＋2', p: qPreset([2, 3, 2]) }, { t: '3＋2＋2', p: qPreset([3, 2, 2]) }] }),
+    () => ({ ask: '8/8 の並びはどれ？', opts: [{ t: '3＋3＋2', p: qPreset([3, 3, 2]) }, { t: '3＋2＋3', p: qPreset([3, 2, 3]) }, { t: '2＋3＋3', p: qPreset([2, 3, 3]) }] }),
+    () => ({ ask: '5/8 の並びは？ それとも 6/8？', opts: [{ t: '5/8 2＋3', p: qPreset([2, 3]) }, { t: '5/8 3＋2', p: qPreset([3, 2]) }, { t: '6/8 3＋3', p: qPreset([3, 3], '6/8') }] }),
+  ];
+  const q = pick(level === 'easy' ? easy : normal)();
+  q.answer = Math.floor(Math.random() * q.opts.length); q.user = null;
+  return q;
+}
+function quizUI() {
+  const el = $('#quizUI'); if (mode !== 'W') { el.hidden = true; return; }
+  el.hidden = false; el.classList.remove('mini');
+  const q = quiz.list[quiz.i];
+  if (quiz.phase === 'setup') {
+    el.innerHTML = `<div class="qbox"><h3>👂 聴き取りクイズ</h3><p>音だけを聞いて、リズムを当てよう（全10問・1問2小節）</p>
+      <div class="qlv">${Object.entries(QUIZ_LEVELS).map(([k, v]) => `<button class="qbtn ${quiz.level === k ? 'on' : ''}" data-lv="${k}">${v}</button>`).join('')}</div>
+      <button class="qbtn main" data-act="start">はじめる</button></div>`;
+  } else if (quiz.phase === 'done') {
+    const ok = quiz.list.filter(q => q.user === q.answer).length, ng = quiz.list.map((q, i) => [q, i]).filter(([q]) => q.user !== q.answer);
+    el.innerHTML = `<div class="qbox"><h3>結果：${ok} / ${quiz.list.length} 問 正解！</h3>
+      ${ng.length ? `<p>まちがえた問題（もう一度聞けます）</p><div class="qlist">${ng.map(([q, i]) => `<button class="qbtn" data-replay="${i}">第${i + 1}問：正解は「${q.opts[q.answer].t}」 ▶</button>`).join('')}</div>` : '<p>全問正解！ すばらしい！</p>'}
+      <button class="qbtn main" data-act="again">もう一度はじめる</button></div>`;
+  } else if (q.user !== null) {   // 答えたあと：小さな帯にして、下の映像と楽譜が見えるようにする
+    const correct = q.user === q.answer;
+    el.classList.add('mini');
+    el.innerHTML = `<div class="qbox"><div class="qres ${correct ? 'ok' : 'ng'}">第${quiz.i + 1}問　${correct ? '⭕ 正解！' : '❌ ざんねん'}　正解は「${q.opts[q.answer].t}」</div>
+      <div class="qrow"><button class="qbtn listen" data-act="listen">▶ 映像つきでもう一度</button>
+      <button class="qbtn main" data-act="${quiz.fromDone ? 'back' : 'next'}">${quiz.fromDone ? '結果にもどる' : quiz.i + 1 < quiz.list.length ? '次の問題へ' : '結果を見る'}</button></div></div>`;
+  } else {
+    const answered = q.user !== null, correct = answered && q.user === q.answer;
+    el.innerHTML = `<div class="qbox"><div class="qnum">第 ${quiz.i + 1} 問 ／ ${quiz.list.length}</div><h3>${q.ask}</h3>
+      <button class="qbtn listen" data-act="listen">${playing && quiz.phase === 'listen' ? '♪ 聞いています…' : answered ? '▶ 映像つきでもう一度' : '▶ 聞く（2小節）'}</button>
+      <div class="qopts">${q.opts.map((o, i) => `<button class="qbtn opt ${answered ? (i === q.answer ? 'right' : i === q.user ? 'wrong' : '') : ''}" data-opt="${i}" ${answered ? 'disabled' : ''}>${o.t}</button>`).join('')}</div>
+      ${answered ? `<div class="qres ${correct ? 'ok' : 'ng'}">${correct ? '⭕ 正解！' : '❌ ざんねん'}　正解は「${q.opts[q.answer].t}」</div><button class="qbtn main" data-act="next">${quiz.i + 1 < quiz.list.length ? '次の問題へ' : '結果を見る'}</button>` : ''}
+      </div>`;
+  }
+  el.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { quiz.level = b.dataset.lv; quizUI(); });
+  el.querySelectorAll('[data-act]').forEach(b => b.onclick = () => quizAct(b.dataset.act));
+  el.querySelectorAll('[data-opt]').forEach(b => b.onclick = () => quizAnswer(+b.dataset.opt));
+  el.querySelectorAll('[data-replay]').forEach(b => b.onclick = () => { quiz.i = +b.dataset.replay; quiz.fromDone = true; quizPlay(true); });
+}
+let quizStopBars = 0;
+function quizPlay(reveal) {
+  const q = quiz.list[quiz.i]; if (!q) return;
+  if (!quiz.base) quiz.base = { bpm, subOn, selected };
+  if (playing) stop();
+  subOn = quiz.level !== 'hard';   // むずかしいは刻みなし
+  bpm = quiz.level === 'hard' ? Math.min(300, quiz.base.bpm + 40) : quiz.base.bpm; showBpm();
+  selected = q.opts[q.answer].p; activeMeta = makeMeta(selected); pendingMeta = null; lastNote = null; accents = [];
+  quiz.phase = reveal ? 'reveal' : 'listen';
+  quizStopBars = 2; start(true);
+  updateBarRhythm(); quizUI();
+}
+function quizAct(a) {
+  if (a === 'start' || a === 'again') {
+    quiz.list = []; for (let i = 0; i < 10; i++) quiz.list.push(quizMakeQuestion(quiz.level));
+    quiz.i = 0; quiz.fromDone = false; quiz.phase = 'listen'; quizPlay(false);
+  } else if (a === 'listen') { const q = quiz.list[quiz.i]; quizPlay(q.user !== null); }
+  else if (a === 'back') { if (playing) stop(); quiz.fromDone = false; quiz.phase = 'done'; quizUI(); updateBarRhythm(); }
+  else if (a === 'next') {
+    if (playing) stop();
+    if (quiz.i + 1 < quiz.list.length) { quiz.i++; quiz.phase = 'listen'; quizPlay(false); }
+    else { quiz.phase = 'done'; quizUI(); updateBarRhythm(); }
+  }
+}
+function quizAnswer(i) {
+  const q = quiz.list[quiz.i]; if (!q || q.user !== null) return;
+  q.user = i; quiz.phase = 'reveal'; quizPlay(true);   // 答えたら、映像つきでもう一度鳴らす
+}
+function quizLeave() {   // ほかのモードへ移ったら、テンポと刻みの設定をもとにもどす
+  if (quiz.base) { bpm = quiz.base.bpm; subOn = quiz.base.subOn; showBpm(); selected = quiz.base.selected; activeMeta = makeMeta(selected); pendingMeta = null; lastNote = null; quiz.base = null; renderPresets(); }
+  quizStopBars = 0; if (quiz.phase !== 'done') quiz.phase = 'setup';
+}
+function drawQuizHidden(now, sceneH, belowY, rest) {
+  // 音を聞いている間：映像・楽譜・カウント帯をかくす
+  const t = now * 2;
+  for (let i = 0; i < 3; i++) {
+    const r = (60 + i * 40 + (t * 30) % 40) * K;
+    cx.strokeStyle = `rgba(148,163,184,${0.25 - i * 0.06})`; cx.lineWidth = 3 * K;
+    cx.beginPath(); cx.arc(W / 2, sceneH * 0.3, r, -0.6, 0.6); cx.stroke();
+  }
+  rr(14 * K, belowY + 6 * K, W - 28 * K, rest - 12 * K, 10 * K);
+  cx.strokeStyle = 'rgba(51,65,85,0.7)'; cx.lineWidth = 1.5 * K; cx.setLineDash([6 * K, 6 * K]); cx.stroke(); cx.setLineDash([]);
+  txt('（楽譜とカウントは、答えたあとに出ます）', W / 2, belowY + rest / 2, Math.max(13, 13 * K), '#64748b', 700);
+}
+
 /* ---------- モードF：同時ポリリズム ----------
    1周（1つの円）を、高い音は a 個、低い音は b 個に等しく分ける。
    外側の図形＝高い音（a角形）、内側の図形＝低い音（b角形。2のときは直線）。
@@ -4074,6 +4356,7 @@ function updatePlayBtn() {
 }
 /* 下のバーの「今のリズム」 */
 function updateBarRhythm() {
+  if (mode === 'W' && quiz.phase !== 'reveal' && quiz.phase !== 'done') { $('#barR1').textContent = '👂 聴き取りクイズ'; $('#barR2').textContent = 'リズムはひみつ'; return; }
   if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
   const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
   $('#barR1').textContent = p.bars.map((bg, b) => (b === 0 || sigs[b] !== sigs[b - 1] ? sigs[b] + ' ' : '') + '[' + bg.join('+') + ']').join(' → ');
@@ -4091,7 +4374,8 @@ function presetLabel(p) {
 function presetButton(p, extraClass, onDelete) {
   const b = document.createElement('button');
   b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' ? ' on' : '');
-  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>`;
+  const song = p.cat !== 'custom' ? songOf(p) : null;
+  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>` + (song ? `<div class="p-song">🎵 ${song}</div>` : '');
   b.onclick = () => selectPreset(p);
   if (onDelete) {
     const d = document.createElement('span');
@@ -4106,7 +4390,7 @@ function renderPresets() {
   const head = t => { const h = document.createElement('div'); h.className = 'cat'; h.textContent = t; box.appendChild(h); };
   CATS.forEach(([cat, title]) => {
     head(title);
-    PRESETS.filter(p => p.cat === cat).forEach(p => box.appendChild(presetButton(p, p.bars.length > 1 ? ' span2' : '')));
+    PRESETS.filter(p => p.cat === cat).forEach(p => box.appendChild(presetButton(p, p.bars.length > 1 || songOf(p) ? ' span2' : '')));
   });
   if (customs.length) {
     head('自分で作ったリズム');
@@ -4136,6 +4420,10 @@ function setMode(md) {
   }
   if (md !== 'F') lastMetaMode = md;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
+  if (was === 'W' && md !== 'W') quizLeave();
+  if (md === 'V' && was !== 'V') applyComparePair();
+  if (md === 'W' && was !== 'W') { if (playing) stop(); quiz.phase = 'setup'; }
+  quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V';
   const info = MODE_INFO[md];
   if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）▾</span>`;
   renderPresets(); renderPolySel(); updateBarRhythm();
@@ -4181,7 +4469,7 @@ function refreshPanels() {
   $('#rampBox').classList.toggle('hide', !SET.rampOn);
   $('#practiceTag').classList.toggle('show', SET.tapOn || SET.fadeOn || SET.rampOn);
   $('#rsVal').textContent = SET.rampStart; $('#reVal').textContent = SET.rampEnd;
-  $('#subDesc').textContent = subOn ? '刻み（刻み1つ分）も鳴らす' : '拍頭だけ鳴らす';
+  $('#subDesc').textContent = subOn ? '刻み（8分音符1つ分）も鳴らす' : '拍の頭だけ鳴らす';
   $('#latTag').textContent = latencyMs ? `${latencyMs > 0 ? '+' : ''}${latencyMs}ms` : '';
   $('#latTag').classList.toggle('show', !!latencyMs);
 }
@@ -4299,6 +4587,22 @@ $('#buildSave').onclick = () => {
   buildMsg('保存しました！「リズムを選ぶ」に入っています');
 };
 
+/* ----- くらべる ----- */
+function renderCompareSel() {
+  const box = $('#cmpPairSel'); if (!box) return; box.innerHTML = '';
+  CMP_PAIRS.forEach((pr, i) => {
+    const b = document.createElement('button'); b.textContent = pr.title + (pr.custom && customs.length < 2 ? '（保存したリズムが2つ以上あると使えます）' : '');
+    b.classList.toggle('on', SET.cmpPair === i); b.style.textAlign = 'left';
+    b.onclick = () => { SET.cmpPair = i; saveSet(); if (mode !== 'V') setMode('V'); else applyComparePair(); renderCompareSel(); };
+    box.appendChild(b);
+  });
+}
+bindSeg('#cmpStyleSel', () => SET.cmpStyle, v => { SET.cmpStyle = v; });
+bindSeg('#cmpSoundSel', () => SET.cmpSound, v => { SET.cmpSound = v; });
+$('#cmpBtn').onclick = e => { e.stopPropagation(); openDrawer('secCompare'); };
+$('#cmpBtn').addEventListener('pointerdown', e => e.stopPropagation());
+renderCompareSel();
+
 /* ----- 授業で使う ----- */
 bindSwitch('#countSw', () => SET.countOn, v => { SET.countOn = v; });
 bindSeg('#stopSel', () => SET.stopMode, v => { SET.stopMode = v; });
@@ -4317,7 +4621,7 @@ document.querySelectorAll('.modal').forEach(m => {
 });
 $('#drClose').onclick = closeDrawer;
 $('#barSet').onclick = () => $('#app').classList.contains('dr-open') ? closeDrawer() : openDrawer();
-$('#barRhythm').onclick = () => openDrawer(mode === 'F' ? 'secPoly' : 'secRhythm');
+$('#barRhythm').onclick = () => { if (mode === 'W') return; openDrawer(mode === 'F' ? 'secPoly' : mode === 'V' ? 'secCompare' : 'secRhythm'); };
 $('#modeCur').onclick = () => { openModal('#modeSheet'); updateMoreHint(); };
 function updateMoreHint() { const b = $('#sheetBox'); $('#moreHint').classList.toggle('off', b.scrollTop + b.clientHeight >= b.scrollHeight - 30); }
 $('#sheetBox').addEventListener('scroll', updateMoreHint);
@@ -4535,6 +4839,7 @@ cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; if (tap
 cv.addEventListener('click', () => {
   if (cv.dataset.sigHit) { cv.dataset.sigHit = ''; return; }
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
+  if (mode === 'W') return;
   if (!tapActive()) togglePlay();
 });
 $('#emblemReset').onclick = e => { e.stopPropagation(); emblemReset(); };
@@ -4547,7 +4852,7 @@ document.addEventListener('keydown', e => {
   const tg = e.target || {}, typing = tg.tagName === 'INPUT' && tg.type !== 'range';
   if (typing) return;
   if (e.key === 'Escape') { closeModals(); closeDrawer(); return; }
-  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) togglePlay(); return; }
+  if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { if (mode === 'W' && quiz.phase !== 'setup' && quiz.phase !== 'done') quizAct('listen'); else togglePlay(); } return; }
   if (tapActive() && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
   if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) toggleFs(); return; }
   if (tg.type === 'range' && e.key.startsWith('Arrow')) return;   // スライダーを操作中
