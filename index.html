@@ -116,6 +116,35 @@
   }
   @media (min-width: 1700px) { #drawer { width: 430px; font-size: 1.1rem; } }
 
+  /* レッスンのパネル */
+  .lesson-btn { flex: none; height: 40px; padding: 0 14px; border-radius: 12px; background: #1d4ed8; color: #fff; font-size: 15px; font-weight: 800; }
+  @media (max-width: 599px) { .lesson-btn { padding: 0 10px; } .lesson-btn .tx { display: none; } }
+  #lesson { display: none; flex: none; width: 380px; overflow-y: auto; padding: 0 16px 20px; background: #0b1630; border-left: 1px solid #1e3a8a; }
+  #app.ls-open #lesson { display: block; }
+  @media (max-width: 1099px) { #lesson { position: absolute; top: 0; right: 0; bottom: 0; z-index: 19; box-shadow: -10px 0 30px rgba(0,0,0,.5); } }
+  @media (max-width: 599px) { #lesson { left: 0; right: 0; top: auto; width: auto; height: 58%; border-left: 0; border-top: 1px solid #1e3a8a; border-radius: 18px 18px 0 0; } }
+  @media (min-width: 1700px) { #lesson { width: 440px; font-size: 1.1rem; } }
+  .ls-head { position: sticky; top: 0; display: flex; align-items: center; gap: 10px; padding: 12px 0 8px; background: #0b1630; z-index: 1; }
+  .ls-head b { font-size: 18px; } .ls-step { margin-right: auto; color: #93c5fd; font-weight: 800; }
+  .ls-dots { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+  .ls-dot { width: 32px; height: 32px; border-radius: 50%; background: #1e293b; color: #94a3b8; font-weight: 800; font-size: 14px; }
+  .ls-dot.done { background: #1e3a8a; color: #dbeafe; } .ls-dot.on { background: #60a5fa; color: #0f172a; }
+  .ls-title { margin: 6px 0 8px; font-size: 21px; }
+  .ls-blk { margin: 10px 0; font-size: 16px; line-height: 1.65; color: #e2e8f0; }
+  .ls-tag { display: inline-block; margin-right: 8px; padding: 1px 8px; border-radius: 999px; font-size: 13px; font-weight: 800; color: #0f172a; }
+  .ls-tag.goal { background: #a3e635; } .ls-tag.mode { background: #93c5fd; } .ls-tag.act { background: #fbbf24; } .ls-tag.q { background: #f9a8d4; }
+  .ls-pre { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+  .ls-ans { margin-top: 6px; padding: 6px 10px; border-radius: 10px; background: rgba(249,168,212,0.1); }
+  .ls-nav { display: flex; gap: 8px; margin-top: 12px; } .ls-nav .btn { flex: 1; padding: 12px 6px; font-size: 16px; }
+  /* わかることタグ */
+  .tagbar { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 6px; }
+  .tagbar button { padding: 5px 12px; border-radius: 999px; background: #1e293b; border: 1px solid #334155; font-size: 14px; font-weight: 800; color: #cbd5e1; }
+  .tagbar button.on { background: #f8fafc; color: #0f172a; }
+  .mtags { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; }
+  .mtag { font-size: 10.5px; font-weight: 800; padding: 0 5px; border-radius: 6px; line-height: 1.6; }
+  .mtag.len { background: #155e75; color: #cffafe; } .mtag.cog { background: #713f12; color: #fef3c7; } .mtag.cyc { background: #3b0764; color: #f3e8ff; } .mtag.str { background: #365314; color: #ecfccb; }
+  .tab.dim { opacity: .25; }
+
   /* 全画面：操作をかくし、マウスを動かすと出る */
   body.fs #topbar, body.fs #bar { position: fixed; left: 0; right: 0; z-index: 30; transition: opacity .25s; opacity: 0; pointer-events: none; }
   body.fs #topbar { top: 0; } body.fs #bar { bottom: 0; }
@@ -248,6 +277,7 @@
       <button id="mNext" class="mm-arrow" aria-label="次のモード">▶</button>
     </div>
     <span class="top-hint">← → キーでも切り替え</span>
+    <button id="lessonBtn" class="lesson-btn" title="レッスン">📘<span class="tx"> レッスン</span></button>
   </header>
 
   <div id="body">
@@ -255,6 +285,7 @@
     <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="top:auto;bottom:12px;left:12px">⚖ 組み合わせ・表示</button><div id="quizUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
     <!-- ===== 設定の引き出し ===== -->
+    <aside id="lesson" aria-label="レッスン"></aside>
     <aside id="drawer" aria-label="設定">
     <div class="dr-head"><b>⚙ 設定</b><button id="drClose" class="dr-close" aria-label="閉じる">✕</button></div>
     <div class="blk">
@@ -335,7 +366,7 @@
     </details>
 
     <!-- リズムを作る -->
-    <details class="sec">
+    <details class="sec" id="secBuild">
       <summary>リズムを作る</summary>
       <div class="hint" style="margin-bottom:8px">カードを並べて、オリジナルの変拍子を作ります。カードをタップすると パン⇔トマト が入れかわり、× で消せます。</div>
       <div class="cards" id="cards"></div>
@@ -379,6 +410,10 @@
         <button id="countSw" class="sw" aria-label="再生前のカウント"></button>
       </div>
       <div class="row">
+        <div><div class="lbl">からだ（足ぶみ・手拍子）</div><div class="hint">画面に「足＝拍の頭」「手＝刻み」が拍に合わせて光る</div></div>
+        <button id="bodySw" class="sw" aria-label="からだ"></button>
+      </div>
+      <div class="row">
         <span class="lbl">止めかた</span>
         <div class="seg" id="stopSel"><button data-v="bar">小節の終わりで</button><button data-v="now">すぐ止める</button></div>
       </div>
@@ -391,7 +426,8 @@
         <b class="c-white">キーボード</b><br>
         スペース：再生／停止　F：全画面<br>
         ← →：モードを切り替え　↑ ↓：テンポ ±5<br>
-        [ ]：リズムを切り替え　J・Enter：タップ判定でたたく
+        [ ]：リズムを切り替え　J・Enter：タップ判定でたたく<br>
+        PageDown／PageUp：レッスンを進める・もどる
       </div>
     </details>
 
@@ -590,7 +626,7 @@ const SET = {
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
-  countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
+  bodyOn: false, countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -1035,6 +1071,7 @@ function stop() {
   keepAwake(false);
   updatePlayBtn();
   if (mode === 'W' && typeof quizUI === 'function') quizUI();
+  if (typeof lessonOpen !== 'undefined' && lessonOpen) renderLesson();
 }
 function togglePlay() { playing ? requestStop() : start(); }
 /* 再生したまま F モードとほかのモードを行き来するときは、頭から数え直す */
@@ -1159,9 +1196,10 @@ function frame() {
   // 画面の配置（全モード共通）：上＝拍子の表示、まん中＝絵、その下＝1行の説明、いちばん下＝カウント帯
   const stripH = SET.big ? clamp(H * (H < 760 ? 0.2 : 0.27), 90, 400) : clamp(H * 0.15, 56, 120);
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
+  const bodyH = SET.bodyOn && mode !== 'F' ? Math.round(Math.max(34, 34 * K)) : 0;
   const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
   const scoreH = SET.scoreOn && mode !== 'F' ? Math.round(SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) : 0;   // 大きな数字のときは楽譜を少し小さく
-  const sceneH = H - stripH - bandH - capH - scoreH, belowY = sceneH + capH;
+  const sceneH = H - stripH - bandH - capH - scoreH - bodyH, belowY = sceneH + capH + bodyH;
   const quizHide = mode === 'W' && quiz.phase !== 'reveal';
   if (hide) drawHidden(stage, belowY, stripH + scoreH, bandH);
   else if (quizHide) drawQuizHidden(now, sceneH, belowY + bandH, scoreH + stripH);
@@ -1200,6 +1238,7 @@ function frame() {
     drawBarMark(now, st.m, sceneH);
   }
   if (!hide && !quizHide) drawCaption(sceneH, capH, capFs);
+  if (bodyH && !quizHide) drawBody(null, now, sceneH + capH, bodyH);
   placeHelp(hide ? -1 : sceneH + capH / 2);
   if (mode === 'W') { const qb = Math.round(H - sceneH + 6) + 'px'; if (cv.dataset.qb !== qb) { cv.dataset.qb = qb; $('#quizUI').style.setProperty('--qb', qb); } }
   if (bandH) drawBand(belowY, bandH, stage, hide);
@@ -4353,6 +4392,7 @@ function updatePlayBtn() {
   b.classList.toggle('playing', playing && !stopReq);
   b.classList.toggle('waiting', playing && stopReq);
   if (stopReq) b.textContent = window.innerWidth < 600 ? '■ 待つ…' : '■ 小節の終わりで止まる';
+  const lp = document.getElementById('lsPlay'); if (lp) lp.textContent = playing ? '■ 停止' : '▶ 再生';
 }
 /* 下のバーの「今のリズム」 */
 function updateBarRhythm() {
@@ -4431,6 +4471,10 @@ function setMode(md) {
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
 function renderModes() {
   const nav = $('#modes'), sheet = $('#sheetBody'); nav.innerHTML = ''; sheet.innerHTML = '';
+  const tb = document.createElement('div'); tb.className = 'tagbar';
+  tb.innerHTML = '<span class="lbl2" style="align-self:center">わかること：</span>' + [['', 'すべて'], ...Object.entries(TAGS)].map(([k, v]) => `<button data-tag="${k}" class="${tagFilter === k ? 'on' : ''}">${v}</button>`).join('');
+  tb.querySelectorAll('button').forEach(b => b.onclick = () => { tagFilter = b.dataset.tag; renderModes(); document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === mode)); });
+  sheet.appendChild(tb);
   MODE_GROUPS.forEach(([g, label]) => {
     const keys = MODE_ORDER.filter(k => MODE_INFO[k].g === g);
     const grp = document.createElement('div'); grp.className = 'mgroup'; grp.innerHTML = `<span class="mglabel ${g}">${label}</span>`;
@@ -4439,7 +4483,8 @@ function renderModes() {
     keys.forEach(k => {
       const mk = () => {
         const b = document.createElement('button'); b.className = 'tab'; b.dataset.mode = k;
-        b.innerHTML = `<span class="em">${MODE_INFO[k].em}</span><span>${MODE_INFO[k].name}</span>`;
+        b.innerHTML = `<span class="em">${MODE_INFO[k].em}</span><span>${MODE_INFO[k].name}</span><span class="mtags">${(MODE_TAGS[k] || []).map(t => `<span class="mtag ${t}">${TAGS[t]}</span>`).join('')}</span>`;
+        if (tagFilter && !(MODE_TAGS[k] || []).includes(tagFilter)) b.classList.add('dim');
         b.onclick = () => { setMode(k); closeModals(); }; return b;
       };
       grp.appendChild(mk()); grid.appendChild(mk());
@@ -4587,6 +4632,100 @@ $('#buildSave').onclick = () => {
   buildMsg('保存しました！「リズムを選ぶ」に入っています');
 };
 
+/* ----- わかることタグ（長さ・重心・周期・強さ） ----- */
+const TAGS = { len: '長さ', cog: '重心', cyc: '周期', str: '強さ' };
+const MODE_TAGS = {
+  A: ['cog', 'len'], B: ['cog', 'len'], C: ['cyc', 'len'], D: ['str', 'cog'], E: ['len', 'cyc'], F: ['cyc'], H: ['cyc'], J: ['cyc', 'len'],
+  P: ['str', 'cyc'], R: ['cog', 'len'], T: ['cyc'], V: ['cog', 'len'], W: ['str'], G: ['len'], I: ['str'], K: ['cog', 'str'],
+  N: ['len', 'str'], O: ['len', 'cog'], Q: ['len'], S: ['cog'], U: ['len'], L: ['str', 'cyc'], M: ['len', 'cyc'],
+};
+let tagFilter = '';
+
+/* ----- レッスン（学ぶ順番：8つのステップ） ----- */
+const LESSON = [
+  { title: '同じ長さの拍', mode: 'C', presets: [0, 1], goal: '拍の長さが全部同じ拍子（2/4・3/4）を感じよう',
+    act: '拍の頭で足ぶみ、刻みで手拍子。2/4 と 3/4 を切りかえて、光の球が1周する間に足ぶみが何回か数えよう',
+    q: '3/4 は、1小節に拍がいくつ？ 刻みはいくつ？', a: '拍が3つ、刻みは6つ（1拍＝刻み2つ）' },
+  { title: 'パンとトマト', mode: 'O', presets: [0, 3], goal: '2つの刻みの拍（パン）と、3つの刻みの拍（トマト）の長さのちがいを感じよう',
+    act: '「パン」「トマト」と言いながら手拍子。ボールが手に落ちる瞬間に足ぶみしよう',
+    q: 'トマトの拍は、パンの拍の何倍の長さ？', a: '1.5倍（刻み3つと刻み2つ）' },
+  { title: '5/8', mode: 'K', presets: [4], goal: '5/8 は「短い拍＋長い拍」の2拍子だと知ろう',
+    act: '踊る人と同じように、拍の頭で強く踏み込み、刻みで小さく足ぶみ（ドン・タ・ドン・タ・タ）',
+    q: '5/8 は何拍子？', a: '2拍子（短い拍＋長い拍）' },
+  { title: '2+3 と 3+2', mode: 'V', cmp: 0, goal: '同じ5つの刻みでも、まとまり方で重心の位置が変わることを見つけよう',
+    act: '「上だけ」「下だけ」に切りかえて、どちらが鳴っているか当てっこしよう。半分ずつ分かれて同時に手拍子もしてみよう',
+    q: '2+3 と 3+2 のちがいは何？', a: '刻みの数はどちらも5つ。ちがうのは拍の頭（重心）の位置' },
+  { title: '7/8', mode: 'D', presets: [6, 7], goal: '7/8 は3拍子。長い拍がどこにあるかで感じ方が変わることを知ろう',
+    act: '指揮の図に合わせて腕を振ろう。2+2+3 と 3+2+2 を切りかえて、長い拍がどこかを体で感じよう',
+    q: '7/8 の 2+2+3 は何拍子？ 長い拍は何拍目？', a: '3拍子。3拍目が長い拍' },
+  { title: '6/8 と 3/4', mode: 'V', cmp: 1, goal: '同じ6つの刻みでも、2拍子（6/8）と3拍子（3/4）になることを知ろう',
+    act: 'クラスを2つに分けて、6/8 と 3/4 を同時に手拍子。2つの拍と3つの拍が重なる「ヘミオラ」を体験しよう',
+    q: '6/8 と 3/4、刻みの数は？ 拍の数は？', a: '刻みはどちらも6つ。拍は6/8 が2つ、3/4 が3つ' },
+  { title: '自分で作る', mode: 'L', build: true, goal: 'パンとトマトのカードを並べて、自分だけの変拍子を作ろう',
+    act: 'カードを並べて「このリズムで鳴らす」。からくり装置で、自分のリズムの仕掛けを見てみよう',
+    q: '自分のリズムは何拍子？', a: 'カード（拍）の数が、そのまま○拍子になる' },
+  { title: '当てるクイズ', mode: 'W', goal: '音だけを聞いて、リズムを当てよう',
+    act: '「はじめる」を押して10問に挑戦。わからないときは、拍の頭で足ぶみしながら聞いてみよう',
+    q: '音だけでわかったのは、どの音のおかげ？', a: '拍の頭の強い音（小節の頭はいちばん強く高い）と、刻みの数' },
+];
+let lessonStep = -1, lessonOpen = false, lessonShowAns = false;
+function lessonApply(i) {
+  const st = LESSON[i]; if (!st) return;
+  lessonStep = i; lessonShowAns = false;
+  if (st.cmp !== undefined) { SET.cmpPair = st.cmp; saveSet(); }
+  if (st.presets && st.mode !== 'V') selectPreset(PRESETS[st.presets[0]]);
+  if (mode !== st.mode) setMode(st.mode); else if (st.mode === 'V') applyComparePair();
+  if (st.build && window.innerWidth >= 1100) openDrawer('secBuild');
+  renderLesson();
+}
+function renderLesson() {
+  const el = $('#lesson'); $('#app').classList.toggle('ls-open', lessonOpen);
+  if (!lessonOpen) return;
+  const i = Math.max(0, lessonStep), st = LESSON[i];
+  el.innerHTML = `<div class="ls-head"><b>📘 レッスン</b><span class="ls-step">${i + 1} / ${LESSON.length}</span><button class="dr-close" id="lsClose" aria-label="閉じる">✕</button></div>
+    <div class="ls-dots">${LESSON.map((s, k) => `<button class="ls-dot ${k === i ? 'on' : k < i ? 'done' : ''}" data-step="${k}" title="${s.title}">${k + 1}</button>`).join('')}</div>
+    <h3 class="ls-title">${i + 1}. ${st.title}</h3>
+    <div class="ls-blk"><span class="ls-tag goal">めあて</span>${st.goal}</div>
+    <div class="ls-blk"><span class="ls-tag mode">見るモード</span>${MODE_INFO[st.mode].em} ${MODE_INFO[st.mode].name}
+      ${st.presets && st.presets.length > 1 ? `<div class="ls-pre">${st.presets.map(pi => `<button class="btn small ${presetKey(PRESETS[pi]) === presetKey(selected) ? 'main' : ''}" data-pre="${pi}">${PRESETS[pi].sig || PRESETS[pi].sigs.join('→')} [${PRESETS[pi].bars.map(b => b.join('+')).join(' → ')}]</button>`).join('')}</div>` : ''}</div>
+    <div class="ls-blk"><span class="ls-tag act">やってみよう</span>${st.act}
+      ${st.build ? '<div class="ls-pre"><button class="btn small main" id="lsBuild">🃏 リズムを作る画面を開く</button></div>' : ''}</div>
+    <div class="ls-blk"><span class="ls-tag q">確かめ</span>${st.q}
+      <div class="ls-ans">${lessonShowAns ? `<b>答え：</b>${st.a}` : '<button class="btn small" id="lsAns">答えを見る</button>'}</div></div>
+    <div class="ls-nav"><button class="btn" id="lsPrev" ${i === 0 ? 'disabled' : ''}>◀ 前へ</button>
+      <button class="btn main" id="lsPlay">${playing ? '■ 停止' : '▶ 再生'}</button>
+      <button class="btn main" id="lsNext" ${i === LESSON.length - 1 ? 'disabled' : ''}>次へ ▶</button></div>
+    <div class="hint" style="margin-top:6px">PageDown／PageUp キーでも進めます（プレゼン用リモコンも使えます）</div>`;
+  $('#lsClose').onclick = () => { lessonOpen = false; renderLesson(); };
+  $('#lsPrev').onclick = () => lessonApply(i - 1);
+  $('#lsNext').onclick = () => lessonApply(i + 1);
+  $('#lsPlay').onclick = () => { togglePlay(); setTimeout(renderLesson, 50); };
+  const bb = $('#lsBuild'); if (bb) bb.onclick = () => openDrawer('secBuild');
+  const ab = $('#lsAns'); if (ab) ab.onclick = () => { lessonShowAns = true; renderLesson(); };
+  el.querySelectorAll('[data-step]').forEach(b => b.onclick = () => lessonApply(+b.dataset.step));
+  el.querySelectorAll('[data-pre]').forEach(b => b.onclick = () => { selectPreset(PRESETS[+b.dataset.pre]); renderLesson(); });
+}
+function lessonToggle() {
+  lessonOpen = !lessonOpen;
+  if (lessonOpen) { closeDrawer(); if (lessonStep < 0) lessonApply(0); else renderLesson(); } else renderLesson();
+}
+
+/* ----- からだ表示：足＝拍の頭、手＝刻み ----- */
+function drawBody(st, now, y0, h) {
+  cx.fillStyle = 'rgba(11,18,34,0.85)'; cx.fillRect(0, y0, W, h);
+  const n = lastNote && lastNote.kind === 'meta' && playing ? lastNote : null, age = n ? now - n.time : 9;
+  const head = n && n.isAcc, bar = head && n.meta.barStartSub.includes(n.sub);
+  const footQ = head && age < 0.3 ? 1 - age / 0.3 : 0, handQ = n && age < 0.18 ? 1 - age / 0.18 : 0;
+  const fs = Math.max(14, Math.min(h * 0.5, 18 * K)), cy = y0 + h / 2;
+  const item = (x, em, label, q, col, big) => {
+    if (q > 0) { cx.fillStyle = hexA(col, 0.25 + 0.5 * q); rr(x - 8 * K, y0 + 3 * K, (W < 640 ? 150 : 220) * K * (W < 640 ? 0.9 : 1), h - 6 * K, (h - 6 * K) / 2); cx.fill(); }
+    txt(em, x + fs * 0.6, cy + 1, fs * (1 + 0.35 * q * (big ? 1.5 : 1)), '#ffffff', 900, 'center');
+    txt(label, x + fs * 1.5, cy, fs * 0.85, q > 0 ? '#ffffff' : '#94a3b8', 800, 'left');
+  };
+  item(14 * K, '👣', W < 640 ? '足＝拍の頭' : '足ぶみ ＝ 拍の頭', footQ, bar ? LIME : '#22d3ee', bar);
+  item(W / 2 + 6 * K, '👏', W < 640 ? '手＝刻み' : '手拍子 ＝ 刻み', handQ, '#fbbf24', false);
+}
+
 /* ----- くらべる ----- */
 function renderCompareSel() {
   const box = $('#cmpPairSel'); if (!box) return; box.innerHTML = '';
@@ -4605,10 +4744,12 @@ renderCompareSel();
 
 /* ----- 授業で使う ----- */
 bindSwitch('#countSw', () => SET.countOn, v => { SET.countOn = v; });
+bindSwitch('#bodySw', () => SET.bodyOn, v => { SET.bodyOn = v; });
 bindSeg('#stopSel', () => SET.stopMode, v => { SET.stopMode = v; });
 
 /* ----- 引き出し・ポップアップ ----- */
 function openDrawer(secId) {
+  if (lessonOpen && window.innerWidth < 1100) { lessonOpen = false; renderLesson(); }
   $('#app').classList.add('dr-open');
   if (secId) { const el = document.getElementById(secId); if (el) { el.open = true; setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 30); } }
 }
@@ -4663,6 +4804,7 @@ function pokeUi() {
 document.addEventListener('mousemove', pokeUi);
 document.addEventListener('touchstart', pokeUi, { passive: true });
 $('#barFs').onclick = toggleFs;
+$('#lessonBtn').onclick = lessonToggle;
 $('#fsBtn2').onclick = toggleFs;
 
 /* ----- QRコード（外部の部品を使わずに作る。誤り訂正レベル M、バイトモード） ----- */
@@ -4852,6 +4994,7 @@ document.addEventListener('keydown', e => {
   const tg = e.target || {}, typing = tg.tagName === 'INPUT' && tg.type !== 'range';
   if (typing) return;
   if (e.key === 'Escape') { closeModals(); closeDrawer(); return; }
+  if (lessonOpen && (e.key === 'PageDown' || e.key === 'PageUp')) { e.preventDefault(); lessonApply(clamp(lessonStep + (e.key === 'PageDown' ? 1 : -1), 0, LESSON.length - 1)); return; }
   if (e.code === 'Space') { e.preventDefault(); if (!e.repeat) { if (mode === 'W' && quiz.phase !== 'setup' && quiz.phase !== 'done') quizAct('listen'); else togglePlay(); } return; }
   if (tapActive() && (e.code === 'KeyJ' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) onTap(tapTime(e)); return; }
   if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) toggleFs(); return; }
