@@ -2716,12 +2716,13 @@ function drawDomino(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   const top = 112 * K, gy = ah - Math.max(48 * K, ah * 0.13);
   const Hmax = Math.max(40, gy - top - 24 * K);
+  // 本物のドミノに近い形：高さは間かくの1.5〜2.3倍、厚みは間かくの0.35倍くらい
+  const u = Math.max(12, Math.min(W * 0.82 / ((narrow ? 1.25 : 2) * N / m.nBars + 1.2), Hmax / 2.4, 70 * K));   // ドミノの間隔（スマホは少し大きく）
   const info = j => {
     const sj = mod(j, N), g = m.subToGroup[sj], L = m.groups[g], k = sj - m.starts[g], head = k === 0;
-    return { g, L, k, head, bar: head && m.barStartSub.includes(sj), h: head ? Hmax * (L === 3 ? 1 : 0.8) : Hmax * 0.45 };
+    return { g, L, k, head, bar: head && m.barStartSub.includes(sj), h: u * (head ? (L === 3 ? 2.3 : 1.9) : 1.45) };
   };
-  const u = Math.max(10, Math.min(W * 0.8 / (2 * N / m.nBars + 1.5), Hmax * 0.36));   // ドミノの間隔
-  const w = Math.max(5, Math.min(u * 0.3, 24 * K));                                       // ドミノの厚み
+  const w = Math.max(5, Math.min(u * 0.36, 26 * K));                                      // ドミノの厚み
   const S = has ? st.sc + st.frac : -0.6, k0 = has ? st.sc : 0;
   const ax = W * 0.6, sx = j => ax + (j - S) * u;
   const ageS = has ? st.frac * dur : 9;
