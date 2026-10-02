@@ -282,7 +282,7 @@
 
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="top:auto;bottom:12px;left:12px">⚖ 組み合わせ・表示</button><div id="quizUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
+    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="top:auto;bottom:12px;left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
     <!-- ===== 設定の引き出し ===== -->
     <aside id="lesson" aria-label="レッスン"></aside>
@@ -390,6 +390,26 @@
       <div class="hint" style="margin-bottom:8px">2つのリズムを同時に鳴らします。<b style="color:#f472b6">高い音</b>と<b style="color:#38bdf8">低い音</b>が、1周の中で同じ時間をちがう数で分けます。</div>
       <div class="seg full" id="polySel"></div>
       <div class="hint" style="margin-top:8px">選ぶとポリリズムのモードに切りかわります。刻みの音をONにすると、2つをそろえる細かい拍も小さく鳴ります。</div>
+    </details>
+
+    <!-- 連符 -->
+    <details class="sec" id="secTup">
+      <summary>連符（三連符・5連符・7連符）</summary>
+      <div class="lbl2" style="margin-bottom:6px">練習の順番</div>
+      <div class="seg full" id="tupSeqSel" style="flex-direction:column">
+        <button data-v="up">2→3→4→5→6→7（だんだんふやす）</button>
+        <button data-v="alt">2→3→2→5→2→7（ふつうと交互）</button>
+        <button data-v="odd">3→5→7（3連符・5連符・7連符）</button>
+        <button data-v="one">1つだけ</button>
+      </div>
+      <div class="row" id="tupNRow"><span class="lbl2">連符</span><div class="seg" id="tupNSel"><button data-v="2">2</button><button data-v="3">3</button><button data-v="4">4</button><button data-v="5">5</button><button data-v="6">6</button><button data-v="7">7</button></div></div>
+      <div class="row"><span class="lbl2">1つを続ける長さ</span><div class="seg" id="tupBarsSel"><button data-v="1">1小節</button><button data-v="2">2小節</button><button data-v="4">4小節</button></div></div>
+      <div class="row"><span class="lbl2">1小節の拍</span><div class="seg" id="tupBeatsSel"><button data-v="2">2拍</button><button data-v="3">3拍</button><button data-v="4">4拍</button></div></div>
+      <div class="row">
+        <div><div class="lbl">ふつうの刻みとくらべる</div><div class="hint">8分音符（パン）を太鼓の音で同時に鳴らす</div></div>
+        <button id="tupCmpSw" class="sw" aria-label="ふつうの刻みとくらべる"></button>
+      </div>
+      <div class="hint" style="margin-top:8px">数えることば：2＝パン、3＝トマト、4＝からあげ、5＝さつまいも、6＝とうもろこし、7＝いちごだいふく。<br>1拍（♩）＝刻み2つぶんの長さ（♩ のテンポ＝♪ の半分）。選ぶと「連符」モードに切りかわり、再生中は次の小節から変わります。</div>
     </details>
 
     <!-- くらべる -->
@@ -627,6 +647,7 @@ const SET = {
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
   bodyOn: false, countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
+  tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -641,6 +662,10 @@ function customPreset(groups) {
 const presetKey = p => JSON.stringify([p.sigs || p.sig, p.bars]);
 
 const POLY_PAIRS = [[3, 2], [4, 3], [5, 4], [5, 3], [5, 2]];
+/* 連符：数えることば（食べ物）・色・練習の順番 */
+const TUP_WORD = { 2: 'パン', 3: 'トマト', 4: 'からあげ', 5: 'さつまいも', 6: 'とうもろこし', 7: 'いちごだいふく' };
+const TUPC = { 2: '#22d3ee', 3: '#fbbf24', 4: '#a78bfa', 5: '#f472b6', 6: '#fb923c', 7: '#2dd4bf' };
+const TUP_SEQS = { up: [2, 3, 4, 5, 6, 7], alt: [2, 3, 2, 5, 2, 7], odd: [3, 5, 7] };
 const PA = '#f472b6', PB = '#38bdf8';   // ポリリズム：高い音／低い音
 
 /* モードの一覧：グループ・絵文字・1行の説明（line＝ふつう、short＝せまい画面）・くわしい説明 */
@@ -692,7 +717,9 @@ MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロ�
 MODE_INFO.V = { g: 'g2', em: '⚖️', name: 'くらべる', line: '2つのリズムを上下にならべる。刻みの数は同じで、拍の頭の位置だけがちがう', short: '刻みは同じ、拍の頭の位置がちがう',
   detail: ['上下2段に、2つのリズムを同じテンポ・同じ時間の目もりで並べる。', '縦の点線＝刻み（8分音符）。どちらも同じ数。まん中の ▼▲ がそれぞれの拍の頭、◆ は両方そろう所。', '上の段は木の高い音、下の段は太鼓の低い音。「組み合わせ・表示」で、片方だけ鳴らすこともできる。', '6/8 と 3/4 を同時に鳴らすと、2つの拍と3つの拍が重なる「ヘミオラ（2対3）」になる。'] };
 MODE_INFO.W = { g: 'g2', em: '👂', name: '当てる', line: '音だけを聞いて、リズムを当てよう。答えると映像と楽譜で正解が見られる', short: '音だけ聞いて、リズムを当てよう',
-  detail: ['映像をかくして、音だけ2小節鳴らす。「2+3？ 3+2？」「何拍子？」などを選ぶ。', '答えると、映像（円軌道）と楽譜バーつきで、もう一度鳴る。', 'むずかしさは3段階：やさしい（2択・刻みあり）／ふつう（3択）／むずかしい（3択・刻みなし・テンポ速め）。', '10問で結果が出る。まちがえた問題は、もう一度聞ける。'] };
+  detail: ['映像をかくして、音だけ2小節鳴らす。「2+3？ 3+2？」「何拍子？」などを選ぶ。', '答えると、映像（円軌道）と楽譜バーつきで、もう一度鳴る。', 'むずかしさは3段階：やさしい（2択・刻みあり）／ふつう（3択）／むずかしい（3択・刻みなし・テンポ速め）。「連符」を選ぶと、1拍がいくつに分かれているかを当てる。', '10問で結果が出る。まちがえた問題は、もう一度聞ける。'] };
+MODE_INFO.X = { g: 'g2', em: '🍡', name: '連符', line: '1拍（♩）を 2〜7 つに等しく分ける。針が円を1周する間が1拍', short: '1拍を等しく分ける。1周＝1拍',
+  detail: ['1拍（♩＝刻み2つぶん）を、同じ長さの n 個に分けたものが「n連符」。3連符＝トマト、5連符＝さつまいも、7連符＝いちごだいふく。', '円：針が1周する間が1拍。円は n 等分され、区切りを通るたびに音が鳴る。拍の頭は強い音。', '帯：1小節ぶん。「ふつうの刻みとくらべる」をONにすると、下の段の8分音符（パン）が太鼓の音で鳴り、ずれ方が見える。', '練習の順番（2→3→4→5→6→7 など）と、1つを何小節続けるかは「🎛 連符の設定」で選ぶ。次に変わるときは予告が出る。', 'タップ判定をONにすると、連符を自分で叩いて「ぴったり／早い／遅い」がわかる。「当てる」には連符クイズもある。'] };
 const MODE_ORDER = MODE_GROUPS.flatMap(([g]) => Object.keys(MODE_INFO).filter(k => MODE_INFO[k].g === g));
 
 /* =========================================================
@@ -706,6 +733,9 @@ let nextTime = 0, curSub = 0, measure = 0, stepCounter = 0, subCounter = 0;
 let barCount = 0, curStage = 0;                       // 何小節目か／補助を消す練習の段階
 let polyK = 0, polyCycle = -1, polyTc = 1, polyCur = SET.poly.slice();
 let queue = [], lastNote = null, frozenFrac = 0, accents = [], polyHits = [], noteLog = [];
+let tupQuiz = 0, tupE = 0, tupBeat = 0, tupBarIdx = -1, tupN = 3, tupBeatsCur = 4, tupCmpOn = false, tupD = 1, tupBeatT = 0, tupEv = [], tupFrozen = 0;   // 連符
+const isTup = () => mode === 'X' || (mode === 'W' && tupQuiz > 0);
+const engineOf = m => m === 'F' ? 'poly' : m === 'X' ? 'tup' : 'meta';
 let uiBpmDirty = false;
 
 /* =========================================================
@@ -982,14 +1012,71 @@ function schedulePoly() {
   nextTime += dur; polyK = (polyK + 1) % ab;
 }
 
+
+/* ----- モードX：連符（1拍を n 個に等しく分ける） -----
+   1拍（♩）＝ 刻み2つぶん（パン1つ）の長さ。その中に n 個の音を同じ間かくで鳴らす。
+   「くらべる」ON：ふつうの刻み（8分音符＝パン）を太鼓の音で同時に鳴らす */
+function tupSeq() { return SET.tupSeq === 'one' ? [SET.tupN] : (TUP_SEQS[SET.tupSeq] || TUP_SEQS.up); }
+function tupNAt(barIdx) { if (tupQuiz) return tupQuiz; const s = tupSeq(); return s[Math.floor(Math.max(0, barIdx) / SET.tupBars) % s.length]; }
+function buildTupEvents(n, cmp) {
+  const ev = [];
+  for (let j = 0; j < n; j++) ev.push({ f: j / n, j, c: false });
+  if (cmp) for (let k = 0; k < 2; k++) {
+    const f = k / 2, same = ev.find(e => Math.abs(e.f - f) < 1e-9);
+    if (same) same.c = true; else ev.push({ f, j: -1, c: true });
+  }
+  return ev.sort((a, b) => a.f - b.f);
+}
+function playTupNote(t) {   // 連符の音：木をたたいたような軽い音
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(1500, t); o.frequency.exponentialRampToValueAtTime(1050, t + 0.04);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.34, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.07);
+}
+function playTupBase(t, head) {   // ふつうの刻み（くらべる用）：太鼓の低い音
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(head ? 200 : 170, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.12);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(head ? 0.75 : 0.55, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.17);
+}
+function scheduleTup() {
+  if (tupE === 0) {
+    if (tupBeat === 0) {   // 小節の頭：ここで次の連符・拍の数・くらべるを決める（再生中に変えても小節の頭から）
+      onBarStart(); tupBarIdx++;
+      tupN = tupNAt(tupBarIdx); tupBeatsCur = tupQuiz ? 2 : SET.tupBeats; tupCmpOn = !tupQuiz && SET.tupCmp;
+    }
+    tupD = 2 * 60 / bpm; tupBeatT = nextTime;
+    tupEv = buildTupEvents(tupN, tupCmpOn);
+  }
+  const ev = tupEv[tupE], stg = curStage, t = nextTime, head = tupE === 0, barHead = head && tupBeat === 0;
+  if (stg < 3) {
+    if (head) playAccent(t, barHead);
+    else if (ev.j >= 0 && subOn && stg < 2) playTupNote(t);
+    if (ev.c && (head || (subOn && stg < 2))) playTupBase(t, head);
+  }
+  const nextF = tupE + 1 < tupEv.length ? tupEv[tupE + 1].f : 1;
+  queue.push({ kind: 'tup', time: t, dur: (nextF - ev.f) * tupD, n: tupN, j: ev.j, c: ev.c, beat: tupBeat, beats: tupBeatsCur, barIdx: tupBarIdx, bar: barCount - 1,
+    beatT: tupBeatT, D: tupD, isAcc: head, cmp: tupCmpOn, stage: stg });
+  if (ev.j >= 0) logTarget(t, head);
+  tupE++;
+  if (tupE >= tupEv.length) { tupE = 0; tupBeat++; if (tupBeat >= tupBeatsCur) tupBeat = 0; nextTime = tupBeatT + tupD; }
+  else nextTime = tupBeatT + tupEv[tupE].f * tupD;
+}
+function getTupState(now) {
+  const n0 = lastNote && lastNote.kind === 'tup' ? lastNote : null;
+  if (!n0) return { n: tupNAt(0), beats: tupQuiz ? 2 : SET.tupBeats, beat: 0, ph: 0, barIdx: 0, cmp: !tupQuiz && SET.tupCmp, has: false };
+  const ph = playing ? clamp((now - n0.beatT) / n0.D, 0, 0.999) : tupFrozen;
+  return { n: n0.n, beats: n0.beats, beat: n0.beat, ph, barIdx: n0.barIdx, cmp: n0.cmp, has: true, beatT: n0.beatT, D: n0.D };
+}
+
 let stopReq = false, stopAt = null, countInfo = null;
-function atBarBoundary() { return mode === 'F' ? polyK === 0 : activeMeta.barStartSub.includes(curSub); }
+function atBarBoundary() { return isTup() ? (tupE === 0 && tupBeat === 0) : mode === 'F' ? polyK === 0 : activeMeta.barStartSub.includes(curSub); }
 function scheduler() {
   if (stopAt !== null) return;
   while (nextTime < ctx.currentTime + SCHEDULE_AHEAD) {
     if (stopReq && atBarBoundary()) { stopAt = nextTime; return; }   // 小節の終わりで止める
     if (quizStopBars && mode === 'W' && barCount >= quizStopBars && atBarBoundary()) { stopAt = nextTime; return; }   // クイズは2小節だけ
-    if (mode === 'F') schedulePoly(); else scheduleMeta();
+    if (isTup()) scheduleTup(); else if (mode === 'F') schedulePoly(); else scheduleMeta();
   }
 }
 
@@ -1016,6 +1103,7 @@ function audioNow() {
 function resetCounters() {
   curSub = 0; measure = 0; stepCounter = 0; subCounter = 0; barCount = 0; curStage = 0;
   polyK = 0; polyCycle = -1;
+  tupE = 0; tupBeat = 0; tupBarIdx = -1; tupFrozen = 0;
   queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0;
 }
 function start(noCount) {
@@ -1028,7 +1116,11 @@ function start(noCount) {
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
   if (SET.countOn && !noCount && mode !== 'W') {   // 再生前のカウント：そのリズムで1小節（拍の頭で「1・2…」）
     const beats = [];
-    if (mode === 'F') {
+    if (isTup()) {
+      const d = 2 * 60 / bpm;
+      for (let i = 0; i < SET.tupBeats; i++) beats.push({ off: i * d, n: i + 1, head: true });
+      countInfo = { beats, len: SET.tupBeats * d };
+    } else if (mode === 'F') {
       const n = Math.max(SET.poly[0], SET.poly[1]), d = 2 * 60 / bpm;
       for (let i = 0; i < n; i++) beats.push({ off: i * d, n: i + 1, head: true });
       countInfo = { beats, len: n * d };
@@ -1063,6 +1155,7 @@ async function keepAwake(on) {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && playing) keepAwake(true); });
 function stop() {
   frozenFrac = lastNote ? clamp((audioNow() - lastNote.time) / lastNote.dur, 0, 0.999) : 0;
+  if (lastNote && lastNote.kind === 'tup') tupFrozen = clamp((audioNow() - lastNote.beatT) / lastNote.D, 0, 0.999);
   playing = false; clearInterval(timer); queue = [];
   stopReq = false; stopAt = null; countInfo = null;
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; lastNote = null; accents = []; }
@@ -1196,14 +1289,21 @@ function frame() {
   // 画面の配置（全モード共通）：上＝拍子の表示、まん中＝絵、その下＝1行の説明、いちばん下＝カウント帯
   const stripH = SET.big ? clamp(H * (H < 760 ? 0.2 : 0.27), 90, 400) : clamp(H * 0.15, 56, 120);
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
-  const bodyH = SET.bodyOn && mode !== 'F' ? Math.round(Math.max(34, 34 * K)) : 0;
+  const bodyH = SET.bodyOn && (mode !== 'F' || isTup()) ? Math.round(Math.max(34, 34 * K)) : 0;
   const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
-  const scoreH = SET.scoreOn && mode !== 'F' ? Math.round(SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) : 0;   // 大きな数字のときは楽譜を少し小さく
+  const scoreH = SET.scoreOn && (mode !== 'F' || isTup()) ? Math.round(SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112)) : 0;   // 大きな数字のときは楽譜を少し小さく
   const sceneH = H - stripH - bandH - capH - scoreH - bodyH, belowY = sceneH + capH + bodyH;
   const quizHide = mode === 'W' && quiz.phase !== 'reveal';
   if (hide) drawHidden(stage, belowY, stripH + scoreH, bandH);
   else if (quizHide) drawQuizHidden(now, sceneH, belowY + bandH, scoreH + stripH);
-  else if (mode === 'F') {
+  else if (isTup()) {
+    const ts = getTupState(now);
+    drawTup(ts, now, sceneH);
+    drawTupHeader(ts);
+    if (scoreH) drawTupScore(ts, now, belowY + bandH, scoreH);
+    drawTupStrip(ts, belowY + bandH + scoreH, stripH);
+    drawTupBarMark(now, sceneH);
+  } else if (mode === 'F') {
     const ps = getPolyState(now);
     drawPoly(ps, now, sceneH);
     drawPolyHeader(ps);
@@ -1246,6 +1346,9 @@ function frame() {
   const eb = document.getElementById('emblemReset'), showEb = mode === 'H' && !hide;
   if (eb.hidden === showEb) eb.hidden = !showEb;
   if (showEb) { const tp = Math.round(82 * K) + 'px'; if (eb.style.top !== tp) eb.style.top = tp; }
+  const tbn = document.getElementById('tupBtn'), showTb = mode === 'X' && !hide && W >= 640;
+  if (tbn.hidden === showTb) tbn.hidden = !showTb;
+  if (showTb) { const tp = Math.round(88 * K - 17) + 'px'; if (tbn.style.top !== tp) tbn.style.top = tp; }
   const ba = document.getElementById('blockAutoBtn'), showBa = mode === 'M' && !hide;
   if (ba.hidden === showBa) ba.hidden = !showBa;
   if (showBa) { const tp = Math.round(104 * K) + 'px'; if (ba.style.top !== tp) ba.style.top = tp; }
@@ -4173,7 +4276,7 @@ function drawCompare(st, now, ah) {
 
 /* ---------- モード：聴き取りクイズ（当てる） ----------
    映像をかくして音だけ2小節鳴らし、「2+3？ 3+2？」「何拍子？」などを選ぶ。答えると映像と楽譜で正解を見せる */
-const QUIZ_LEVELS = { easy: 'やさしい（2択・刻みあり）', normal: 'ふつう（3択）', hard: 'むずかしい（3択・刻みなし・速め）' };
+const QUIZ_LEVELS = { easy: 'やさしい（2択・刻みあり）', normal: 'ふつう（3択）', hard: 'むずかしい（3択・刻みなし・速め）', tup: '連符（何連符？）' };
 const quiz = { phase: 'setup', level: 'easy', list: [], i: 0, base: null };
 function qPreset(groups, sig) {
   const total = groups.reduce((a, v) => a + v, 0);
@@ -4192,7 +4295,11 @@ function quizMakeQuestion(level) {
     () => ({ ask: '8/8 の並びはどれ？', opts: [{ t: '3＋3＋2', p: qPreset([3, 3, 2]) }, { t: '3＋2＋3', p: qPreset([3, 2, 3]) }, { t: '2＋3＋3', p: qPreset([2, 3, 3]) }] }),
     () => ({ ask: '5/8 の並びは？ それとも 6/8？', opts: [{ t: '5/8 2＋3', p: qPreset([2, 3]) }, { t: '5/8 3＋2', p: qPreset([3, 2]) }, { t: '6/8 3＋3', p: qPreset([3, 3], '6/8') }] }),
   ];
-  const q = pick(level === 'easy' ? easy : normal)();
+  const tupQ = () => {   // 連符：1拍がいくつに分かれているか
+    const set = pick([[2, 3], [3, 4], [3, 5], [5, 7], [2, 3, 4], [4, 5, 6], [5, 6, 7], [3, 5, 7]]);
+    return { ask: '1拍がいくつに分かれている？', opts: set.map(v => ({ t: v === 2 ? '2つ（ふつう・パン）' : `${v}連符（${TUP_WORD[v]}）`, tup: v })) };
+  };
+  const q = level === 'tup' ? tupQ() : pick(level === 'easy' ? easy : normal)();
   q.answer = Math.floor(Math.random() * q.opts.length); q.user = null;
   return q;
 }
@@ -4235,7 +4342,9 @@ function quizPlay(reveal) {
   if (playing) stop();
   subOn = quiz.level !== 'hard';   // むずかしいは刻みなし
   bpm = quiz.level === 'hard' ? Math.min(300, quiz.base.bpm + 40) : quiz.base.bpm; showBpm();
-  selected = q.opts[q.answer].p; activeMeta = makeMeta(selected); pendingMeta = null; lastNote = null; accents = [];
+  const ans = q.opts[q.answer]; tupQuiz = ans.tup || 0;
+  if (!tupQuiz) { selected = ans.p; activeMeta = makeMeta(selected); }
+  pendingMeta = null; lastNote = null; accents = [];
   quiz.phase = reveal ? 'reveal' : 'listen';
   quizStopBars = 2; start(true);
   updateBarRhythm(); quizUI();
@@ -4258,7 +4367,7 @@ function quizAnswer(i) {
 }
 function quizLeave() {   // ほかのモードへ移ったら、テンポと刻みの設定をもとにもどす
   if (quiz.base) { bpm = quiz.base.bpm; subOn = quiz.base.subOn; showBpm(); selected = quiz.base.selected; activeMeta = makeMeta(selected); pendingMeta = null; lastNote = null; quiz.base = null; renderPresets(); }
-  quizStopBars = 0; if (quiz.phase !== 'done') quiz.phase = 'setup';
+  quizStopBars = 0; tupQuiz = 0; if (quiz.phase !== 'done') quiz.phase = 'setup';
 }
 function drawQuizHidden(now, sceneH, belowY, rest) {
   // 音を聞いている間：映像・楽譜・カウント帯をかくす
@@ -4380,6 +4489,199 @@ function drawPolyStrip(ps, y0, h) {
   });
 }
 
+/* ---------- モードX：連符の絵 ----------
+   左（せまい画面は上）＝1拍の円：針が1周する間が1拍。円は n 等分され、区切りで音が鳴る
+   右（せまい画面は下）＝1小節の帯：上の段＝連符、下の段＝ふつうの刻み（くらべるON） */
+const tupWord = n => TUP_WORD[n] || String(n);
+const tupName = n => n === 2 ? 'ふつう（2つ）' : `${n}連符`;
+function tupBarAge(now) { const n = lastNote; return n && n.kind === 'tup' && n.beat === 0 && playing ? now - n.beatT : 9; }
+function drawTup(ts, now, ah) {
+  const narrow = W < 640, pad = 14 * K, n = ts.n, col = TUPC[n] || '#e2e8f0', syl = Array.from(tupWord(n));
+  const jCur = ts.has ? Math.floor(ts.ph * n + 1e-9) : -1, ageIn = j => ts.has ? (ts.ph - j / n) * ts.D : 9;
+  // 練習の順番（いまの連符を光らせる。次に変わるときは予告）
+  const seq = tupQuiz ? [n] : tupSeq(), cy0 = 88 * K, chipFs = Math.max(13, 13 * K);
+  const curIdx = tupQuiz ? 0 : Math.floor(Math.max(0, ts.barIdx) / SET.tupBars) % seq.length;
+  const nextN = tupQuiz ? n : tupNAt(ts.barIdx + 1), willChange = ts.has && nextN !== n && ts.beat === ts.beats - 1;
+  cx.font = `900 ${chipFs}px ${FONT}`;
+  const cw = seq.map(v => Math.max(chipFs * 1.9, cx.measureText(String(v)).width + chipFs * 1.2)), arrow = chipFs * 1.2;
+  let tw = cw.reduce((a, v) => a + v, 0) + arrow * (seq.length - 1);
+  const label = tupQuiz ? '答え：' : seq.length > 1 ? '順番：' : '連符：';
+  cx.font = `800 ${chipFs}px ${FONT}`; const lw = cx.measureText(label).width + 6 * K;
+  let x = (W - tw - lw) / 2;
+  txt(label, x, cy0, chipFs, '#94a3b8', 800, 'left'); x += lw;
+  seq.forEach((v, i) => {
+    const on = i === curIdx, nx = willChange && i === (curIdx + 1) % seq.length && v === nextN, c = TUPC[v] || '#e2e8f0';
+    rr(x, cy0 - chipFs * 0.85, cw[i], chipFs * 1.7, chipFs * 0.85);
+    cx.fillStyle = on ? c : nx ? hexA(c, 0.35) : 'rgba(51,65,85,0.6)'; cx.fill();
+    if (nx) { cx.strokeStyle = c; cx.lineWidth = 2 * K; cx.stroke(); }
+    txt(String(v), x + cw[i] / 2, cy0 + 1, chipFs, on ? '#0f172a' : '#e2e8f0', 900);
+    x += cw[i];
+    if (i < seq.length - 1) { txt('→', x + arrow / 2, cy0, chipFs * 0.9, '#64748b', 800); x += arrow; }
+  });
+  const top = cy0 + chipFs * 1.4;
+  // 配置
+  let ccx, ccy, R, lx0, lx1, ly0, ly1;
+  const qRes = mode === 'W' ? (narrow ? 135 : Math.min(110, 64 * K)) : 0;   // クイズの答えの帯のぶんをあける
+  if (narrow) {
+    const avail = ah - top - 8 * K - qRes;
+    R = Math.max(30, Math.min(W * 0.26, avail * 0.24)); const sf0 = Math.max(13, Math.min(R * 0.24, 22 * K));
+    ccx = W / 2; ccy = top + R + sf0 * 2; lx0 = pad; lx1 = W - pad; ly0 = ccy + R + sf0 * 1.8; ly1 = ah - 26 * K - qRes;
+  } else {
+    const cwid = Math.min(W * 0.36, ah - top), sf0 = Math.max(13, 16 * K);
+    R = Math.max(36, Math.min(cwid * 0.4, (ah - top - sf0 * 3.8) / 2)); ccx = pad + cwid / 2 + 8 * K; ccy = top + sf0 * 1.7 + R;
+    lx0 = pad + cwid + 26 * K; lx1 = W - pad; ly0 = top + 10 * K; ly1 = ah - 30 * K - qRes;
+  }
+  // ── 1拍の円 ──
+  for (let j = 0; j < n; j++) {
+    const a0 = -Math.PI / 2 + 2 * Math.PI * j / n, a1 = a0 + 2 * Math.PI / n, on = j === jCur;
+    cx.beginPath(); cx.moveTo(ccx, ccy); cx.arc(ccx, ccy, R, a0, a1); cx.closePath();
+    cx.fillStyle = hexA(col, on ? 0.42 : j % 2 ? 0.12 : 0.2); cx.fill();
+    cx.strokeStyle = 'rgba(15,23,42,0.9)'; cx.lineWidth = 2 * K; cx.stroke();
+  }
+  cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(ccx, ccy, R, 0, Math.PI * 2); cx.stroke();
+  if (ts.cmp) {   // 内側：ふつうの刻み（2つ）
+    const r2 = R * 0.5, bc = '#cbd5e1', k2 = ts.has ? Math.floor(ts.ph * 2) : -1;
+    for (let k = 0; k < 2; k++) {
+      cx.beginPath(); cx.moveTo(ccx, ccy); cx.arc(ccx, ccy, r2, -Math.PI / 2 + Math.PI * k, Math.PI / 2 + Math.PI * k); cx.closePath();
+      cx.fillStyle = k === k2 ? 'rgba(203,213,225,0.35)' : 'rgba(15,23,42,0.75)'; cx.fill();
+    }
+    cx.strokeStyle = bc; cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(ccx, ccy, r2, 0, Math.PI * 2); cx.moveTo(ccx, ccy - r2); cx.lineTo(ccx, ccy + r2); cx.stroke();
+  }
+  // 区切りの点と、ことば
+  const sfs = Math.max(13, Math.min(R * 0.24, 22 * K));
+  for (let j = 0; j < n; j++) {
+    const a = -Math.PI / 2 + 2 * Math.PI * j / n, px = ccx + Math.cos(a) * R, py = ccy + Math.sin(a) * R, age = ageIn(j);
+    const glow = age >= 0 && age < 0.25 ? 1 - age / 0.25 : 0, headDot = j === 0;
+    if (glow) { cx.strokeStyle = hexA(headDot && ts.beat === 0 ? LIME : col, glow); cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(px, py, (10 + 22 * (1 - glow)) * K, 0, Math.PI * 2); cx.stroke(); }
+    cx.fillStyle = glow ? '#ffffff' : headDot ? col : hexA(col, 0.85);
+    cx.beginPath(); cx.arc(px, py, (headDot ? 8 : 6) * K * (1 + 0.4 * glow), 0, Math.PI * 2); cx.fill();
+    const tx = ccx + Math.cos(a) * (R + sfs * 1.05), ty = ccy + Math.sin(a) * (R + sfs * 1.05);
+    txt(syl[j] || '', tx, ty, sfs, j === jCur ? '#ffffff' : '#a3b1c6', 900);
+  }
+  // 針（1周＝1拍）
+  const ang = -Math.PI / 2 + 2 * Math.PI * ts.ph, ex = ccx + Math.cos(ang) * R, ey = ccy + Math.sin(ang) * R;
+  cx.strokeStyle = 'rgba(255,255,255,0.9)'; cx.lineWidth = 3 * K; cx.lineCap = 'round';
+  cx.beginPath(); cx.moveTo(ccx, ccy); cx.lineTo(ex, ey); cx.stroke();
+  cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(ex, ey, 6 * K, 0, Math.PI * 2); cx.fill();
+  if (!ts.cmp) txt(jCur >= 0 ? syl[jCur] : String(n), ccx, ccy + 1, R * 0.55, jCur >= 0 ? '#ffffff' : hexA(col, 0.9), 900);
+  else { cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(ccx, ccy, 5 * K, 0, Math.PI * 2); cx.fill(); }
+  if (!narrow && ccy + R + sfs * 2.3 <= ah - 9 * K) txt('1周 ＝ 1拍', ccx, ccy + R + sfs * 2.3, Math.max(12, 12 * K), '#94a3b8', 700);
+  // ── 1小節の帯 ──
+  const B = ts.beats, lanes = ts.cmp ? 2 : 1, lab = narrow ? 0 : 52 * K, gx = lx0 + lab, gw = lx1 - gx, bw = gw / B;
+  const avail = ly1 - ly0, laneH = Math.min(avail / (lanes + 0.9), (ts.cmp ? 62 : 80) * K), gapL = laneH * 0.35;
+  const totalH = lanes * laneH + (lanes - 1) * gapL + (narrow ? 22 * K : 0), yA = ly0 + (avail - totalH) / 2 + (narrow ? 22 * K : 0);
+  const rows = [{ y: yA, cnt: n, c: col, s: syl, name: n === 2 ? 'ふつう' : `${n}連符`, cur: jCur }];
+  if (ts.cmp) rows.push({ y: yA + laneH + gapL, cnt: 2, c: '#cbd5e1', s: ['パ', 'ン'], name: 'ふつう', cur: ts.has ? Math.floor(ts.ph * 2) : -1 });
+  rows.forEach((r, ri) => {
+    if (narrow) txt(ri === 0 ? (lanes > 1 ? `上：${r.name}` : r.name) : '下：ふつうの刻み（パン）', ri === 0 ? gx : gx + gw, yA - 18 * K, Math.max(12, 11 * K), r.c, 800, ri === 0 ? 'left' : 'right');
+    else txt(r.name, lx0 + lab / 2 - 4 * K, r.y + laneH / 2, Math.max(12, Math.min(13 * K, lab / 4)), r.c, 900);
+    for (let b = 0; b < B; b++) {
+      const cwid = bw / r.cnt;
+      for (let k = 0; k < r.cnt; k++) {
+        const x0 = gx + b * bw + k * cwid, on = ts.has && b === ts.beat && k === r.cur, head = k === 0;
+        rr(x0 + 1.5 * K, r.y, cwid - 3 * K, laneH, Math.min(6 * K, cwid / 3));
+        cx.fillStyle = on ? r.c : hexA(r.c, head ? 0.38 : 0.18); cx.fill();
+        if (on) { cx.shadowColor = r.c; cx.shadowBlur = 16 * K; cx.fill(); cx.shadowBlur = 0; }
+        const fs = Math.min(laneH * 0.42, cwid * 0.62);
+        if (fs >= 10) txt(r.s[k] || '', x0 + cwid / 2, r.y + laneH / 2 + 1, fs, on ? '#0f172a' : '#e2e8f0', 900);
+      }
+    }
+  });
+  // 拍の区切り・連符の区切りの線（下の段まで点線でのばして、ずれを見せる）
+  const yTop = yA - 4 * K, yBot = yA + lanes * laneH + (lanes - 1) * gapL + 4 * K;
+  for (let b = 0; b <= B; b++) { const x0 = gx + b * bw; cx.strokeStyle = b === 0 || b === B ? 'rgba(226,232,240,0.9)' : 'rgba(226,232,240,0.6)'; cx.lineWidth = (b === 0 || b === B ? 3 : 2) * K; cx.beginPath(); cx.moveTo(x0, yTop - 6 * K); cx.lineTo(x0, yBot + 6 * K); cx.stroke(); }
+  if (ts.cmp) {
+    cx.setLineDash([3 * K, 4 * K]); cx.strokeStyle = hexA(col, 0.55); cx.lineWidth = 1.2 * K;
+    for (let b = 0; b < B; b++) for (let k = 1; k < n; k++) { const x0 = gx + b * bw + k * bw / n; cx.beginPath(); cx.moveTo(x0, yA + laneH); cx.lineTo(x0, yBot); cx.stroke(); }
+    cx.setLineDash([]);
+  }
+  // いまの位置
+  if (ts.has) {
+    const px = gx + (ts.beat + ts.ph) * bw;
+    cx.strokeStyle = 'rgba(255,255,255,0.9)'; cx.lineWidth = 2.5 * K; cx.beginPath(); cx.moveTo(px, yTop - 8 * K); cx.lineTo(px, yBot + 8 * K); cx.stroke();
+  }
+  // 拍の番号
+  for (let b = 0; b < B; b++) txt(`${b + 1}拍目`, gx + (b + 0.5) * bw, yBot + 16 * K, Math.max(12, 11 * K), ts.has && b === ts.beat ? '#ffffff' : '#64748b', 800);
+  if (willChange) txt(`次の小節から ${tupName(nextN)}（${tupWord(nextN)}）`, (gx + gx + gw) / 2, yBot + 36 * K > ah - 6 * K ? yTop - 26 * K : yBot + 36 * K, Math.max(13, 14 * K), LIME, 900);
+}
+function drawTupHeader(ts) {
+  const pad = 14 * K, y = pad + 16 * K, n = ts.n, col = TUPC[n] || '#e2e8f0';
+  cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${26 * K}px ${FONT}`;
+  let x = pad; const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
+  put(`${ts.beats}/4`, '#e2e8f0', 12 * K); put(tupName(n), col, 0);
+  const sub = n === 2 ? `1拍を 2 つに分ける ＝ ふつうの8分音符（${tupWord(2)}）` : `1拍を ${n} つに等しく分ける（${tupWord(n)}）`;
+  txt(sub, pad, y + 24 * K, Math.max(13, 13.5 * K), '#e2e8f0', 800, 'left');
+  const ramp = SET.rampOn && playing, q = bpm / 2;
+  txt(ramp ? `♩ = ${q} → ${SET.rampEnd / 2}` : `♩ = ${q}`, W - pad, y, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
+  if (ts.has) txt(`${ts.barIdx + 1} 小節目`, W - pad, y + 24 * K, Math.max(13, 12 * K), '#a3b1c6', 600, 'right');
+}
+function drawTupBarMark(now, sceneH) {
+  const age = tupBarAge(now); if (age > 0.7 || age < 0) return;
+  const q = age / 0.7; cx.strokeStyle = hexA(LIME, 0.55 * (1 - q)); cx.lineWidth = (6 - 4 * q) * K;
+  rr(3 * K, 3 * K, W - 6 * K, sceneH - 6 * K, 14 * K); cx.stroke();
+}
+/* 楽譜バー：拍ごとに連符を書く（3連符＝8分音符3つに「3」、4つ＝16分音符、5・6・7連符＝16分音符に数字） */
+function drawTupScore(ts, now, y0, h) {
+  const pad = 10 * K, n = ts.n, B = ts.beats, col = TUPC[n] || '#334155';
+  rr(pad, y0 + 3 * K, W - 2 * pad, h - 6 * K, 10 * K); cx.fillStyle = 'rgba(241,245,249,0.96)'; cx.fill();
+  const ink = '#0f172a', lineY = y0 + h * 0.72, tsw = h * 0.42;
+  const x0 = pad + 16 * K, xEnd = W - pad - 26 * K, bw = (xEnd - x0 - tsw) / B, sp = bw / n;
+  const nh = Math.min(h * 0.11, 9 * K + 2, sp * 0.3), stemTop = lineY - h * 0.4, beamH = Math.max(2.5, h * 0.06);
+  cx.strokeStyle = hexA(ink, 0.55); cx.lineWidth = 1.2 * K; cx.beginPath(); cx.moveTo(x0 - 6 * K, lineY); cx.lineTo(xEnd, lineY); cx.stroke();
+  const fsS = h * 0.3, cxs = x0 + tsw * 0.42;
+  cx.font = `900 ${fsS}px Georgia, "Times New Roman", serif`; cx.fillStyle = ink; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+  cx.fillText(String(B), cxs, lineY - fsS * 0.52); cx.fillText('4', cxs, lineY + fsS * 0.5);
+  sigHits = [{ x0: x0, x1: x0 + tsw, y0: y0, y1: y0 + h, sig: `${B}/4`, cx: cxs, bar: 0 }];
+  const jCur = ts.has ? Math.floor(ts.ph * n + 1e-9) : -1;
+  for (let b = 0; b < B; b++) {
+    const bx = x0 + tsw + b * bw, xs = [], curB = ts.has && b === ts.beat;
+    for (let k = 0; k < n; k++) xs.push(bx + sp * (k + 0.5));
+    xs.forEach((nx, k) => {
+      const on = curB && k === jCur;
+      if (on) { cx.shadowColor = col; cx.shadowBlur = 16 * K; }
+      cx.fillStyle = on ? col : curB ? hexA(col, 0.95) : ink;
+      cx.save(); cx.translate(nx, lineY); cx.rotate(-0.38); cx.beginPath(); cx.ellipse(0, 0, nh * 1.25, nh * 0.85, 0, 0, Math.PI * 2); cx.fill(); cx.restore(); cx.shadowBlur = 0;
+      cx.strokeStyle = cx.fillStyle; cx.lineWidth = 1.6 * K;
+      cx.beginPath(); cx.moveTo(nx + nh * 1.1, lineY - nh * 0.3); cx.lineTo(nx + nh * 1.1, stemTop); cx.stroke();
+    });
+    cx.fillStyle = curB ? col : ink;
+    const bx0 = xs[0] + nh * 1.1 - 0.8 * K, bwid = xs[n - 1] - xs[0] + 1.6 * K;
+    cx.fillRect(bx0, stemTop, bwid, beamH);
+    if (n >= 4) cx.fillRect(bx0, stemTop + beamH * 1.7, bwid, beamH);   // 16分音符は桁が2本
+    if (n === 3 || n >= 5) {   // 連符の数字とかっこ
+      const by = y0 + h * 0.14, fsN = Math.max(11, h * 0.2), mid = (xs[0] + xs[n - 1]) / 2 + nh * 1.1;
+      cx.strokeStyle = curB ? col : ink; cx.lineWidth = 1.4 * K;
+      cx.beginPath(); cx.moveTo(xs[0] + nh * 0.6, by + fsN * 0.45); cx.lineTo(xs[0] + nh * 0.6, by); cx.lineTo(mid - fsN * 0.55, by);
+      cx.moveTo(mid + fsN * 0.55, by); cx.lineTo(xs[n - 1] + nh * 1.6, by); cx.lineTo(xs[n - 1] + nh * 1.6, by + fsN * 0.45); cx.stroke();
+      cx.font = `italic 900 ${fsN}px Georgia, "Times New Roman", serif`; cx.fillStyle = curB ? col : ink; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+      cx.fillText(String(n), mid, by + 1);
+    }
+    if (b) { cx.strokeStyle = hexA(ink, 0.25); cx.lineWidth = 1 * K; cx.setLineDash([3 * K, 3 * K]); cx.beginPath(); cx.moveTo(bx, lineY - h * 0.3); cx.lineTo(bx, lineY + h * 0.15); cx.stroke(); cx.setLineDash([]); }
+  }
+  const rx = xEnd + 12 * K;   // くり返し記号
+  cx.fillStyle = ink;
+  cx.beginPath(); cx.arc(rx - 7 * K, lineY - h * 0.12, 2.4 * K, 0, Math.PI * 2); cx.arc(rx - 7 * K, lineY + h * 0.05, 2.4 * K, 0, Math.PI * 2); cx.fill();
+  cx.fillRect(rx, lineY - h * 0.36, 1.6 * K, h * 0.56); cx.fillRect(rx + 4 * K, lineY - h * 0.36, 4.5 * K, h * 0.56);
+}
+/* 下の帯：拍ごとの箱に、ことば（ト・マ・ト など）。いまの音が光る */
+function drawTupStrip(ts, y0, h) {
+  const n = ts.n, B = ts.beats, big = SET.big, pad = 14 * K, gap = (big ? 18 : 10) * K, col = TUPC[n] || '#e2e8f0', syl = Array.from(tupWord(n));
+  const bw = (W - 2 * pad - (B - 1) * gap) / B, bh = h * (big ? 0.82 : 0.66), by = y0 + (h - bh) / 2;
+  const jCur = ts.has ? Math.floor(ts.ph * n + 1e-9) : -1;
+  for (let b = 0; b < B; b++) {
+    const x = pad + b * (bw + gap), cur = ts.has && b === ts.beat;
+    rr(x, by, bw, bh, 10 * K); cx.fillStyle = cur ? hexA(col, 0.22) : 'rgba(30,41,59,0.7)'; cx.fill();
+    cx.strokeStyle = cur ? col : 'rgba(71,85,105,0.7)'; cx.lineWidth = (cur ? 2.5 : 1.2) * K; cx.stroke();
+    const cwid = (bw - 12 * K) / n, fs = Math.min(bh * (big ? 0.62 : 0.5), cwid * 0.95);
+    if (fs >= 12) {
+      syl.forEach((s, k) => {
+        const on = cur && k === jCur;
+        txt(s, x + 6 * K + cwid * (k + 0.5), by + bh / 2 + 1, on ? fs * 1.15 : fs, on ? '#ffffff' : k === 0 ? col : '#94a3b8', 900);
+      });
+    } else txt(cur && jCur >= 0 ? syl[jCur] : String(b + 1), x + bw / 2, by + bh / 2 + 1, Math.min(bh * 0.6, bw * 0.5), cur ? '#ffffff' : col, 900);
+  }
+}
+
 requestAnimationFrame(frame);
 
 /* =========================================================
@@ -4397,6 +4699,7 @@ function updatePlayBtn() {
 /* 下のバーの「今のリズム」 */
 function updateBarRhythm() {
   if (mode === 'W' && quiz.phase !== 'reveal' && quiz.phase !== 'done') { $('#barR1').textContent = '👂 聴き取りクイズ'; $('#barR2').textContent = 'リズムはひみつ'; return; }
+  if (isTup()) { $('#barR1').textContent = tupQuiz ? `連符：${tupName(tupQuiz)}` : `連符 ${tupSeq().join('→')}`; $('#barR2').textContent = tupQuiz ? '答えの連符' : `${SET.tupBeats}拍の小節・${SET.tupBars}小節ずつ${SET.tupCmp ? '・くらべる' : ''}（押して選ぶ）`; return; }
   if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
   const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
   $('#barR1').textContent = p.bars.map((bg, b) => (b === 0 || sigs[b] !== sigs[b - 1] ? sigs[b] + ' ' : '') + '[' + bg.join('+') + ']').join(' → ');
@@ -4413,7 +4716,7 @@ function presetLabel(p) {
 }
 function presetButton(p, extraClass, onDelete) {
   const b = document.createElement('button');
-  b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' ? ' on' : '');
+  b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' && mode !== 'X' ? ' on' : '');
   const song = p.cat !== 'custom' ? songOf(p) : null;
   b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>` + (song ? `<div class="p-song">🎵 ${song}</div>` : '');
   b.onclick = () => selectPreset(p);
@@ -4444,7 +4747,7 @@ function renderPresets() {
 }
 function selectPreset(p) {
   selected = p;
-  if (mode === 'F') {   // ポリリズム中に選んだら、元のモードに戻して鳴らす
+  if (mode === 'F' || mode === 'X') {   // ポリリズム・連符の中で選んだら、元のモードに戻して鳴らす
     activeMeta = makeMeta(p); pendingMeta = null;
     setMode(lastMetaMode);
   } else if (playing) pendingMeta = makeMeta(p);
@@ -4455,15 +4758,15 @@ function selectPreset(p) {
 /* ----- モード ----- */
 function setMode(md) {
   const was = mode; mode = md;
-  if ((was === 'F') !== (md === 'F')) {
+  if (engineOf(was) !== engineOf(md)) {
     if (playing) restartTimeline(); else { lastNote = null; accents = []; polyHits = []; }
   }
-  if (md !== 'F') lastMetaMode = md;
+  if (md !== 'F' && md !== 'X') lastMetaMode = md;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
   if (was === 'W' && md !== 'W') quizLeave();
   if (md === 'V' && was !== 'V') applyComparePair();
   if (md === 'W' && was !== 'W') { if (playing) stop(); quiz.phase = 'setup'; }
-  quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V';
+  quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V'; const tb = $('#tupBtn'); if (tb) tb.hidden = md !== 'X' || window.innerWidth < 640;
   const info = MODE_INFO[md];
   if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）▾</span>`;
   renderPresets(); renderPolySel(); updateBarRhythm();
@@ -4585,6 +4888,26 @@ function renderPolySel() {
   });
 }
 
+/* ----- 連符の設定 ----- */
+function renderTupSel() {
+  const box = $('#tupNSel'); if (!box) return;
+  $('#tupNRow').classList.toggle('hide', SET.tupSeq !== 'one');
+  document.querySelectorAll('#tupSeqSel button').forEach(b => b.classList.toggle('on', b.dataset.v === SET.tupSeq));
+  document.querySelectorAll('#tupNSel button').forEach(b => b.classList.toggle('on', +b.dataset.v === SET.tupN));
+  document.querySelectorAll('#tupBarsSel button').forEach(b => b.classList.toggle('on', +b.dataset.v === SET.tupBars));
+  document.querySelectorAll('#tupBeatsSel button').forEach(b => b.classList.toggle('on', +b.dataset.v === SET.tupBeats));
+  $('#tupCmpSw').classList.toggle('on', !!SET.tupCmp);
+}
+function tupChanged() { saveSet(); renderTupSel(); if (mode !== 'X') setMode('X'); else updateBarRhythm(); }
+document.querySelectorAll('#tupSeqSel button').forEach(b => b.onclick = () => { SET.tupSeq = b.dataset.v; tupChanged(); });
+document.querySelectorAll('#tupNSel button').forEach(b => b.onclick = () => { SET.tupN = +b.dataset.v; tupChanged(); });
+document.querySelectorAll('#tupBarsSel button').forEach(b => b.onclick = () => { SET.tupBars = +b.dataset.v; tupChanged(); });
+document.querySelectorAll('#tupBeatsSel button').forEach(b => b.onclick = () => { SET.tupBeats = +b.dataset.v; tupChanged(); });
+$('#tupCmpSw').onclick = () => { SET.tupCmp = !SET.tupCmp; tupChanged(); };
+renderTupSel();
+$('#tupBtn').onclick = e => { e.stopPropagation(); openDrawer('secTup'); };
+$('#tupBtn').addEventListener('pointerdown', e => e.stopPropagation());
+
 /* ----- リズムを作る ----- */
 let buildCards = [2, 2, 2, 3];
 try { const b = JSON.parse(localStorage.getItem('kr_build') || 'null'); if (Array.isArray(b)) buildCards = b.filter(L => L === 2 || L === 3).slice(0, 6); } catch (e) {}
@@ -4638,6 +4961,7 @@ const MODE_TAGS = {
   A: ['cog', 'len'], B: ['cog', 'len'], C: ['cyc', 'len'], D: ['str', 'cog'], E: ['len', 'cyc'], F: ['cyc'], H: ['cyc'], J: ['cyc', 'len'],
   P: ['str', 'cyc'], R: ['cog', 'len'], T: ['cyc'], V: ['cog', 'len'], W: ['str'], G: ['len'], I: ['str'], K: ['cog', 'str'],
   N: ['len', 'str'], O: ['len', 'cog'], Q: ['len'], S: ['cog'], U: ['len'], L: ['str', 'cyc'], M: ['len', 'cyc'],
+  X: ['len', 'str'],
 };
 let tagFilter = '';
 
@@ -4713,9 +5037,9 @@ function lessonToggle() {
 /* ----- からだ表示：足＝拍の頭、手＝刻み ----- */
 function drawBody(st, now, y0, h) {
   cx.fillStyle = 'rgba(11,18,34,0.85)'; cx.fillRect(0, y0, W, h);
-  const n = lastNote && lastNote.kind === 'meta' && playing ? lastNote : null, age = n ? now - n.time : 9;
-  const head = n && n.isAcc, bar = head && n.meta.barStartSub.includes(n.sub);
-  const footQ = head && age < 0.3 ? 1 - age / 0.3 : 0, handQ = n && age < 0.18 ? 1 - age / 0.18 : 0;
+  const n = lastNote && (lastNote.kind === 'meta' || lastNote.kind === 'tup') && playing ? lastNote : null, age = n ? now - n.time : 9;
+  const head = n && n.isAcc, bar = head && (n.kind === 'tup' ? n.beat === 0 : n.meta.barStartSub.includes(n.sub));
+  const footQ = head && age < 0.3 ? 1 - age / 0.3 : 0, handQ = n && (n.kind !== 'tup' || n.j >= 0) && age < 0.18 ? 1 - age / 0.18 : 0;
   const fs = Math.max(14, Math.min(h * 0.5, 18 * K)), cy = y0 + h / 2;
   const item = (x, em, label, q, col, big) => {
     if (q > 0) { cx.fillStyle = hexA(col, 0.25 + 0.5 * q); rr(x - 8 * K, y0 + 3 * K, (W < 640 ? 150 : 220) * K * (W < 640 ? 0.9 : 1), h - 6 * K, (h - 6 * K) / 2); cx.fill(); }
@@ -4762,7 +5086,7 @@ document.querySelectorAll('.modal').forEach(m => {
 });
 $('#drClose').onclick = closeDrawer;
 $('#barSet').onclick = () => $('#app').classList.contains('dr-open') ? closeDrawer() : openDrawer();
-$('#barRhythm').onclick = () => { if (mode === 'W') return; openDrawer(mode === 'F' ? 'secPoly' : mode === 'V' ? 'secCompare' : 'secRhythm'); };
+$('#barRhythm').onclick = () => { if (mode === 'W') return; openDrawer(mode === 'F' ? 'secPoly' : mode === 'V' ? 'secCompare' : mode === 'X' ? 'secTup' : 'secRhythm'); };
 $('#modeCur').onclick = () => { openModal('#modeSheet'); updateMoreHint(); };
 function updateMoreHint() { const b = $('#sheetBox'); $('#moreHint').classList.toggle('off', b.scrollTop + b.clientHeight >= b.scrollHeight - 30); }
 $('#sheetBox').addEventListener('scroll', updateMoreHint);
@@ -4929,6 +5253,7 @@ function shareUrl() {
   const pi = PRESETS.findIndex(p => presetKey(p) === presetKey(selected));
   if (pi >= 0) q.set('p', pi); else q.set('c', selected.bars[0].join(''));
   if (mode === 'F') q.set('y', SET.poly.join('x'));
+  if (mode === 'X') q.set('x', [SET.tupSeq, SET.tupN, SET.tupBars, SET.tupBeats, SET.tupCmp ? 1 : 0].join('.'));
   return location.href.split('#')[0] + '#' + q.toString();
 }
 function applyHash() {
@@ -4938,6 +5263,7 @@ function applyHash() {
   if (p !== null && PRESETS[+p]) selectPreset(PRESETS[+p]);
   else if (c && /^[23]{2,6}$/.test(c)) selectPreset(customPreset(c.split('').map(Number)));
   if (y && /^\d+x\d+$/.test(y)) { const pr = y.split('x').map(Number); if (POLY_PAIRS.some(a => a[0] === pr[0] && a[1] === pr[1])) SET.poly = pr; }
+  const xx = q.get('x'); if (xx && /^(up|alt|odd|one)\.[2-7]\.[124]\.[234]\.[01]$/.test(xx)) { const a = xx.split('.'); Object.assign(SET, { tupSeq: a[0], tupN: +a[1], tupBars: +a[2], tupBeats: +a[3], tupCmp: a[4] === '1' }); renderTupSel(); }
   if (m && MODE_INFO[m]) setMode(m);
   if (t >= 80 && t <= 300) setBpm(t);
 }
@@ -4955,6 +5281,7 @@ $('#shareCopy').onclick = async () => {
 
 /* ----- リズムを順に切り替える（［ ］キー） ----- */
 function stepPreset(d) {
+  if (mode === 'X') { SET.tupSeq = 'one'; SET.tupN = clamp(SET.tupN + d, 2, 7); saveSet(); renderTupSel(); updateBarRhythm(); return; }
   if (mode === 'F') {
     const i = POLY_PAIRS.findIndex(a => a[0] === SET.poly[0] && a[1] === SET.poly[1]);
     SET.poly = POLY_PAIRS[mod(i + d, POLY_PAIRS.length)].slice(); saveSet(); renderPolySel(); updateBarRhythm(); return;
@@ -4973,7 +5300,7 @@ $('#bpmUp').onclick = () => setBpm(bpm + 5);
 const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
 const cvPos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら、説明を出す（再生・タップ判定はしない）
-  const [px, py] = cvPos(e), hs = SET.scoreOn && mode !== 'F' && hitSig(px, py);
+  const [px, py] = cvPos(e), hs = SET.scoreOn && (mode !== 'F' || isTup()) && hitSig(px, py);
   if (hs) { e.preventDefault(); e.stopImmediatePropagation(); sigTip = { t: performance.now(), sig: hs.sig, x: hs.x0, y: hs.y0 }; cv.dataset.sigHit = '1'; return; }
   cv.dataset.sigHit = '';
 }, true);
