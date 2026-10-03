@@ -334,6 +334,7 @@
   .hcard { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px 14px 12px; border-radius: 16px; text-align: left;
            background: #111c33; border: 1px solid #263450; transition: all .15s; }
   .hcard:hover { border-color: #60a5fa; transform: translateY(-1px); }
+  .hcard.rec.game { background: linear-gradient(135deg, #6d28d9, #1e293b); border-color: #c4b5fd; }
   .hcard.rec { background: linear-gradient(135deg, #1e3a8a, #1e293b); border-color: #60a5fa; }
   .hc-em { font-size: 28px; line-height: 1.1; }
   .hcard b { font-size: 17px; }
@@ -357,6 +358,13 @@
     .hi-chips { flex-direction: column; align-items: flex-start; gap: 6px; } .hi-chip { white-space: nowrap; } .hi-sig { font-size: 22px; } .hi-try { margin-top: 10px; padding: 10px 14px; font-size: 15px; }
     .home-h { margin: 14px 0 8px; }
   }
+  /* ===== まねっこの結果 ===== */
+  .mr-rank { font-size: 34px; font-weight: 900; margin: 4px 0 2px; letter-spacing: .06em; }
+  .mr-rank.hi { color: #fde047; text-shadow: 0 0 24px rgba(253,224,71,.5); } .mr-rank.ok { color: #a3e635; } .mr-rank.lo { color: #93c5fd; }
+  .mr-stars { font-size: 26px; letter-spacing: .2em; color: #fde047; }
+  .mr-tally { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; font-size: 14px; font-weight: 800; margin: 8px 0 4px; }
+  .mr-tally span { padding: 3px 10px; border-radius: 999px; background: #1e293b; }
+  .mr-tip { text-align: left; background: rgba(163,230,53,.08); border: 1px solid #365314; border-radius: 12px; padding: 8px 12px; font-size: 15px; line-height: 1.6; margin: 10px 0; color: #e2e8f0; }
   /* ===== モードの一覧：まずはこれ（おすすめ）と、ほかのモード ===== */
   .sheet-grid .tab .mline { font-size: 11.5px; font-weight: 600; color: #a3b1c6; line-height: 1.4; }
   .sheet-grid .tab.on .mline { color: #0f172a; }
@@ -390,7 +398,7 @@
   <div id="songMap" class="song-map" hidden></div>
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
+    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button></div>
 
     <!-- ===== 設定の引き出し ===== -->
     <aside id="lesson" aria-label="レッスン"></aside>
@@ -682,11 +690,12 @@
   <div class="home-h">なにをする？</div>
   <div class="home-grid">
     <button class="hcard rec" data-go="lesson"><span class="hc-em">📘</span><b>はじめから学ぶ</b><span class="hc-d">9ステップのレッスン。授業にもそのまま使える</span><span class="hc-p" id="homeLessonP"></span></button>
+    <button class="hcard rec game" data-go="game"><span class="hc-em">👏</span><b>まねっこゲーム</b><span class="hc-d">お手本のあとに、同じリズムで手をたたく。ぴったりだと気持ちいい！</span></button>
     <button class="hcard" data-go="free"><span class="hc-em">👀</span><b>見て・聴いて体感</b><span class="hc-d">いろいろな絵で、拍の長さと重心を見る</span></button>
     <button class="hcard" data-go="quiz"><span class="hc-em">👂</span><b>耳で当てるクイズ</b><span class="hc-d">音だけを聞いて、リズムを当てる（10問）</span><span class="hc-p" id="homeQuizP"></span></button>
     <button class="hcard" data-go="build"><span class="hc-em">🃏</span><b>リズムを作る</b><span class="hc-d">パンとトマトのカードを並べて、自分の変拍子</span></button>
     <button class="hcard" data-go="song"><span class="hc-em">🎵</span><b>曲に合わせて練習</b><span class="hc-d">合奏の曲の、小節ごとに変わる拍子を鳴らす</span></button>
-    <button class="hcard" data-go="tup"><span class="hc-em">🍡</span><b>連符を感じる</b><span class="hc-d">1拍を3つ・5つ・7つに等しく分ける</span></button>
+
   </div>
   <label class="home-auto"><input type="checkbox" id="homeAuto"> 開いたときに、この画面を出す</label>
 </div></div>
@@ -893,6 +902,8 @@ MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛�
   detail: ['左上から右下へ、玉が仕掛けを刻み1つごとに1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。刻みの数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
 MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える', short: '着地の瞬間にタップ！',
   detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
+MODE_INFO.Y = { g: 'g3', em: '👏', name: 'まねっこ', line: 'お手本のあとに、同じリズムで手をたたこう！ ぴったりだと「パン！」と気持ちいい音', short: 'お手本のあとに、まねしてたたこう！',
+  detail: ['ピンクの「おてほん」が、1小節「パ・ン・ト・マ・ト」と言いながら拍の頭で手をたたく。', '次の小節は「あなた」の番。同じところで、画面をタップ（または J・Enter キー）して手をたたこう。', 'ぴったりだと「パン！」＋キラッと鳴って、光がはじける。早い・遅いと、にぶい音。たたき忘れると、あせが出る。', '下の段で、おてほんとあなたを、パン（短い）・トマト（長い）のブロックでくらべられる。', '8回で結果が出る。早め・遅めのくせや、たたき忘れについてアドバイスが出る。「つぎのリズムへ」で 5/8 → 7/8 …と進める。', 'お手本の間に一緒にたたいても、まちがいにはならない。判定には映像と音のズレ補正の値も使う。'] };
 MODE_INFO.V = { g: 'g2', em: '⚖️', name: 'くらべる', line: '2つのリズムを上下にならべる。刻みの数は同じで、拍の頭の位置だけがちがう', short: '刻みは同じ、拍の頭の位置がちがう',
   detail: ['上下2段に、2つのリズムを同じテンポ・同じ時間の目もりで並べる。', '縦の点線＝刻み（8分音符）。どちらも同じ数。まん中の ▼▲ がそれぞれの拍の頭、◆ は両方そろう所。', '上の段は木の高い音、下の段は太鼓の低い音。「組み合わせ・表示」で、片方だけ鳴らすこともできる。', '6/8 と 3/4 を同時に鳴らすと、2つの拍と3つの拍が重なる「ヘミオラ（2対3）」になる。'] };
 MODE_INFO.W = { g: 'g2', em: '👂', name: '当てる', line: '音だけを聞いて、リズムを当てよう。答えると映像と楽譜で正解が見られる', short: '音だけ聞いて、リズムを当てよう',
@@ -1128,6 +1139,44 @@ function playSyl(t, syl, acc, beatDur, bar = false) {   // 小節の頭は高く
   else vNasal(t, len, f0, 0.5 * amp);   // ン
 }
 
+/* ----- 手をたたいた音（タップ判定・まねっこ）：ぴったりは「パン！」＋キラッ、ずれたら にぶい音 ----- */
+function playClap(t, amp) {   // 本物の手拍子のように、細かい音を3つ重ねる
+  vBurst(t, 0.011, 'bandpass', 1250, 0.55 * amp); vBurst(t + 0.009, 0.011, 'bandpass', 1150, 0.55 * amp);
+  vBurst(t + 0.018, 0.11, 'bandpass', 1050, 0.95 * amp);
+}
+function playHat(t, a) { vBurst(t, 0.03, 'highpass', 7000, a); }
+function playKick(t, a = 0.7) {
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a, t + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.18);
+}
+function playHitSound(kind) {
+  if (!ctx || !bus) return;
+  const t = ctx.currentTime + 0.002;
+  if (kind === 'p') {
+    playClap(t, 1);
+    [[1568, 0.16], [2349, 0.11], [3136, 0.06]].forEach(([f, a], i) => {   // キラッ
+      const o = ctx.createOscillator(), g = ctx.createGain(), d = t + 0.012 + i * 0.012;
+      o.type = 'sine'; o.frequency.setValueAtTime(f, d);
+      g.gain.setValueAtTime(0.0001, d); g.gain.exponentialRampToValueAtTime(a, d + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, d + 0.28);
+      o.connect(g); g.connect(bus); o.start(d); o.stop(d + 0.3);
+    });
+  } else if (kind === 'e' || kind === 'l') {
+    playClap(t, 0.55);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(110, t + 0.1);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+    o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.15);
+  } else playClap(t, 0.35);
+}
+/* まねっこ：お手本の小節は「声＋手拍子」、あなたの小節はリズムの土台（キック・ハイハット）だけ */
+function maneSound(t, head, L, k, barHead, resp, dur) {
+  playHat(t, head ? 0.14 : 0.08);
+  if (barHead) playKick(t);
+  if (!resp) { playSyl(t, SYL[L][k], head, dur, false); if (head) playClap(t, 0.85); }
+}
+
 /* ----- 補助を少しずつ消す練習：小節ごとの段階 -----
    0：全部あり　1：映像なし　2：刻みなし（映像もなし）　3：音もなし */
 function stageForBar(b) {
@@ -1143,8 +1192,8 @@ function onBarStart() {
   curStage = stageForBar(barCount);
   barCount++;
 }
-function logTarget(time, head, sc) {
-  noteLog.push({ time, head, hit: false, sc });
+function logTarget(time, head, sc, ex) {
+  noteLog.push(Object.assign({ time, head, hit: false, sc }, ex));
   if (noteLog.length > 64) noteLog.splice(0, noteLog.length - 64);
 }
 
@@ -1162,7 +1211,11 @@ function scheduleMeta() {
   if (m.barStartSub.includes(curSub)) onBarStart();
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
-  if (stg < 3) {
+  const maneResp = mode === 'Y' && measure % 2 === 1;   // まねっこ：偶数回め＝お手本、奇数回め＝あなたの番
+  if (mode === 'Y') {
+    maneSound(nextTime, isAcc, L, k, m.barStartSub.includes(curSub), maneResp, dur);
+    if (maneResp && isAcc) mane.total++;
+  } else if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
     if (mode === 'V' || (mode === 'W' && quiz.cmpOn)) scheduleCompare(nextTime, m, curSub, subCounter);
     if (mode === 'W' && barHead) playBell(nextTime, 2093, 0.32);   // クイズ：小節の頭をはっきり
@@ -1171,8 +1224,8 @@ function scheduleMeta() {
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
-  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1 });
-  logTarget(nextTime, isAcc, subCounter - 1);
+  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1, resp: maneResp });
+  logTarget(nextTime, isAcc, subCounter - 1, { resp: maneResp, round: Math.floor(measure / 2), g, L });
   nextTime += dur; curSub++;
   if (curSub >= m.total) { curSub = 0; measure++; }
 }
@@ -1259,6 +1312,7 @@ function scheduler() {
     if (stopReq && atBarBoundary()) { stopAt = nextTime; return; }   // 小節の終わりで止める
     if (quizStopBars && mode === 'W' && barCount >= quizStopBars && atBarBoundary()) { stopAt = nextTime; return; }   // クイズは2小節だけ
     if (songAtEnd() && curSub === 0) { stopAt = nextTime; return; }   // 曲の進行：最後の小節で止める
+    if (mode === 'Y' && curSub === 0 && measure >= MANE_ROUNDS * 2) { stopAt = nextTime; mane.finishing = true; return; }   // まねっこ：8回で結果
     if (isTup()) scheduleTup(); else if (mode === 'F') schedulePoly(); else scheduleMeta();
   }
 }
@@ -1298,6 +1352,7 @@ function start(noCount) {
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
+  if (mode === 'Y') maneReset();
   if (mode === 'W' && quizStopBars) {   // クイズ：テンポを伝える刻み4つ（答えのヒントにならないように）
     const d = 60 / bpm; countInfo = { beats: [0, 1, 2, 3].map(i => ({ off: i * d, n: i + 1, head: true })), len: 4 * d };
     countInfo.beats.forEach((b, i) => { b.t = nextTime + b.off; playCount(b.t, i === 0); if (i === 0) playBell(b.t, 2093, 0.3); });
@@ -1352,6 +1407,7 @@ function stop() {
   keepAwake(false);
   updatePlayBtn();
   if (mode === 'W' && typeof quizUI === 'function') quizUI();
+  if (mode === 'Y' && mane.finishing) maneFinish();
   if (typeof lessonOpen !== 'undefined' && lessonOpen) renderLesson();
 }
 function togglePlay() { playing ? requestStop() : start(); }
@@ -1390,13 +1446,37 @@ const TAPK = {
   x: { label: 'たたきすぎ', color: '#94a3b8' },
 };
 let tapStats = { p: 0, e: 0, l: 0, x: 0 }, hiddenStats = null, tapFx = [], tapHist = [];
-const tapActive = () => SET.tapOn || mode === 'S' || (mode === 'M' && !SET.blockAuto);   // 流れるノーツでは、いつでも叩ける
+/* ぴったりのとき、たたいた場所から光がはじける（まねっこでは「あなた」の手から） */
+let sparks = [], tapPos = null, flashT = -1;
+function hitBurst(kind) {
+  if (kind !== 'p' && kind !== 'e' && kind !== 'l') return;
+  const pn = performance.now();
+  let o = mode === 'Y' && mane.hand ? mane.hand : tapPos && pn - tapPos.t < 400 ? tapPos : { x: W / 2, y: H * 0.38 };
+  const n = kind === 'p' ? 16 : 6, cols = kind === 'p' ? ['#fde047', '#a3e635', '#f472b6', '#67e8f9', '#ffffff'] : [TAPK[kind].color];
+  for (let i = 0; i < n; i++) {
+    const a = Math.PI * 2 * i / n + Math.random() * 0.4, v = (kind === 'p' ? 260 : 120) * (0.6 + Math.random() * 0.6) * K;
+    sparks.push({ x: o.x, y: o.y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60 * K, t: pn, col: cols[i % cols.length], star: kind === 'p' && i % 2 === 0 });
+  }
+  if (kind === 'p') flashT = pn;
+}
+function drawSparks() {
+  const pn = performance.now();
+  if (flashT > 0 && pn - flashT < 140) { cx.fillStyle = `rgba(255,255,255,${0.07 * (1 - (pn - flashT) / 140)})`; cx.fillRect(0, 0, W, H); }
+  sparks = sparks.filter(p => pn - p.t < 600);
+  sparks.forEach(p => {
+    const a = (pn - p.t) / 1000, q = 1 - a / 0.6, x = p.x + p.vx * a, y = p.y + p.vy * a + 500 * K * a * a, r = (p.star ? 7 : 4) * K * (0.5 + q);
+    cx.globalAlpha = q; cx.fillStyle = p.col;
+    if (p.star) { star(x, y, r); cx.fill(); } else { cx.beginPath(); cx.arc(x, y, r * 0.6, 0, Math.PI * 2); cx.fill(); }
+  });
+  cx.globalAlpha = 1;
+}
+const tapActive = () => SET.tapOn || mode === 'S' || mode === 'Y' || (mode === 'M' && !SET.blockAuto);   // 流れるノーツでは、いつでも叩ける
 function onTap(perfT) {
   if (!tapActive()) return;
   if (!playing) { start(); return; }
   const t = heardTime(perfT);
-  const cands = noteLog.filter(n => !(SET.tapHead || mode === 'S' || mode === 'M') || n.head);
-  if (!cands.length) return;
+  const cands = noteLog.filter(n => mode === 'Y' ? n.head && n.resp : !(SET.tapHead || mode === 'S' || mode === 'M') || n.head);
+  if (!cands.length) { playHitSound('x'); if (mode === 'Y') maneOnTap('x', null); return; }
   let bi = 0;
   for (let i = 1; i < cands.length; i++) if (Math.abs(cands[i].time - t) < Math.abs(cands[bi].time - t)) bi = i;
   const best = cands[bi], prev = cands[bi - 1], next = cands[bi + 1];
@@ -1404,13 +1484,16 @@ function onTap(perfT) {
   if (!isFinite(gap)) gap = 0.4;
   const err = t - best.time;
   let kind;
-  if (best.hit) kind = 'x';
+  if (best.hit || best.missed) kind = 'x';
+  else if (mode === 'Y' && Math.abs(err) > Math.max(0.15, gap * 0.45)) kind = 'x';   // まねっこ：お手本の間に一緒にたたいても、まちがいにしない
   else {
     best.hit = true;
     const win = clamp(gap * 0.12, 0.025, 0.05);   // 「ぴったり」の幅：25〜50ミリ秒（テンポに合わせて変える）
     kind = Math.abs(err) <= win ? 'p' : err < 0 ? 'e' : 'l';
   }
   tapStats[kind]++; updateScore();
+  playHitSound(kind); hitBurst(kind);
+  if (mode === 'Y') maneOnTap(kind, kind === 'x' ? null : best);
   if (kind !== 'x') { best.res = kind; if (mode === 'M' && best.sc !== undefined) blockJudge(best.sc, kind); }
   if (kind === 'p') { noteCombo++; noteBest = Math.max(noteBest, noteCombo); } else { if (noteCombo > 0) noteMissT = performance.now(); noteCombo = 0; }
   const hidden = SET.fadeOn && lastNote && lastNote.stage >= 1;
@@ -1458,7 +1541,7 @@ function frame() {
   if (playing) {
     while (queue.length && queue[0].time <= now) {
       const n = queue.shift(); lastNote = n;
-      if (n.kind === 'meta' && n.isAcc) accents.push({ t: n.time, step: n.step, sc: n.sc, g: n.g, meta: n.meta });
+      if (n.kind === 'meta' && n.isAcc) accents.push({ t: n.time, step: n.step, sc: n.sc, g: n.g, meta: n.meta, resp: n.resp });
       if (n.kind === 'poly' && (n.hitA || n.hitB)) polyHits.push({ t: n.time, k: n.k, hitA: n.hitA, hitB: n.hitB, a: n.a, b: n.b });
     }
   }
@@ -1528,6 +1611,7 @@ function frame() {
     else if (mode === 'U') drawFrog(st, now, sceneH);
     else if (mode === 'L') drawKarakuri(st, now, sceneH);
     else if (mode === 'M') drawBlocks(st, now, sceneH);
+    else if (mode === 'Y') drawMane(st, now, sceneH);
     else if (mode === 'V') drawCompare(st, now, sceneH);
     else if (mode === 'W') { if (quiz.cmpOn) drawCompare(st, now, sceneH - qPanH); else drawOrbit(st, now, sceneH - qPanH); }
     else drawStairs(st, now, sceneH);
@@ -1555,6 +1639,7 @@ function frame() {
   if (ba.hidden === showBa) ba.hidden = !showBa;
   if (showBa) { const tp = Math.round(104 * K) + 'px'; if (ba.style.top !== tp) ba.style.top = tp; }
   if (!hide) drawTapFx(sceneH, capH, capFs);
+  drawSparks();
   drawReturnBanner(sceneH);
   drawSigTip();
   requestAnimationFrame(frame);
@@ -4467,6 +4552,146 @@ function playBlock(t, head, L, barHead) {
    ・上下2段に、2つのリズムを同じテンポ・同じ時間の目もりで並べる
    ・縦の点線＝8分音符（刻み）の位置。どちらも同じ数。ちがうのは「拍の頭」の位置だけ
    ・上の段と下の段で音色を変える（片方だけ鳴らすこともできる） */
+/* =========================================================
+   👏 まねっこ（お手本 → あなた の、よびかけとこたえ）
+   ========================================================= */
+const MANE_ROUNDS = 8;
+const MANE_NEXT = [0, 4, 5, 6, 7, 8, 12, 9];   // 「つぎのリズムへ」：2/4 → 5/8 → … → 9/8 → 交互
+let mane = { tally: { p: 0, e: 0, l: 0, m: 0, x: 0 }, total: 0, finishing: false, result: null, lastTap: null, lastMiss: -9, hand: null };
+function maneReset() {
+  mane = { tally: { p: 0, e: 0, l: 0, m: 0, x: 0 }, total: 0, finishing: false, result: null, lastTap: null, lastMiss: -9, hand: null };
+  $('#maneUI').hidden = true;
+}
+function maneOnTap(kind, target) {
+  mane.lastTap = { t: performance.now(), kind, L: target ? target.L : 0 };
+  if (kind !== 'x' && target && target.round < MANE_ROUNDS) mane.tally[kind]++;
+}
+function maneCheckMiss(now) {   // 拍の頭を過ぎてもたたかなかったら「見のがし」
+  noteLog.forEach(n => {
+    if (n.resp && n.head && !n.hit && !n.missed && now - n.time > 0.22) {
+      n.missed = true; n.res = 'm';
+      if (n.round < MANE_ROUNDS) { mane.tally.m++; mane.lastMiss = performance.now(); noteCombo = 0; }
+    }
+  });
+}
+function maneFinish() {
+  noteLog.forEach(n => { if (n.resp && n.head && !n.hit && !n.missed && n.round < MANE_ROUNDS) { n.missed = true; mane.tally.m++; } });
+  const T = mane.tally, tot = Math.max(1, mane.total), sc = (T.p + 0.5 * (T.e + T.l)) / tot;
+  const rank = sc >= 0.85 && T.m <= 1 ? 'hi' : sc >= 0.6 ? 'ok' : 'lo';
+  const sig = meterText(activeMeta, true), nm = activeMeta.bars.map(b => b.join('+')).join(' → ');
+  let tip;
+  if (rank === 'hi') tip = `完ぺき！ ${nm} のノリが、からだに入っています。テンポを上げるか、「つぎのリズムへ」で挑戦しよう。`;
+  else if (T.m >= Math.max(2, tot * 0.2)) tip = 'たたき忘れがありました。お手本の「パン」「トマト」がいくつあるか、よく聞いてから、同じ数だけたたこう。';
+  else if (T.e >= 2 && T.e > T.l * 1.5) tip = '少し早め（あせり気味）でした。トマトの拍は長いので、「ト・マ・ト」と心の中で言って、ゆったり待ってからたたこう。';
+  else if (T.l >= 2 && T.l > T.e * 1.5) tip = '少しおくれ気味でした。刻み（パ・ン・ト・マ・ト）を心の中で言いながら、拍の頭を先取りしよう。';
+  else tip = 'おしい！ 拍の頭の強い音（パ・ト）に合わせて、足ぶみしながらたたくと、そろいやすくなります。';
+  mane.result = { rank, sc, tip };
+  mane.finishing = false;
+  const el = $('#maneUI'); el.hidden = false;
+  const label = { hi: 'ハイレベル！', ok: 'いいかんじ！', lo: 'もうすこし…' }[rank], stars = { hi: '★★★', ok: '★★☆', lo: '★☆☆' }[rank];
+  el.innerHTML = `<div class="qbox"><div class="qnum">👏 まねっこ　${nm}（${sig}）・${isQuarter(activeMeta) ? '♩ = ' + Math.round(bpm * 5) / 10 : '♪ = ' + bpm}</div>
+    <div class="mr-rank ${rank}">${label}</div><div class="mr-stars">${stars}</div>
+    <div class="mr-tally"><span style="color:#a3e635">ぴったり ${T.p}</span><span style="color:#60a5fa">早い ${T.e}</span><span style="color:#fb7185">遅い ${T.l}</span><span style="color:#94a3b8">見のがし ${T.m}</span></div>
+    <div class="mr-tip">💡 ${tip}</div>
+    <div class="qrow"><button class="qbtn" data-ma="again">↺ もう一度</button><button class="qbtn main" data-ma="next">つぎのリズムへ ▶</button></div></div>`;
+  el.querySelector('[data-ma="again"]').onclick = () => { el.hidden = true; mane.result = null; start(); };
+  el.querySelector('[data-ma="next"]').onclick = () => {
+    el.hidden = true; mane.result = null;
+    const i = MANE_NEXT.findIndex(k => presetKey(PRESETS[k]) === presetKey(selected));
+    selectPreset(PRESETS[MANE_NEXT[(i + 1) % MANE_NEXT.length]]); start();
+  };
+}
+/* キャラクター（まるい体・目・手）。clap＝手の閉じぐあい 0〜1 */
+function drawBuddy(x, yF, R, col, o) {
+  const sq = o.sq || 0, bw = R * (1 + sq * 0.18), bh = R * (1 - sq * 0.22), by = yF - bh;
+  cx.fillStyle = 'rgba(0,0,0,0.28)'; cx.beginPath(); cx.ellipse(x, yF + 3 * K, R * 1.05, R * 0.18, 0, 0, Math.PI * 2); cx.fill();
+  if (o.spot) { const sg = cx.createRadialGradient(x, by, R * 0.5, x, by, R * 2.6); sg.addColorStop(0, hexA(col, 0.32)); sg.addColorStop(1, hexA(col, 0)); cx.fillStyle = sg; cx.beginPath(); cx.arc(x, by, R * 2.6, 0, Math.PI * 2); cx.fill(); }
+  const gr = cx.createRadialGradient(x - R * 0.35, by - R * 0.4, R * 0.1, x, by, R * 1.1); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.25, col); gr.addColorStop(1, hexA(col, 0.85));
+  cx.fillStyle = gr; cx.beginPath(); cx.ellipse(x, by, bw, bh, 0, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = 'rgba(15,23,42,0.5)'; cx.lineWidth = 2 * K; cx.stroke();
+  // 顔
+  const ey = by - bh * 0.18, ex = bw * 0.34, er = R * 0.11;
+  cx.strokeStyle = '#1e293b'; cx.fillStyle = '#1e293b'; cx.lineWidth = Math.max(2, R * 0.07); cx.lineCap = 'round';
+  if (o.face === 'happy') { [-1, 1].forEach(s => { cx.beginPath(); cx.arc(x + s * ex, ey + er * 0.4, er, Math.PI * 1.1, Math.PI * 1.9); cx.stroke(); }); }
+  else { [-1, 1].forEach(s => { cx.beginPath(); cx.ellipse(x + s * ex, ey, er * 0.8, er * (o.face === 'oops' ? 1.3 : 1.1), 0, 0, Math.PI * 2); cx.fill(); }); }
+  cx.fillStyle = 'rgba(244,114,182,0.45)'; [-1, 1].forEach(s => { cx.beginPath(); cx.ellipse(x + s * bw * 0.58, ey + R * 0.22, R * 0.13, R * 0.08, 0, 0, Math.PI * 2); cx.fill(); });
+  cx.strokeStyle = '#1e293b'; cx.beginPath();
+  if (o.face === 'happy' || o.mouth) { cx.fillStyle = '#7f1d1d'; cx.ellipse(x, ey + R * 0.36, R * 0.15, R * (o.mouth ? 0.16 : 0.11), 0, 0, Math.PI * 2); cx.fill(); }
+  else if (o.face === 'oops') { cx.arc(x, ey + R * 0.5, R * 0.12, Math.PI * 1.15, Math.PI * 1.85); cx.stroke(); }
+  else { cx.arc(x, ey + R * 0.26, R * 0.14, Math.PI * 0.15, Math.PI * 0.85); cx.stroke(); }
+  if (o.sweat) { cx.fillStyle = '#7dd3fc'; const sx = x + bw * 0.85, sy = by - bh * 0.6; cx.beginPath(); cx.moveTo(sx, sy - R * 0.22); cx.quadraticCurveTo(sx + R * 0.14, sy, sx, sy + R * 0.08); cx.quadraticCurveTo(sx - R * 0.14, sy, sx, sy - R * 0.22); cx.fill(); }
+  // 手（ひらく ⇔ 前でパン）
+  const c = clamp(o.clap || 0, 0, 1), hr = R * 0.24;
+  const hands = [-1, 1].map(s => [x + s * (R * 1.22 * (1 - c) + R * 0.13 * c), by + R * 0.15 * (1 - c) - R * 0.12 * c]);
+  hands.forEach(([hx, hy]) => { cx.fillStyle = '#fff7ed'; cx.beginPath(); cx.arc(hx, hy, hr, 0, Math.PI * 2); cx.fill(); cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2.5 * K; cx.stroke(); });
+  if (c > 0.85) { cx.strokeStyle = hexA('#fde047', (c - 0.85) / 0.15); cx.lineWidth = 3 * K; for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + (i - 2.5) * 0.45; cx.beginPath(); cx.moveTo(x + Math.cos(a) * R * 0.45, hands[0][1] + Math.sin(a) * R * 0.45); cx.lineTo(x + Math.cos(a) * R * 0.75, hands[0][1] + Math.sin(a) * R * 0.75); cx.stroke(); } }
+  return { x, y: hands[0][1] };
+}
+function maneBubble(x, y, text, col, age, R) {   // 「パン！」「トマト！」のふきだし
+  if (age < 0 || age > 0.45) return;
+  const pop = 1 + 0.35 * Math.max(0, 1 - age * 8), a = age < 0.3 ? 1 : 1 - (age - 0.3) / 0.15, fs = R * 0.42 * pop;
+  cx.globalAlpha = a; cx.font = `900 ${fs}px ${FONT}`; const w = cx.measureText(text).width + fs * 0.8, h = fs * 1.5;
+  cx.fillStyle = '#ffffff'; rr(x - w / 2, y - h / 2, w, h, h / 2); cx.fill(); cx.strokeStyle = col; cx.lineWidth = 3 * K; cx.stroke();
+  txt(text, x, y + 1, fs, col === '#fbbf24' ? '#b45309' : '#0e7490', 900); cx.globalAlpha = 1;
+}
+function drawMane(st, now, ah) {
+  maneCheckMiss(now);
+  const m = st.m, pn = performance.now();
+  // 背景：あたたかい舞台
+  const bg = cx.createLinearGradient(0, 0, 0, ah); bg.addColorStop(0, '#2e1065'); bg.addColorStop(0.65, '#4c1d95'); bg.addColorStop(1, '#1e1b4b');
+  cx.fillStyle = bg; cx.fillRect(0, 0, W, ah);
+  const narrow = W < 600, R = Math.min(W * (narrow ? 0.14 : 0.095), ah * 0.14, 80 * K), yF = ah * (narrow ? 0.56 : 0.6);
+  cx.fillStyle = 'rgba(15,23,42,0.35)'; cx.fillRect(0, yF, W, ah - yF);
+  cx.strokeStyle = 'rgba(196,181,253,0.35)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(0, yF); cx.lineTo(W, yF); cx.stroke();
+  const n = playing && lastNote && lastNote.kind === 'meta' ? lastNote : null, resp = n ? n.resp : false;
+  const round = n ? Math.floor(n.measure / 2) : 0, subAge = n ? now - n.time : 9, sq = Math.exp(-subAge * 18) * 0.5;
+  const xT = W * (narrow ? 0.28 : 0.3), xY = W * (narrow ? 0.72 : 0.7);
+  // お手本の手：拍の頭の少し前から近づけて、パンでとじる
+  const accT = accents.filter(a => !a.resp && a.t <= now).pop(), ageT = accT ? now - accT.t : 9;
+  let clapT = ageT < 0.04 ? 1 : Math.max(0, 1 - (ageT - 0.04) / 0.16);
+  const nextT = queue.find(q => q.kind === 'meta' && q.isAcc && !q.resp && q.time > now);
+  if (nextT && nextT.time - now < 0.1) clapT = Math.max(clapT, 0.9 * (1 - (nextT.time - now) / 0.1));
+  drawBuddy(xT, yF, R, '#f472b6', { sq: !resp ? sq : sq * 0.4, clap: clapT, spot: playing && !resp, mouth: !resp && subAge < 0.12 });
+  // あなた
+  const lt = mane.lastTap, tAge = lt ? (pn - lt.t) / 1000 : 9;
+  const clapY = tAge < 0.04 ? 1 : Math.max(0, 1 - (tAge - 0.04) / 0.16);
+  const face = lt && tAge < 0.5 && lt.kind === 'p' ? 'happy' : (pn - mane.lastMiss) < 700 || (lt && tAge < 0.4 && lt.kind !== 'x') ? 'oops' : 'normal';
+  mane.hand = drawBuddy(xY, yF, R, '#38bdf8', { sq: resp ? sq : sq * 0.4, clap: clapY, spot: playing && resp, face, sweat: (pn - mane.lastMiss) < 900 });
+  // ふきだし
+  if (accT) maneBubble(xT, yF - R * 2.75, accT.meta.groups[accT.g] === 3 ? 'トマト！' : 'パン！', COLORS[accT.meta.groups[accT.g]], ageT, R);
+  if (lt && lt.L && lt.kind !== 'x') maneBubble(xY, yF - R * 2.75, lt.L === 3 ? 'トマト！' : 'パン！', COLORS[lt.L], tAge, R);
+  txt('おてほん', xT, yF + R * 0.42, Math.max(12, R * 0.26), '#fbcfe8', 800);
+  txt('あなた', xY, yF + R * 0.42, Math.max(12, R * 0.26), '#bae6fd', 800);
+  // 上の案内
+  const hy = 84 * K;
+  if (!playing) {
+    if (!mane.result) txt('▶ 再生（または画面をタップ）でスタート！ お手本のあとに、同じリズムでたたこう', W / 2, hy, Math.max(13, 13 * K), '#f1f5f9', 800);
+  } else if (countInfo && now < countInfo.end) txt('はじまるよ…', W / 2, hy, Math.max(14, 15 * K), '#fde68a', 900);
+  else {
+    const lastHead = m.starts[m.starts.length - 1], cue = !resp && n && n.sub >= lastHead;
+    const t1 = resp ? '👏 あなたの番！' : cue ? '👉 つぎ、あなた！' : '👂 おてほん', col = resp ? '#7dd3fc' : cue ? '#fde047' : '#f9a8d4';
+    txt(`${t1}　（${Math.min(round + 1, MANE_ROUNDS)} / ${MANE_ROUNDS}）`, W / 2, hy, Math.max(15, 17 * K) * (cue ? 1 + 0.08 * Math.sin(now * 20) : 1), col, 900);
+  }
+  if (noteCombo >= 2 && playing) txt(`れんぞく ぴったり ×${noteCombo}`, xY, yF - R * 3.45, Math.max(12, 13 * K), '#fde047', 900);
+  // 下の段：おてほん と あなた を、パン・トマトのブロックでくらべる
+  const G = m.groups, tot = m.total, rowH = clamp((ah - yF - R * 0.7) / 2.5, 16, 34 * K), x0 = W * (narrow ? 0.2 : 0.1), uw = (W * (narrow ? 0.76 : 0.8)) / tot;
+  const y1 = yF + R * 0.7 + rowH * 0.15, y2 = y1 + rowH * 1.2;
+  const mine = noteLog.filter(q => q.resp && q.head && q.round === round);
+  const MARK = { p: ['◎', '#a3e635'], e: ['早', '#60a5fa'], l: ['遅', '#fb7185'], m: ['×', '#94a3b8'] };
+  [[y1, 'おてほん', false], [y2, 'あなた', true]].forEach(([y, lab, isY]) => {
+    txt(lab, x0 - 8 * K, y + rowH / 2, Math.max(10, rowH * 0.36), isY ? '#bae6fd' : '#fbcfe8', 800, 'right');
+    G.forEach((L, g) => {
+      const bx = x0 + m.starts[g] * uw + 2, bw = L * uw - 4, cur = n && n.g === g && n.resp === isY;
+      const q = mine.find(e => e.g === g), res = isY && q ? (q.res || (q.missed ? 'm' : null)) : null;
+      cx.fillStyle = hexA(COLORS[L], cur ? 0.55 : 0.16); rr(bx, y, bw, rowH, 6 * K); cx.fill();
+      cx.strokeStyle = hexA(COLORS[L], cur ? 1 : 0.6); cx.lineWidth = 2 * K; cx.stroke();
+      const word = L === 3 ? 'トマト' : 'パン';
+      if (res) txt(MARK[res][0], bx + bw / 2, y + rowH / 2, rowH * 0.62, MARK[res][1], 900);
+      else txt(word, bx + bw / 2, y + rowH / 2, Math.min(rowH * 0.48, bw / 3), cur ? '#ffffff' : hexA(COLORS[L], 0.9), 800);
+    });
+  });
+}
+
 const CMP_PAIRS = [
   { title: '5/8 2+3 と 3+2', a: 4, b: 5 },
   { title: '6/8 と 3/4', a: 3, b: 1, hemiola: true },
@@ -5224,7 +5449,7 @@ function songStep() {
   songPos++;
 }
 const songActive = () => !!song;
-const songOnNow = () => !!song && mode !== 'V' && mode !== 'W' && mode !== 'F' && mode !== 'X';
+const songOnNow = () => !!song && mode !== 'V' && mode !== 'W' && mode !== 'F' && mode !== 'X' && mode !== 'Y';
 const songNextIdx = c => songJump !== null ? songJump : c < 0 ? (songStartAt >= song.from && songStartAt <= song.to ? songStartAt : song.from) : c + 1 > song.to ? song.from : c + 1;
 const songAtEnd = () => songOnNow() && !SET.songLoop && songJump === null && !songNew && songPos > song.to && playing;
 
@@ -5432,6 +5657,8 @@ function setMode(md) {
   if (was === 'W' && md !== 'W') quizLeave();
   if (md === 'V' && was !== 'V') applyComparePair();
   if (md === 'W' && was !== 'W') { if (playing) stop(); songOff(); quiz.phase = 'setup'; }
+  if (md === 'Y' && was !== 'Y' && playing) stop();
+  if (md !== 'Y' || !mane.result) $('#maneUI').hidden = true;
   quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V' || window.innerWidth < 640; const tb = $('#tupBtn'); if (tb) tb.hidden = md !== 'X' || window.innerWidth < 640;
   const info = MODE_INFO[md];
   if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute mc-n" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）</span><span class="c-mute" style="font-size:13px">▾</span>`;
@@ -5439,8 +5666,8 @@ function setMode(md) {
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
 /* モードの一覧：はじめは「まずはこれ」の6つだけ。ほかは「ほかのモードも見る」で出す */
-const MODE_REC = ['A', 'G', 'D', 'N', 'V', 'W'];
-const MODE_REC_WHY = { A: '拍の長さと重心が、形でわかる', G: '短い車両と長い車両で、長さがわかる', D: '指揮の振り方で、何拍子かわかる',
+const MODE_REC = ['A', 'Y', 'G', 'D', 'V', 'W'];
+const MODE_REC_WHY = { A: '拍の長さと重心が、形でわかる', Y: 'お手本をまねして、手をたたくゲーム', G: '短い車両と長い車両で、長さがわかる', D: '指揮の振り方で、何拍子かわかる',
   N: '背の高いドミノ＝拍の頭。強さがわかる', V: '2つのリズムを上下に並べてくらべる', W: '音だけでリズムを当てる（クイズ）' };
 let sheetMore = false;
 function renderModes() {
@@ -5656,7 +5883,7 @@ const MODE_TAGS = {
   A: ['cog', 'len'], B: ['cog', 'len'], C: ['cyc', 'len'], D: ['str', 'cog'], E: ['len', 'cyc'], F: ['cyc'], H: ['cyc'], J: ['cyc', 'len'],
   P: ['str', 'cyc'], R: ['cog', 'len'], T: ['cyc'], V: ['cog', 'len'], W: ['str'], G: ['len'], I: ['str'], K: ['cog', 'str'],
   N: ['len', 'str'], O: ['len', 'cog'], Q: ['len'], S: ['cog'], U: ['len'], L: ['str', 'cyc'], M: ['len', 'cyc'],
-  X: ['len', 'str'],
+  X: ['len', 'str'], Y: ['str', 'len'],
 };
 let tagFilter = '';
 
@@ -6087,7 +6314,7 @@ cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら
   if (hs) { e.preventDefault(); e.stopImmediatePropagation(); sigTip = { t: performance.now(), sig: hs.sig, x: hs.x0, y: hs.y0 }; cv.dataset.sigHit = '1'; return; }
   cv.dataset.sigHit = '';
 }, true);
-cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; const tp = cvPos(e); tapPos = { x: tp[0], y: tp[1], t: performance.now() }; if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
 cv.addEventListener('click', () => {
   if (cv.dataset.sigHit) { cv.dataset.sigHit = ''; return; }
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
@@ -6141,6 +6368,7 @@ function homeGo(go) {
   else if (go === 'build') { if (mode === 'W' || mode === 'F' || mode === 'X') setMode('L'); openDrawer('secBuild'); }
   else if (go === 'song') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secSong'); }
   else if (go === 'tup') { closeDrawer(); setMode('X'); }
+  else if (go === 'game') { closeDrawer(); setMode('Y'); }
 }
 document.querySelectorAll('#home [data-go]').forEach(b => b.onclick = () => homeGo(b.dataset.go));
 $('#homeClose').onclick = closeHome;
