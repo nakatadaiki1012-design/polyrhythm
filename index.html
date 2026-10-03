@@ -432,6 +432,10 @@
         <div><div class="lbl">🎸 バンドの伴奏</div><div class="hint">ドラム・ベース・和音・メロディーが、いまのリズムで鳴る。拍の頭で「ドン」と「タン」が交互に鳴るので、パン（短い）とトマト（長い）のまとまりが、曲の中で聞こえる</div></div>
         <button id="bandSw" class="sw" aria-label="バンドの伴奏"></button>
       </div>
+      <div class="lbl" style="margin-top:16px">🎼 本物の曲（民謡・古い歌）といっしょに</div>
+      <div class="hint" style="margin:4px 0 8px">変拍子の民謡の旋律が、図と楽譜といっしょに流れます。同じ 5/8 でも、2+3 と 3+2 の曲を聞きくらべてみよう。🎸 伴奏をONにすると、ドラムも入ります。</div>
+      <div class="grid2" id="tuneBtns"></div>
+      <div class="hint" style="margin-top:6px">旋律の出典：Essen Folksong Collection（H. Schaffrath ほか編。music21 同梱の ABC 版）。どれも作者のわからない民謡・古い歌です。</div>
       <div class="lbl" style="margin-top:16px">🎧 自分の曲のファイルを流す</div>
       <div class="hint" style="margin:4px 0 8px">合奏の録音や、持っている曲（mp3・m4a・wav など）を読みこむと、その曲に合わせて図と楽譜が動きます。ファイルはこの端末の中だけで使い、どこにも送りません。</div>
       <label class="btn wide file-btn">📂 曲のファイルを選ぶ<input type="file" id="fileIn" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" hidden></label>
@@ -730,7 +734,7 @@
     <button class="hcard" data-go="free"><span class="hc-em">👀</span><b>見て・聴いて体感</b><span class="hc-d">いろいろな絵で、拍の長さと重心を見る</span></button>
     <button class="hcard" data-go="quiz"><span class="hc-em">👂</span><b>耳で当てるクイズ</b><span class="hc-d">音だけを聞いて、リズムを当てる（10問）</span><span class="hc-p" id="homeQuizP"></span></button>
     <button class="hcard" data-go="build"><span class="hc-em">🃏</span><b>リズムを作る</b><span class="hc-d">パンとトマトのカードを並べて、自分の変拍子</span></button>
-    <button class="hcard" data-go="music"><span class="hc-em">🎶</span><b>曲にのって感じる</b><span class="hc-d">バンドの伴奏や、自分の曲のファイルに合わせて、図と楽譜が動く</span></button>
+    <button class="hcard" data-go="music"><span class="hc-em">🎶</span><b>曲にのって感じる</b><span class="hc-d">変拍子の民謡・バンドの伴奏・自分の曲のファイルに合わせて、図と楽譜が動く</span></button>
 
   </div>
   <label class="home-auto"><input type="checkbox" id="homeAuto"> 開いたときに、この画面を出す</label>
@@ -883,7 +887,7 @@ function customPreset(groups) {
   const total = groups.reduce((s, L) => s + L, 0);
   return { cat: 'custom', sig: `${total}/8`, bars: [groups.slice()], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
 }
-const presetKey = p => JSON.stringify([p.sigs || p.sig, p.bars]);
+const presetKey = p => JSON.stringify([p.sigs || p.sig, p.bars, p.tune ? p.tune.name : 0]);
 
 const POLY_PAIRS = [[3, 2], [4, 3], [5, 4], [5, 3], [5, 2]];
 /* 連符：数えることば（食べ物）・色・練習の順番 */
@@ -1298,6 +1302,30 @@ function syncFinish() {
 }
 
 /* =========================================================
+   🎼 本物の曲（民謡・古い歌）：旋律をこのリズムといっしょに鳴らす
+   旋律の出典：Essen Folksong Collection（H. Schaffrath ほか編。music21 同梱の ABC 版）。どれも作者のわからない民謡・古い歌
+   n：[はじまり（刻み）, 長さ（刻み）, 音の高さ（MIDI）]、len：1回りの長さ（刻み）
+   ========================================================= */
+const TUNES = [{"name":"ハンガリーの民謡","orig":"ハンガリー（バラード「ひつぎの前の再会」）","sig":"5/8","g":[2,3],"bpm":180,"len":60,"n":[[0.0,1.0,72],[1.0,1.0,69],[2.0,2.0,69],[4.0,1.0,69],[5.0,1.0,69],[6.0,1.0,67],[7.0,2.0,67],[9.0,1.0,67],[10.0,1.0,67],[11.0,1.0,74],[12.0,2.0,74],[14.0,1.0,67],[15.0,1.0,70],[16.0,2.0,69],[19.0,1.0,72],[20.0,1.0,69],[21.0,1.0,72],[22.0,2.0,77],[24.0,1.0,69],[25.0,1.0,67],[26.0,1.0,70],[27.0,2.0,74],[29.0,1.0,77],[30.0,1.0,76],[31.0,1.0,74],[32.0,2.0,72],[34.0,1.0,67],[35.0,1.0,70],[36.0,2.0,69],[39.0,1.0,72],[40.0,1.0,69],[41.0,1.0,72],[42.0,2.0,77],[44.0,1.0,69],[45.0,1.0,67],[46.0,1.0,70],[47.0,2.0,74],[49.0,1.0,77],[50.0,1.0,76],[51.0,1.0,74],[52.0,2.0,72],[54.0,1.0,67],[55.0,1.0,70],[56.0,2.0,69],[59.0,1.0,69]]},{"name":"中国の山歌「Suo ge」","orig":"中国・福建省の山歌","sig":"5/8","g":[3,2],"bpm":160,"len":80,"n":[[0.0,1.0,74],[1.0,0.5,74],[1.5,0.5,74],[2.0,1.0,74],[3.0,2.0,79],[5.0,1.0,79],[6.0,0.5,76],[6.5,0.5,74],[7.0,1.0,74],[8.0,2.0,76],[10.0,0.5,79],[10.5,0.5,76],[11.0,0.5,76],[11.5,0.5,79],[12.0,1.0,76],[13.0,2.0,74],[15.0,0.5,76],[15.5,0.5,74],[16.0,1.0,76],[17.0,1.0,74],[18.0,1.0,74],[20.0,0.5,74],[20.5,0.5,74],[21.0,0.5,74],[21.5,0.5,76],[22.0,1.0,74],[23.0,2.0,79],[25.0,1.0,79],[26.0,0.5,76],[26.5,0.5,74],[27.0,1.0,79],[28.0,2.0,76],[30.0,0.5,79],[30.5,0.5,79],[31.0,0.5,76],[31.5,0.5,79],[32.0,1.0,76],[33.0,2.0,74],[35.0,0.5,76],[35.5,0.5,74],[36.0,1.0,76],[37.0,1.0,74],[38.0,1.0,74],[40.0,1.0,76],[41.0,1.0,81],[42.0,1.0,81],[43.0,1.0,81],[44.0,1.0,81],[45.0,1.0,76],[46.0,1.0,81],[47.0,1.0,79],[48.0,1.0,79],[49.0,0.5,79],[49.5,0.5,76],[50.0,0.5,74],[50.5,0.5,76],[51.0,1.0,74],[52.0,1.0,74],[53.0,1.0,74],[54.0,2.0,79],[56.0,1.5,76],[57.5,0.5,74],[58.0,1.0,74],[59.0,1.0,74],[60.0,1.0,79],[61.0,1.0,79],[62.0,1.0,79],[63.0,1.0,79],[64.0,1.0,79],[65.0,0.5,76],[65.5,0.5,74],[66.0,1.0,74],[67.0,2.0,76],[69.0,0.5,79],[69.5,0.5,76],[70.0,0.5,74],[70.5,0.5,76],[71.0,1.0,74],[72.0,1.0,74],[73.0,1.0,74],[74.0,1.0,79],[75.0,1.5,76],[76.5,0.5,74],[77.0,2.0,74]]},{"name":"中国の山歌「放牛歌」","orig":"中国・安徽省の山歌（牛を放牧するときの歌）","sig":"7/8","g":[3,2,2],"bpm":200,"len":28,"n":[[0.0,1.0,74],[1.0,1.0,71],[2.0,1.0,69],[3.0,1.0,71],[5.0,1.0,71],[6.0,1.0,74],[7.0,1.0,74],[8.0,1.0,71],[9.0,1.0,69],[10.0,1.0,71],[12.0,1.0,71],[13.0,1.0,74],[14.0,1.0,74],[15.0,1.0,71],[16.0,1.0,69],[17.0,2.0,66],[19.0,1.0,66],[20.0,1.0,69],[21.0,1.0,71],[22.0,1.0,69],[23.0,1.0,66],[24.0,1.0,66]]},{"name":"プリンツ・オイゲン","orig":"ドイツの歴史の歌（1717年ごろ）","sig":"5/4","g":[2,2,2,2,2],"bpm":200,"len":90,"n":[[0.0,1.0,62],[1.0,1.0,62],[2.0,2.0,67],[4.0,2.0,67],[6.0,1.0,67],[7.0,1.0,69],[8.0,1.0,71],[9.0,1.0,71],[10.0,1.0,67],[11.0,1.0,69],[12.0,2.0,71],[14.0,2.0,74],[16.0,1.0,74],[17.0,1.0,72],[18.0,1.0,72],[19.0,1.0,71],[20.0,1.0,69],[21.0,1.0,67],[22.0,1.0,69],[23.0,1.0,71],[24.0,1.0,72],[25.0,1.0,71],[26.0,3.0,69],[30.0,1.0,74],[31.0,1.0,72],[32.0,2.0,71],[34.0,2.0,74],[36.0,1.0,76],[37.0,1.0,74],[38.0,1.0,72],[39.0,1.0,71],[40.0,1.0,69],[41.0,1.0,67],[42.0,2.0,69],[44.0,2.0,72],[46.0,1.0,74],[47.0,1.0,72],[48.0,1.0,71],[49.0,1.0,69],[50.0,1.0,67],[51.0,1.0,67],[52.0,2.0,67],[54.0,2.0,71],[56.0,1.0,69],[57.0,1.0,69],[58.0,2.0,67],[60.0,1.0,74],[61.0,1.0,72],[62.0,2.0,71],[64.0,2.0,74],[66.0,1.0,76],[67.0,1.0,74],[68.0,1.0,72],[69.0,1.0,71],[70.0,1.0,69],[71.0,1.0,67],[72.0,2.0,69],[74.0,2.0,72],[76.0,1.0,74],[77.0,1.0,72],[78.0,1.0,71],[79.0,1.0,69],[80.0,1.0,67],[81.0,1.0,67],[82.0,2.0,67],[84.0,2.0,71],[86.0,1.0,69],[87.0,1.0,69],[88.0,2.0,67]]}];
+let tune = null;
+TUNES.forEach(t => {
+  t.preset = { cat: 'tune', sig: t.sig, bars: [t.g], note: t.name, tune: t };
+  t.at = {}; t.n.forEach(([st, d, pc]) => { const k = Math.floor(st + 1e-6); (t.at[k] = t.at[k] || []).push([st - k, d, pc]); });
+});
+const tuneOn = () => !!(tune && selected === tune.preset && !songOnNow() && mode !== 'W' && mode !== 'F' && mode !== 'X' && mode !== 'V' && !fileOn());
+function playTuneNote(t, f, len) {   // 木管のような、やわらかい音
+  bTone(t, f, len, 'triangle', 0.2, 2800);
+  bTone(t, f * 2, Math.min(len, 0.3), 'sine', 0.035, 0);
+}
+function tuneSchedule(t, m, sub, dur) {
+  if (m.preset !== tune.preset) return;   // 次の小節から切りかわるのを待つ
+  if (tune.m0 !== m) { tune.m0 = m; tune.b0 = barCount - 1; }   // この曲が始まった小節から数える
+  const nb = Math.max(1, Math.round(tune.len / m.total)), p = mod(barCount - 1 - tune.b0, nb) * m.total + sub;
+  (tune.at[p] || []).forEach(([fr, d, pc]) => playTuneNote(t + fr * dur, mtof(pc), Math.max(0.08, d * dur * 0.92)));
+}
+function selectTune(t) { selectPreset(t.preset); setBpm(t.bpm); }
+
+/* =========================================================
    🎸 バンドの伴奏：ドラム・ベース・和音・メロディーを、いまのリズムに合わせて作る
    ・拍の頭（パン・トマトの頭）で、キック と スネア が交互に鳴る → まとまりが聞こえる
    ・ベースはまとまりの長さだけのばす（トマトは長く）。メロディーもまとまりごとに区切る
@@ -1328,6 +1356,7 @@ function bandSound(t, o) {   // o：{ L, k, isAcc, barHead, gi, nG, bar, dur, me
   playHat(t, o.isAcc ? 0.09 : 0.05);
   if (o.isAcc) { if (o.gi % 2 === 0) playKick(t, o.barHead ? 0.85 : 0.65); else playSnare(t, 0.42); }
   if (o.barHead && mod(o.bar, 4) === 0) vBurst(t, 0.5, 'highpass', 5000, 0.12);   // 4小節ごとのシンバル
+  if (o.drumsOnly) return;   // 本物の曲を流すときは、ドラムだけ（和音が曲とぶつからないように）
   // ベース：まとまりの長さだけのばす
   if (o.isAcc) bTone(t, mtof(root + (last && o.nG > 1 ? 7 : 0)), o.L * o.dur * 0.9, 'sawtooth', 0.22, 600);
   else if (o.L === 3 && o.k === 2) bTone(t, mtof(root + 12), o.dur * 0.6, 'sawtooth', 0.13, 700);   // トマトの3つめで、はずむ
@@ -1385,7 +1414,7 @@ function scheduleMeta() {
     if (bandOn()) bandSound(nextTime, Object.assign(bo, { mel: false }));
     if (!silent) maneSound(nextTime, isAcc, L, k, bo.barHead, maneResp, dur, bandOn());
     if (maneResp && isAcc) mane.total++;
-  } else if (bandOn() && stg < 3) bandSound(nextTime, Object.assign(bo, { mel: true }));
+  } else if (bandOn() && stg < 3) bandSound(nextTime, Object.assign(bo, { mel: !tuneOn(), drumsOnly: tuneOn() }));
   else if (silent) {}
   else if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
@@ -1395,6 +1424,7 @@ function scheduleMeta() {
     else if (isAcc) { SET.voice ? playSyl(nextTime, SYL[L][k], true, dur, barHead) : ms ? ms(nextTime, true, L, barHead, k, m.barOfGroup[g]) : playAccent(nextTime, barHead); }
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
+  if (tuneOn() && stg < 3) tuneSchedule(nextTime, m, curSub, dur);
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1, resp: maneResp });
   logTarget(nextTime, isAcc, subCounter - 1, { resp: maneResp, round: Math.floor(measure / 2), g, L });
@@ -1514,6 +1544,7 @@ function resetCounters() {
   polyK = 0; polyCycle = -1;
   tupE = 0; tupBeat = 0; tupBarIdx = -1; tupFrozen = 0;
   queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0;
+  if (tune) tune.m0 = null;
 }
 function start(noCount) {
   initAudio(); if (ctx.state !== 'running') ctx.resume();
@@ -1722,6 +1753,8 @@ function frame() {
   if (accents.length) accents = accents.filter(a => now - a.t < 1.5);
   if (polyHits.length) polyHits = polyHits.filter(a => now - a.t < 1.0);
   if (uiBpmDirty) { uiBpmDirty = false; showBpm(); }
+  if (frame.pend && !pendingMeta) updateBarRhythm();   // 「次の小節から切りかわります」を、切りかわったら消す
+  frame.pend = !!pendingMeta;
 
   // 補助を消す練習：段階の切りかわり
   const stage = playing && lastNote ? lastNote.stage : 0;
@@ -5781,9 +5814,9 @@ function presetLabel(p) {
 function presetButton(p, extraClass, onDelete) {
   const b = document.createElement('button');
   b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && !songActive() && mode !== 'F' && mode !== 'X' ? ' on' : '');
-  const song = p.cat !== 'custom' ? songOf(p) : null;
-  b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>` + (song ? `<div class="p-song">🎵 ${song}</div>` : '');
-  b.onclick = () => selectPreset(p);
+  const song = p.cat !== 'custom' && p.cat !== 'tune' ? songOf(p) : null;
+  b.innerHTML = `<div class="p-title">${p.tune ? '🎼 ' : ''}${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>` + (song ? `<div class="p-song">🎵 ${song}</div>` : '') + (p.tune ? `<div class="p-song">${p.tune.orig}</div>` : '');
+  b.onclick = () => p.tune ? selectTune(p.tune) : selectPreset(p);
   if (onDelete) {
     const d = document.createElement('span');
     d.className = 'p-del'; d.textContent = '×'; d.title = 'このリズムを消す';
@@ -5795,6 +5828,8 @@ function presetButton(p, extraClass, onDelete) {
 function renderPresets() {
   const box = $('#presets'); box.innerHTML = '';
   const head = t => { const h = document.createElement('div'); h.className = 'cat'; h.textContent = t; box.appendChild(h); };
+  head('🎼 本物の曲（民謡・古い歌）といっしょに');
+  TUNES.forEach(t => box.appendChild(presetButton(t.preset, ' span2')));
   CATS.forEach(([cat, title]) => {
     head(title);
     PRESETS.filter(p => p.cat === cat).forEach(p => box.appendChild(presetButton(p, p.bars.length > 1 || songOf(p) ? ' span2' : '')));
@@ -5816,13 +5851,13 @@ function renderPresets() {
   SONG_EX.forEach(sx => box.appendChild(songButton(sx)));
 }
 function selectPreset(p) {
-  songOff(); selected = p;
+  songOff(); selected = p; tune = p.tune || null;
   if (mode === 'F' || mode === 'X') {   // ポリリズム・連符の中で選んだら、元のモードに戻して鳴らす
     activeMeta = makeMeta(p); pendingMeta = null;
     setMode(lastMetaMode);
   } else if (playing) pendingMeta = makeMeta(p);
   else { activeMeta = makeMeta(p); pendingMeta = null; lastNote = null; accents = []; }
-  renderPresets(); updateBarRhythm();
+  renderPresets(); updateBarRhythm(); if (typeof renderTuneBtns === 'function') renderTuneBtns();
 }
 
 /* ----- モード ----- */
@@ -6439,6 +6474,7 @@ function shareUrl() {
   q.set('m', mode); q.set('t', bpm);
   const pi = PRESETS.findIndex(p => presetKey(p) === presetKey(selected));
   if (pi >= 0) q.set('p', pi); else q.set('c', selected.bars[0].join(''));
+  if (tune && selected === tune.preset) q.set('tn', TUNES.indexOf(tune));
   if (mode === 'F') q.set('y', SET.poly.join('x'));
   if (songOnNow()) { q.set('q', song.text); q.set('qn', song.name); }
   if (mode === 'X') q.set('x', [SET.tupSeq, SET.tupN, SET.tupBars, SET.tupBeats, SET.tupCmp ? 1 : 0].join('.'));
@@ -6452,6 +6488,7 @@ function applyHash() {
   else if (c && /^[23]{2,6}$/.test(c)) selectPreset(customPreset(c.split('').map(Number)));
   if (y && /^\d+x\d+$/.test(y)) { const pr = y.split('x').map(Number); if (POLY_PAIRS.some(a => a[0] === pr[0] && a[1] === pr[1])) SET.poly = pr; }
   const xx = q.get('x'); if (xx && /^(up|alt|odd|one)\.[2-7]\.[124]\.[234]\.[01]$/.test(xx)) { const a = xx.split('.'); Object.assign(SET, { tupSeq: a[0], tupN: +a[1], tupBars: +a[2], tupBeats: +a[3], tupCmp: a[4] === '1' }); renderTupSel(); }
+  const tn = q.get('tn'); if (tn !== null && TUNES[+tn]) selectTune(TUNES[+tn]);
   if (m && MODE_INFO[m]) setMode(m);
   const qs = q.get('q'); if (qs && parseSong(qs).bars.length) songSet({ name: (q.get('qn') || '共有された進行').slice(0, 40), text: qs });
   if (t >= 80 && t <= 300) setBpm(t);
@@ -6526,7 +6563,9 @@ document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefau
 window.addEventListener('resize', updatePlayBtn);
 
 
-/* ----- 曲といっしょに：バンドの伴奏・曲のファイル ----- */
+/* ----- 曲といっしょに：バンドの伴奏・本物の曲・曲のファイル ----- */
+function renderTuneBtns() { const box = $('#tuneBtns'); box.innerHTML = ''; TUNES.forEach(t => box.appendChild(presetButton(t.preset, ' span2'))); }
+renderTuneBtns();
 function setBand(v) { SET.band = v; saveSet(); $('#bandSw').classList.toggle('on', v); $('#barBand').classList.toggle('on', v); }
 $('#bandSw').onclick = () => setBand(!SET.band);
 $('#barBand').onclick = () => setBand(!SET.band);
