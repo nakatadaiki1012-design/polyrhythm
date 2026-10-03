@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>KineticRhythm</title>
+<title>変拍子を体感しよう｜KineticRhythm</title>
 <style>
   /* ===== 基本（ネットなしでも崩れないよう、見た目はすべてこのファイルの中に書いています） ===== */
   *, *::before, *::after { box-sizing: border-box; }
@@ -21,7 +21,9 @@
   /* ===== 画面のならび：上＝モード選び、まん中＝絵、下＝いつも使う操作、右（スマホは下）＝設定の引き出し ===== */
   #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
   #topbar { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: #0b1222; border-bottom: 1px solid #1e293b; }
-  .brand { flex: none; font-size: 16px; font-weight: 800; letter-spacing: .03em; }
+  .brand { flex: none; display: flex; flex-direction: column; line-height: 1.15; font-weight: 800; }
+  .b-ja { font-size: 17px; color: #f1f5f9; letter-spacing: .04em; white-space: nowrap; } .b-en { font-size: 10px; color: #67e8f9; letter-spacing: .08em; opacity: .8; }
+  @media (max-width: 1299px) { .top-hint { display: none; } }
   #body { flex: 1; display: flex; min-height: 0; position: relative; }
   #stage { position: relative; flex: 1; min-width: 0; min-height: 0; }
   #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
@@ -290,7 +292,7 @@
 <div id="app">
   <!-- ===== 上：モード選び ===== -->
   <header id="topbar">
-    <div class="brand"><span class="c-cyan">Kinetic</span><span class="c-lime">Rhythm</span></div>
+    <div class="brand"><span class="b-ja">変拍子を<span class="c-lime">体感</span>しよう</span><span class="b-en">KineticRhythm</span></div>
     <nav class="modes" id="modes"></nav>
     <div class="mode-mini">
       <button id="mPrev" class="mm-arrow" aria-label="前のモード">◀</button>
