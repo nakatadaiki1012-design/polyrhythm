@@ -358,6 +358,14 @@
     .hi-chips { flex-direction: column; align-items: flex-start; gap: 6px; } .hi-chip { white-space: nowrap; } .hi-sig { font-size: 22px; } .hi-try { margin-top: 10px; padding: 10px 14px; font-size: 15px; }
     .home-h { margin: 14px 0 8px; }
   }
+  /* ===== 曲といっしょに ===== */
+  .file-btn { display: block; text-align: center; padding: 11px; font-size: 15px; cursor: pointer; }
+  .sync-tap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 100%; height: 120px; margin-top: 10px; border-radius: 18px;
+              background: #7c3aed; color: #fff; font-size: 20px; font-weight: 900; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .sync-tap:active { background: #a78bfa; transform: scale(.98); }
+  .sync-tap small { font-size: 14px; font-weight: 700; opacity: .9; }
+  @media (max-width: 599px) { .bar-rhythm { padding: 0 6px; } .bar-rhythm .r1 { font-size: 13px; } .bar-icon { min-width: 40px; padding: 0 6px; } .bar-play { min-width: 66px; padding: 0 8px; } #bar { gap: 4px; } .bar-tempo { gap: 2px; } .bar-tempo .sq { width: 30px; } .bar-bpm { min-width: 40px; } }
+  #barBand.on { background: #a3e635; color: #0f172a; border-color: #a3e635; }
   /* ===== まねっこの結果 ===== */
   .mr-rank { font-size: 34px; font-weight: 900; margin: 4px 0 2px; letter-spacing: .06em; }
   .mr-rank.hi { color: #fde047; text-shadow: 0 0 24px rgba(253,224,71,.5); } .mr-rank.ok { color: #a3e635; } .mr-rank.lo { color: #93c5fd; }
@@ -417,6 +425,33 @@
     </div>
 
     <div class="dr-group">えらぶ・つくる</div>
+    <!-- 曲といっしょに -->
+    <details class="sec" id="secMusic">
+      <summary><span class="sum-main">🎶 曲といっしょに<span class="sum-sub">バンドの伴奏・自分の曲のファイルに合わせる</span></span></summary>
+      <div class="row">
+        <div><div class="lbl">🎸 バンドの伴奏</div><div class="hint">ドラム・ベース・和音・メロディーが、いまのリズムで鳴る。拍の頭で「ドン」と「タン」が交互に鳴るので、パン（短い）とトマト（長い）のまとまりが、曲の中で聞こえる</div></div>
+        <button id="bandSw" class="sw" aria-label="バンドの伴奏"></button>
+      </div>
+      <div class="lbl" style="margin-top:16px">🎧 自分の曲のファイルを流す</div>
+      <div class="hint" style="margin:4px 0 8px">合奏の録音や、持っている曲（mp3・m4a・wav など）を読みこむと、その曲に合わせて図と楽譜が動きます。ファイルはこの端末の中だけで使い、どこにも送りません。</div>
+      <label class="btn wide file-btn">📂 曲のファイルを選ぶ<input type="file" id="fileIn" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" hidden></label>
+      <div id="fileBox" hidden>
+        <div class="build-info" id="fileName" style="margin-top:8px"></div>
+        <div class="row"><div class="lbl">この曲を流す</div><button id="fileSw" class="sw" aria-label="この曲を流す"></button></div>
+        <div class="hint">① 先に「リズムを選ぶ」か「曲の進行を作る」で、曲の拍子を決める<br>② 「🎯 タップで合わせる」を押し、曲の1小節目から、小節の1拍目（指揮の振りおろし）で4回以上タップ<br>③ 下の ▶ 再生 で、曲と図がいっしょに動く（曲の進行の小節を押すと、その小節から流れる）</div>
+        <div class="btns"><button class="btn main wide" id="syncBtn">🎯 タップで合わせる</button></div>
+        <div id="syncBox" hidden>
+          <button class="sync-tap" id="syncTap">👏 小節の1拍目でタップ<small id="syncN">0 回</small></button>
+          <div class="btns"><button class="btn main wide" id="syncOk" disabled>決定</button><button class="btn" id="syncCancel">やめる</button></div>
+        </div>
+        <div class="lbl2" style="margin-top:12px">1小節目が始まる時刻</div>
+        <div class="row" style="justify-content:center"><span class="stepper"><button class="sq" id="offDn2">«</button><button class="sq" id="offDn">−</button><span class="val" id="offVal" style="min-width:74px">0.00 秒</span><button class="sq" id="offUp">＋</button><button class="sq" id="offUp2">»</button></span></div>
+        <div class="hint">図が曲より早く動くときは ＋、おそいときは −（−＋は0.02秒、« »は0.2秒）。テンポは下のバーの −＋ で。</div>
+        <div class="row"><div><div class="lbl">クリック（メトロノーム）も鳴らす</div><div class="hint">OFF にすると、曲と図だけになる</div></div><button id="fileClickSw" class="sw" aria-label="クリックも鳴らす"></button></div>
+      </div>
+      <div class="build-msg" id="fileMsg"></div>
+    </details>
+
     <!-- リズムを選ぶ -->
     <details class="sec" open id="secRhythm">
       <summary><span class="sum-main">🎼 リズムを選ぶ<span class="sum-sub">ふつうの拍子・変拍子・曲の進行の例</span></span></summary>
@@ -669,6 +704,7 @@
       <button id="barUp" class="sq" aria-label="テンポを上げる">＋</button>
     </div>
     <button id="barRhythm" class="bar-rhythm" title="リズムを選ぶ"><span class="r1" id="barR1"></span><span class="r2" id="barR2"></span></button>
+    <button id="barBand" class="bar-icon" title="バンドの伴奏"><span class="ic">🎸</span><span class="tx"> 伴奏</span></button>
     <button id="barSet" class="bar-icon" title="設定"><span class="ic">⚙</span><span class="tx"> 設定</span></button>
     <button id="barFs" class="bar-icon" title="全画面（F キー）"><span class="ic">⛶</span><span class="tx"> 全画面</span></button>
   </footer>
@@ -694,7 +730,7 @@
     <button class="hcard" data-go="free"><span class="hc-em">👀</span><b>見て・聴いて体感</b><span class="hc-d">いろいろな絵で、拍の長さと重心を見る</span></button>
     <button class="hcard" data-go="quiz"><span class="hc-em">👂</span><b>耳で当てるクイズ</b><span class="hc-d">音だけを聞いて、リズムを当てる（10問）</span><span class="hc-p" id="homeQuizP"></span></button>
     <button class="hcard" data-go="build"><span class="hc-em">🃏</span><b>リズムを作る</b><span class="hc-d">パンとトマトのカードを並べて、自分の変拍子</span></button>
-    <button class="hcard" data-go="song"><span class="hc-em">🎵</span><b>曲に合わせて練習</b><span class="hc-d">合奏の曲の、小節ごとに変わる拍子を鳴らす</span></button>
+    <button class="hcard" data-go="music"><span class="hc-em">🎶</span><b>曲にのって感じる</b><span class="hc-d">バンドの伴奏や、自分の曲のファイルに合わせて、図と楽譜が動く</span></button>
 
   </div>
   <label class="home-auto"><input type="checkbox" id="homeAuto"> 開いたときに、この画面を出す</label>
@@ -835,7 +871,7 @@ const SET = {
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
   big: false, voice: false, subOn: true, poly: [3, 2],
   bodyOn: false, countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
-  tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true, beatRow: true, songLoop: true, homeAuto: true,
+  tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true, beatRow: true, songLoop: true, homeAuto: true, band: false, fileOn: true, fileClick: true,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
@@ -1171,10 +1207,141 @@ function playHitSound(kind) {
   } else playClap(t, 0.35);
 }
 /* まねっこ：お手本の小節は「声＋手拍子」、あなたの小節はリズムの土台（キック・ハイハット）だけ */
-function maneSound(t, head, L, k, barHead, resp, dur) {
-  playHat(t, head ? 0.14 : 0.08);
-  if (barHead) playKick(t);
+function maneSound(t, head, L, k, barHead, resp, dur, noDrums) {
+  if (!noDrums) { playHat(t, head ? 0.14 : 0.08); if (barHead) playKick(t); }
   if (!resp) { playSyl(t, SYL[L][k], head, dur, false); if (head) playClap(t, 0.85); }
+}
+
+/* =========================================================
+   🎧 自分の曲のファイルを流す（この端末の中だけで使い、どこにも送らない）
+   mfile.offset ＝ 曲の中で「1小節目」が始まる時刻（秒）
+   ========================================================= */
+let mfile = null, fileSrc = null, fileWaitEnd = 0, syncS = null;
+const fileOn = () => !!(mfile && SET.fileOn && mode !== 'W' && mode !== 'F' && mode !== 'X' && mode !== 'V');
+const fileKey = () => mfile ? mfile.name + '|' + mfile.buf.duration.toFixed(1) : '';
+function fileSaveSync() { try { const all = JSON.parse(localStorage.getItem('kr_filesync') || '{}'); all[fileKey()] = { offset: mfile.offset, bpm }; localStorage.setItem('kr_filesync', JSON.stringify(all)); } catch (e) {} }
+function barSubs0() { const m = song && songOnNow() ? songMetas[0] : activeMeta; return m.nBars > 1 ? m.barStartSub[1] : m.total; }
+function songBarTime(n) {   // 1小節目の頭から、n 小節目の頭までの時間（曲の進行のテンポ変化もふくむ）
+  if (!(song && songOnNow())) return 0;
+  let t = 0; for (let i = 0; i < n; i++) t += songMetas[i].total * 60 / (songTempoAt(i) || bpm);
+  return t;
+}
+function fileStart(T) {   // start() から：曲を鳴らし、1小節目（または練習を始める小節）が来る時刻を返す
+  const sb = song && songOnNow() ? songPos : 0, barLen = barSubs0() * 60 / bpm;
+  const tBar = mfile.offset + songBarTime(sb), from = sb === 0 ? 0 : Math.max(0, tBar - barLen);
+  const src = ctx.createBufferSource(); src.buffer = mfile.buf; src.connect(bus); src.start(T, from);
+  src.onended = () => { if (fileSrc === src && playing) stop(); };
+  fileSrc = src; fileWaitEnd = T + (tBar - from);
+  return fileWaitEnd;
+}
+function fileStop() { if (fileSrc) { const f = fileSrc; fileSrc = null; try { f.stop(); } catch (e) {} } }
+function fileMsg(t, bad) { const el = $('#fileMsg'); el.textContent = t; el.style.color = bad ? '#fda4af' : '#bef264'; }
+function renderFile() {
+  $('#fileBox').hidden = !mfile;
+  if (!mfile) return;
+  const d = mfile.buf.duration;
+  $('#fileName').textContent = `🎧 ${mfile.name}（${Math.floor(d / 60)}分${String(Math.round(d % 60)).padStart(2, '0')}秒）`;
+  $('#offVal').textContent = mfile.offset.toFixed(2) + ' 秒';
+}
+async function fileLoad(f) {
+  if (!f) return;
+  initAudio(); if (ctx.state !== 'running') ctx.resume();
+  fileMsg('読みこみ中…');
+  try {
+    const buf = await ctx.decodeAudioData(await f.arrayBuffer());
+    if (playing) stop();
+    mfile = { name: f.name.replace(/\.[^.]+$/, ''), buf, offset: 0 };
+    SET.fileOn = true; saveSet();
+    let saved = null; try { saved = JSON.parse(localStorage.getItem('kr_filesync') || '{}')[fileKey()]; } catch (e) {}
+    if (saved) { mfile.offset = saved.offset; setBpm(saved.bpm); fileMsg('前に合わせた設定を使います。▶ 再生で、曲といっしょに動きます'); }
+    else fileMsg('読みこみました。次に「🎯 タップで合わせる」をしよう');
+    if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V') setMode('A');
+  } catch (e) { fileMsg('この形式のファイルは読みこめませんでした（mp3・m4a・wav などを使ってください）', true); }
+  refreshPanels(); renderFile();
+}
+/* タップで合わせる：曲を頭から流し、小節の1拍目で4回以上タップ → テンポと「1小節目の時刻」を求める */
+function syncBegin() {
+  if (!mfile) return;
+  if (playing) stop();
+  initAudio(); if (ctx.state !== 'running') ctx.resume();
+  const g = ctx.createGain(); g.connect(master);
+  const src = ctx.createBufferSource(); src.buffer = mfile.buf; src.connect(g);
+  const T = ctx.currentTime + 0.1; src.start(T, 0);
+  syncS = { src, g, T, taps: [] };
+  $('#syncBox').hidden = false; $('#syncBtn').hidden = true; $('#syncN').textContent = '0 回'; $('#syncOk').disabled = true;
+  fileMsg('曲の1小節目から、小節の1拍目（指揮の振りおろし）でタップしよう');
+}
+function syncEnd() {
+  if (!syncS) return;
+  const { src, g } = syncS; try { src.stop(); } catch (e) {} g.disconnect(); syncS = null;
+  $('#syncBox').hidden = true; $('#syncBtn').hidden = false;
+}
+function syncTap(perfT) {
+  if (!syncS) return;
+  syncS.taps.push(heardTime(perfT) - syncS.T);
+  const n = syncS.taps.length; $('#syncN').textContent = `${n} 回${n < 4 ? `（あと ${4 - n} 回）` : '（もっとたたくと正確に）'}`;
+  $('#syncOk').disabled = n < 4;
+}
+function syncFinish() {
+  if (!syncS || syncS.taps.length < 4) return;
+  const ts = syncS.taps.slice(); syncEnd();
+  const ds = ts.slice(1).map((v, i) => v - ts[i]).sort((a, b) => a - b), med = ds[Math.floor(ds.length / 2)];
+  const xs = ts.map(v => Math.round((v - ts[0]) / med)), n = ts.length;   // たたき忘れがあっても、何小節目かを数えなおす
+  const mx = xs.reduce((a, v) => a + v, 0) / n, my = ts.reduce((a, v) => a + v, 0) / n;
+  let sxx = 0, sxy = 0; xs.forEach((x, i) => { sxx += (x - mx) ** 2; sxy += (x - mx) * (ts[i] - my); });
+  const barLen = sxx > 0 ? sxy / sxx : med, a = my - barLen * mx;
+  const want = barSubs0() * 60 / barLen, nb = clamp(Math.round(want), 80, 300);
+  mfile.offset = Math.max(0, a); setBpm(nb);
+  if (song && songOnNow()) { song.t0 = nb; if (song.bars[0].t) song.bars[0].t = nb; }
+  fileSaveSync(); renderFile();
+  fileMsg(Math.abs(want - nb) > 1 ? `テンポが はんいの外でした（♪＝${Math.round(want)}）。拍子の選び方を確かめてください` : `合わせました：テンポ ${isQuarter(activeMeta) ? '♩＝' + Math.round(nb / 2) : '♪＝' + nb}、1小節目は ${mfile.offset.toFixed(2)} 秒。▶ 再生してみよう`, Math.abs(want - nb) > 1);
+}
+
+/* =========================================================
+   🎸 バンドの伴奏：ドラム・ベース・和音・メロディーを、いまのリズムに合わせて作る
+   ・拍の頭（パン・トマトの頭）で、キック と スネア が交互に鳴る → まとまりが聞こえる
+   ・ベースはまとまりの長さだけのばす（トマトは長く）。メロディーもまとまりごとに区切る
+   ========================================================= */
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const BAND_CH = [[45, [57, 60, 64]], [41, [57, 60, 65]], [43, [55, 59, 62]], [40, [55, 59, 64]]];   // Am → F → G → Em（4小節でひとまわり）
+const BAND_PENTA = [69, 72, 74, 76, 79, 81];
+function bTone(t, f, len, type, amp, lp) {
+  const o = ctx.createOscillator(), g = ctx.createGain(); let out = g;
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(amp, t + 0.008);
+  g.gain.setValueAtTime(amp, t + Math.max(0.01, len * 0.6)); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g);
+  if (lp) { const f2 = ctx.createBiquadFilter(); f2.type = 'lowpass'; f2.frequency.value = lp; g.connect(f2); out = f2; }
+  out.connect(bus); o.start(t); o.stop(t + len + 0.02);
+}
+function playSnare(t, a = 0.5) {
+  vBurst(t, 0.14, 'bandpass', 1900, a);
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(140, t + 0.06);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(a * 0.8, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+  o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.1);
+}
+const bandOn = () => SET.band && mode !== 'V' && mode !== 'W' && !fileOn();
+function bandSound(t, o) {   // o：{ L, k, isAcc, barHead, gi, nG, bar, dur, mel }
+  const [root, tri] = BAND_CH[mod(o.bar, 4)], last = o.gi === o.nG - 1;
+  // ドラム
+  playHat(t, o.isAcc ? 0.09 : 0.05);
+  if (o.isAcc) { if (o.gi % 2 === 0) playKick(t, o.barHead ? 0.85 : 0.65); else playSnare(t, 0.42); }
+  if (o.barHead && mod(o.bar, 4) === 0) vBurst(t, 0.5, 'highpass', 5000, 0.12);   // 4小節ごとのシンバル
+  // ベース：まとまりの長さだけのばす
+  if (o.isAcc) bTone(t, mtof(root + (last && o.nG > 1 ? 7 : 0)), o.L * o.dur * 0.9, 'sawtooth', 0.22, 600);
+  else if (o.L === 3 && o.k === 2) bTone(t, mtof(root + 12), o.dur * 0.6, 'sawtooth', 0.13, 700);   // トマトの3つめで、はずむ
+  // 和音：拍の頭で短く
+  if (o.isAcc) tri.forEach(n => bTone(t, mtof(n), (o.L === 3 ? 1.5 : 0.9) * o.dur, 'triangle', 0.05, 2400));
+  // メロディー：まとまりごとに区切ったフレーズ（2小節でくり返し、4小節目で着地）
+  if (!o.mel) return;
+  const seed = mod(o.bar, 2) * 37 + o.gi * 11 + o.k, play = o.k === 0 || (o.L === 3 && o.k === 2) || (o.L === 2 && o.k === 1 && hash01(seed + 5) > 0.55);
+  if (!play) return;
+  let n;
+  if (mod(o.bar, 4) === 3 && last) n = 69;
+  else if (o.k === 0) n = tri[Math.floor(hash01(seed) * 3)] + 12;
+  else n = BAND_PENTA[Math.floor(hash01(seed + 2) * BAND_PENTA.length)];
+  bTone(t, mtof(n), (o.k === 0 ? Math.min(o.L, 2) : 1) * o.dur * 0.85, 'square', 0.06, 3200);
 }
 
 /* ----- 補助を少しずつ消す練習：小節ごとの段階 -----
@@ -1186,7 +1353,7 @@ function stageForBar(b) {
 }
 function onBarStart() {
   // テンポ自動アップ
-  if (SET.rampOn && barCount > 0 && barCount % SET.rampEvery === 0 && bpm < SET.rampEnd) {
+  if (SET.rampOn && !fileOn() && barCount > 0 && barCount % SET.rampEvery === 0 && bpm < SET.rampEnd) {
     bpm = Math.min(SET.rampEnd, bpm + SET.rampStep); uiBpmDirty = true;
   }
   curStage = stageForBar(barCount);
@@ -1212,10 +1379,15 @@ function scheduleMeta() {
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   const maneResp = mode === 'Y' && measure % 2 === 1;   // まねっこ：偶数回め＝お手本、奇数回め＝あなたの番
+  const bo = { L, k, isAcc, barHead: m.barStartSub.includes(curSub), gi: g - m.groups.findIndex((_, i) => m.barOfGroup[i] === m.barOfGroup[g]), nG: m.groups.filter((_, i) => m.barOfGroup[i] === m.barOfGroup[g]).length, bar: barCount - 1, dur };
+  const silent = fileOn() && !SET.fileClick;   // 曲のファイルだけを聞くとき
   if (mode === 'Y') {
-    maneSound(nextTime, isAcc, L, k, m.barStartSub.includes(curSub), maneResp, dur);
+    if (bandOn()) bandSound(nextTime, Object.assign(bo, { mel: false }));
+    if (!silent) maneSound(nextTime, isAcc, L, k, bo.barHead, maneResp, dur, bandOn());
     if (maneResp && isAcc) mane.total++;
-  } else if (stg < 3) {
+  } else if (bandOn() && stg < 3) bandSound(nextTime, Object.assign(bo, { mel: true }));
+  else if (silent) {}
+  else if (stg < 3) {
     const ms = MODE_SOUND[mode], barHead = m.barStartSub.includes(curSub);
     if (mode === 'V' || (mode === 'W' && quiz.cmpOn)) scheduleCompare(nextTime, m, curSub, subCounter);
     if (mode === 'W' && barHead) playBell(nextTime, 2093, 0.32);   // クイズ：小節の頭をはっきり
@@ -1348,9 +1520,11 @@ function start(noCount) {
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
   if (song && songOnNow()) { songPos = songStartAt >= song.from && songStartAt <= song.to ? songStartAt : song.from; songNew = false; songJump = null; activeMeta = songMetas[songPos]; const t0 = songTempoAt(songPos); if (t0) setBpm(t0); }
-  if (SET.rampOn && mode !== 'W') setBpm(SET.rampStart);
+  if (SET.rampOn && mode !== 'W' && !fileOn()) setBpm(SET.rampStart);
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
+  if (syncS) syncEnd();
+  if (fileOn()) { nextTime = fileStart(ctx.currentTime + 0.12); noCount = true; }
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
   if (mode === 'Y') maneReset();
   if (mode === 'W' && quizStopBars) {   // クイズ：テンポを伝える刻み4つ（答えのヒントにならないように）
@@ -1399,7 +1573,7 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 function stop() {
   frozenFrac = lastNote ? clamp((audioNow() - lastNote.time) / lastNote.dur, 0, 0.999) : 0;
   if (lastNote && lastNote.kind === 'tup') tupFrozen = clamp((audioNow() - lastNote.beatT) / lastNote.D, 0, 0.999);
-  playing = false; clearInterval(timer); queue = [];
+  playing = false; clearInterval(timer); queue = []; fileStop();
   stopReq = false; stopAt = null; countInfo = null;
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; lastNote = null; accents = []; }
   if (typeof updateBarRhythm === 'function') updateBarRhythm();
@@ -1626,6 +1800,10 @@ function frame() {
   if (mode === 'W') { const qb = Math.round(H - sceneH + 6) + 'px'; if (cv.dataset.qb !== qb) { cv.dataset.qb = qb; $('#quizUI').style.setProperty('--qb', qb); } }
   if (bandH) drawBand(belowY, bandH, stage, hide);
   if (playing && countInfo && now < countInfo.end + 0.05) drawCount(now, sceneH);
+  if (playing && fileOn() && now < fileWaitEnd) {   // 曲の前奏
+    cx.fillStyle = 'rgba(2,6,23,0.55)'; cx.fillRect(0, sceneH * 0.32, W, sceneH * 0.3);
+    txt(`🎧 前奏…　1小節目まで あと ${Math.max(0, fileWaitEnd - now).toFixed(1)} 秒`, W / 2, sceneH * 0.47, Math.max(16, 20 * K), '#fde68a', 900);
+  }
   const eb = document.getElementById('emblemReset'), showEb = mode === 'H' && !hide;
   if (eb.hidden === showEb) eb.hidden = !showEb;
   if (showEb) { const tp = Math.round(82 * K) + 'px'; if (eb.style.top !== tp) eb.style.top = tp; }
@@ -5429,7 +5607,8 @@ function songSet(s) {   // 曲の進行を鳴らす（再生中なら次の小�
 function songOff() { if (!song) return; song = null; songMetas = []; songNew = false; songJump = null; renderSongMap(); }
 /* ○小節目から（再生中なら次の小節から、止まっていれば次に再生するときそこから） */
 function songSeek(i) {
-  if (!song) return; i = clamp(i, 0, song.bars.length - 1);
+  if (!song) return;
+  if (playing && fileOn()) { stop(); songSeek(i); start(); return; }   // 曲のファイルとずれないよう、その小節から流しなおす i = clamp(i, 0, song.bars.length - 1);
   if (i < song.from || i > song.to) { song.from = Math.min(song.from, i); song.to = Math.max(song.to, i); }
   if (playing) { songJump = i; } else { songPos = i; activeMeta = songMetas[i]; lastNote = null; accents = []; const t = songTempoAt(i); if (t) setBpm(t); songStartAt = i; }
   renderSongMap(); renderSongEditor();
@@ -6347,6 +6526,21 @@ document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefau
 window.addEventListener('resize', updatePlayBtn);
 
 
+/* ----- 曲といっしょに：バンドの伴奏・曲のファイル ----- */
+function setBand(v) { SET.band = v; saveSet(); $('#bandSw').classList.toggle('on', v); $('#barBand').classList.toggle('on', v); }
+$('#bandSw').onclick = () => setBand(!SET.band);
+$('#barBand').onclick = () => setBand(!SET.band);
+setBand(SET.band);
+bindSwitch('#fileSw', () => SET.fileOn, v => { SET.fileOn = v; if (playing) stop(); });
+bindSwitch('#fileClickSw', () => SET.fileClick, v => { SET.fileClick = v; });
+$('#fileIn').onchange = e => { fileLoad(e.target.files[0]); e.target.value = ''; };
+$('#syncBtn').onclick = syncBegin;
+$('#syncCancel').onclick = () => { syncEnd(); fileMsg(''); };
+$('#syncOk').onclick = syncFinish;
+$('#syncTap').addEventListener('pointerdown', e => { e.preventDefault(); syncTap(tapTime(e)); });
+const offStep = d => () => { if (!mfile) return; mfile.offset = Math.max(0, Math.round((mfile.offset + d) * 100) / 100); fileSaveSync(); renderFile(); if (playing) { stop(); start(); } };
+$('#offDn').onclick = offStep(-0.02); $('#offUp').onclick = offStep(0.02); $('#offDn2').onclick = offStep(-0.2); $('#offUp2').onclick = offStep(0.2);
+
 /* ----- はじめの画面：変拍子のしくみ ＋ なにをするか選ぶ ----- */
 const homeIsOpen = () => !$('#home').classList.contains('hidden');
 function openHome() {
@@ -6369,6 +6563,7 @@ function homeGo(go) {
   else if (go === 'song') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secSong'); }
   else if (go === 'tup') { closeDrawer(); setMode('X'); }
   else if (go === 'game') { closeDrawer(); setMode('Y'); }
+  else if (go === 'music') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secMusic'); }
 }
 document.querySelectorAll('#home [data-go]').forEach(b => b.onclick = () => homeGo(b.dataset.go));
 $('#homeClose').onclick = closeHome;
