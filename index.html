@@ -350,6 +350,13 @@
     .hi-step { font-size: 15px; } .hi-chip { font-size: 15px; } .hi-chip small { display: block; }
   }
 
+  @media (max-width: 599px) {
+    .mc-n { display: none; }
+    .home-intro { padding: 12px 12px; } .hi-steps { gap: 8px; } .hi-q { margin-bottom: 4px; }
+    .hi-chip { padding: 4px 8px; gap: 4px; font-size: 14px; } .hi-chip small { font-size: 11px; }
+    .hi-chips { flex-direction: column; align-items: flex-start; gap: 6px; } .hi-chip { white-space: nowrap; } .hi-sig { font-size: 22px; } .hi-try { margin-top: 10px; padding: 10px 14px; font-size: 15px; }
+    .home-h { margin: 14px 0 8px; }
+  }
   /* ===== モードの一覧：まずはこれ（おすすめ）と、ほかのモード ===== */
   .sheet-grid .tab .mline { font-size: 11.5px; font-weight: 600; color: #a3b1c6; line-height: 1.4; }
   .sheet-grid .tab.on .mline { color: #0f172a; }
@@ -391,8 +398,8 @@
     <div class="dr-head"><b>⚙ 設定</b><button id="drClose" class="dr-close" aria-label="閉じる">✕</button></div>
     <div class="blk">
       <div class="row base">
-        <span class="lbl">テンポ（1分間の刻みの数）</span>
-        <span class="val-big"><span id="bpmVal">160</span><small>BPM</small></span>
+        <span class="lbl">テンポ<span class="hint" style="display:block;font-weight:600">1分間に、その音符がいくつ鳴るか</span></span>
+        <span class="val-big"><span id="bpmVal">160</span><small id="bpmUnit"> ♪ / 分</small></span>
       </div>
       <div class="row">
         <button id="bpmDown" class="sq">−</button>
@@ -1436,7 +1443,12 @@ function rr(x, y, w, h, r) {
   cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
 }
 function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middle') {
-  cx.font = `${weight} ${size}px ${FONT}`; cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
+  cx.font = `${weight} ${size}px ${FONT}`;
+  if (align === 'center') {   // せまい画面で、まん中そろえの文字が画面の外にはみ出さないよう、小さくする
+    const room = 2 * Math.min(x, W - x) - 28, w = cx.measureText(s).width;
+    if (w > room && w > W * 0.6) cx.font = `${weight} ${Math.max(9, size * room / w)}px ${FONT}`;
+  }
+  cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
 }
 
 let prevStage = 0, returnBanner = null, lastSongBar = -1;
@@ -5422,7 +5434,7 @@ function setMode(md) {
   if (md === 'W' && was !== 'W') { if (playing) stop(); songOff(); quiz.phase = 'setup'; }
   quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V' || window.innerWidth < 640; const tb = $('#tupBtn'); if (tb) tb.hidden = md !== 'X' || window.innerWidth < 640;
   const info = MODE_INFO[md];
-  if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）▾</span>`;
+  if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute mc-n" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）</span><span class="c-mute" style="font-size:13px">▾</span>`;
   renderPresets(); renderPolySel(); updateBarRhythm(); if (typeof renderSongMap === 'function') renderSongMap();
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
@@ -5472,8 +5484,13 @@ function renderModes() {
 }
 
 /* ----- テンポ ----- */
-function showBpm() { $('#bpm').value = bpm; $('#bpmVal').textContent = bpm; barTempoKey = ''; if (typeof updateBarTempo === 'function') updateBarTempo(); }
+function showBpm() { $('#bpm').value = bpm; barTempoKey = ''; if (typeof updateBarTempo === 'function') updateBarTempo(); }
 function setBpm(v) { bpm = clamp(Math.round(v), 80, 300); showBpm(); }
+/* −＋ボタン・↑↓キー：♩ で出しているときは ♩ を5ずつ（♪ では10ずつ）、♪ のときは ♪ を5ずつ。きりのよい数にそろえる */
+function stepBpm(d) {
+  const q = mode !== 'F' && mode !== 'W' && (isTup() || (mode !== 'V' && isQuarter(activeMeta)));
+  const u = q ? 10 : 5; setBpm(Math.round(bpm / u) * u + d * u);
+}
 
 /* ----- 小さな部品：スイッチと選択ボタン ----- */
 function bindSwitch(id, get, set) {
@@ -6058,11 +6075,11 @@ function stepPreset(d) {
 
 /* ----- 再生・タップ・キー操作 ----- */
 $('#barPlay').onclick = togglePlay;
-$('#barDown').onclick = () => setBpm(bpm - 5);
-$('#barUp').onclick = () => setBpm(bpm + 5);
+$('#barDown').onclick = () => stepBpm(-1);
+$('#barUp').onclick = () => stepBpm(1);
 $('#bpm').oninput = e => setBpm(+e.target.value);
-$('#bpmDown').onclick = () => setBpm(bpm - 5);
-$('#bpmUp').onclick = () => setBpm(bpm + 5);
+$('#bpmDown').onclick = () => stepBpm(-1);
+$('#bpmUp').onclick = () => stepBpm(1);
 const tapTime = e => (e && e.timeStamp > 0 && Math.abs(performance.now() - e.timeStamp) < 1000) ? e.timeStamp : performance.now();
 const cvPos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
 cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら、説明を出す（再生・タップ判定はしない）
@@ -6096,7 +6113,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'KeyF') { e.preventDefault(); if (!e.repeat) toggleFs(); return; }
   if (tg.type === 'range' && e.key.startsWith('Arrow')) return;   // スライダーを操作中
   if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); stepMode(e.key === 'ArrowRight' ? 1 : -1); return; }
-  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); setBpm(bpm + (e.key === 'ArrowUp' ? 5 : -5)); return; }
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); stepBpm(e.key === 'ArrowUp' ? 1 : -1); return; }
   if (e.key === '[' || e.key === ']' || e.key === '「' || e.key === '」') { e.preventDefault(); stepPreset(e.key === ']' || e.key === '」' ? 1 : -1); }
 });
 document.addEventListener('keyup', e => { if (e.code === 'Space') e.preventDefault(); });
@@ -6150,6 +6167,7 @@ function updateBarTempo() {
   const h = String(Math.round(bpm * 5) / 10);
   $('#barBpm').textContent = q === null ? bpm : q ? h : bpm;
   $('#barBpmU').textContent = q === null ? 'テンポ' : q ? '♩ / 分' : '♪ / 分';
+  $('#bpmVal').textContent = $('#barBpm').textContent; $('#bpmUnit').textContent = q ? ' ♩ / 分' : ' ♪ / 分';
 }
 setInterval(updateBarTempo, 200);
 
