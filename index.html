@@ -280,6 +280,12 @@
   .cards .empty { font-size: 12px; color: #64748b; align-self: center; }
   .build-info { font-size: 13px; font-weight: 800; margin-top: 8px; }
   .build-msg { font-size: 12px; color: #bef264; min-height: 18px; margin-top: 4px; }
+  .song-text, .song-name { width: 100%; box-sizing: border-box; margin: 4px 0 8px; padding: 8px 10px; border-radius: 10px; background: #0b1222; border: 1px solid #334155; color: #f1f5f9; font: 700 15px/1.5 system-ui, sans-serif; resize: vertical; }
+  .song-chips { min-height: 44px; } .schip { display: inline-flex; align-items: center; gap: 2px; padding: 4px 6px 4px 8px; border-radius: 10px; background: #111c33; border: 1px solid #334155; font-weight: 900; font-size: 15px; }
+  .schip i { color: #64748b; font-style: normal; } .schip .sn { font-size: 10px; color: #94a3b8; margin-right: 4px; } .schip .sx { color: #bef264; margin-left: 4px; }
+  .schip .sdel { margin-left: 6px; width: 22px; height: 22px; border-radius: 50%; background: #1e293b; color: #94a3b8; font-size: 13px; }
+  .song-add { display: flex; flex-wrap: wrap; gap: 6px; } .song-add .btn { font-weight: 900; }
+  .p-edit { position: absolute; right: 30px; top: 6px; width: 22px; height: 22px; border-radius: 50%; background: #1e293b; color: #94a3b8; font-size: 12px; display: flex; align-items: center; justify-content: center; }
   .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
   .score { font-size: 13px; font-weight: 700; line-height: 1.8; }
@@ -405,6 +411,29 @@
       </div>
       <div class="build-msg" id="buildMsg"></div>
       <div class="hint">拍は2〜6個、刻みは合計16個まで。保存したリズムは「リズムを選ぶ」に出てきて、次に開いたときも残ります。</div>
+    </details>
+
+    <!-- 曲の進行 -->
+    <details class="sec" id="secSong">
+      <summary>曲の進行を作る（小節ごとに変わる）</summary>
+      <div class="hint" style="margin-bottom:6px">曲の楽譜を見ながら、1小節ずつリズムを並べます。文字でも書けます（例：<b>3+2×4, 2+3×2, 3+3+2</b>　6/8・3/4 なども使えます）。</div>
+      <textarea id="songText" class="song-text" rows="2" placeholder="3+2×4, 2+3×2, 3+3+2"></textarea>
+      <div class="cards song-chips" id="songChips"></div>
+      <div class="build-info" id="songInfo"></div>
+      <div class="lbl2" style="margin:6px 0 4px">小節を足す</div>
+      <div class="song-add" id="songAdd"></div>
+      <div class="btns" style="margin-top:6px">
+        <button class="btn small" id="songRep">最後の小節をもう1回</button>
+        <button class="btn small" id="songUndo">1つもどす</button>
+        <button class="btn small" id="songClear">ぜんぶ消す</button>
+      </div>
+      <input id="songName" class="song-name" maxlength="40" placeholder="曲の名前（なくてもよい）">
+      <div class="btns">
+        <button class="btn main wide" id="songPlay">この進行で鳴らす</button>
+        <button class="btn wide" id="songSave">保存する</button>
+      </div>
+      <div class="build-msg" id="songMsg"></div>
+      <div class="hint">鳴らすと、1小節ずつ順にリズムが変わり、最後まで行くと最初にもどります。画面の上に「次の小節」、楽譜バーに「いまの小節＋次の小節」が出ます。保存した進行は「リズムを選ぶ」に出ます（最大64小節）。</div>
     </details>
 
     <!-- ポリリズム -->
@@ -1009,6 +1038,7 @@ const MODE_SOUND = {
 };
 function scheduleMeta() {
   if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
+  else if (curSub === 0 && songOnNow()) songStep();   // 曲の進行：小節の頭で次の小節へ
   const m = activeMeta;
   if (m.barStartSub.includes(curSub)) onBarStart();
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
@@ -1022,7 +1052,7 @@ function scheduleMeta() {
     else if (subOn && stg < 2) { SET.voice ? playSyl(nextTime, SYL[L][k], false, dur) : ms ? ms(nextTime, false, L, false, k, m.barOfGroup[g]) : playClick(nextTime); }
   }
   if (isAcc) stepCounter++;
-  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg });
+  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1 });
   logTarget(nextTime, isAcc, subCounter - 1);
   nextTime += dur; curSub++;
   if (curSub >= m.total) { curSub = 0; measure++; }
@@ -1143,6 +1173,7 @@ function start(noCount) {
   initAudio(); if (ctx.state !== 'running') ctx.resume();
   bus = ctx.createGain(); bus.connect(master);
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }
+  if (song && songOnNow()) { songPos = 0; songNew = false; activeMeta = songMetas[0]; }
   if (SET.rampOn && mode !== 'W') setBpm(SET.rampStart);
   resetCounters();
   nextTime = ctx.currentTime + 0.08;
@@ -1219,7 +1250,7 @@ function getState(now) {
   const n = lastNote, m = n.meta;
   const frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
   const pos = n.sub + frac, gs = m.starts[n.g], len = m.groups[n.g];
-  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true };
+  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true, songBar: n.songBar };
 }
 function getPolyState(now) {
   if (!lastNote || lastNote.kind !== 'poly') {
@@ -1295,7 +1326,7 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
   cx.font = `${weight} ${size}px ${FONT}`; cx.fillStyle = color; cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
 }
 
-let prevStage = 0, returnBanner = null;
+let prevStage = 0, returnBanner = null, lastSongBar = -1;
 function frame() {
   const now = audioNow();
   if (playing && stopAt !== null && now >= stopAt) stop();
@@ -1352,6 +1383,7 @@ function frame() {
     drawPolyStrip(ps, belowY + bandH, stripH);
   } else {
     const st = getState(now);
+    if (st.songBar !== lastSongBar) { lastSongBar = st.songBar; updateBarRhythm(); }
     if (mode === 'A') drawRoll(st, now, sceneH);
     else if (mode === 'B') drawBounce(st, now, sceneH);
     else if (mode === 'C') drawOrbit(st, now, sceneH);
@@ -1438,10 +1470,12 @@ function drawScore(st, now, y0, h, opt = {}) {
   if (!opt.noBg) { rr(pad, y0 + 3 * K, W - 2 * pad, h - 6 * K, 10 * K); cx.fillStyle = 'rgba(241,245,249,0.96)'; cx.fill(); }
   // 2小節ぶん並べる（交互パターンは2小節で1組なので、そのまま）
   const copies = m.nBars === 1 && (W >= 640 || m.total <= 10) ? 2 : 1, show = [];
-  for (let c = 0; c < copies; c++) for (let b = 0; b < m.nBars; b++) show.push({ b, c });
+  const sNext = songOnNow() && !opt.still ? songMetaOf((st.has && st.songBar >= 0 ? st.songBar : -1) + 1) : null;   // 曲の進行：いまの小節と次の小節
+  if (sNext) { show.push({ mm: m, b: 0, c: 0 }); show.push({ mm: sNext, b: 0, c: 1, next: true }); }
+  else for (let c = 0; c < copies; c++) for (let b = 0; b < m.nBars; b++) show.push({ mm: m, b, c });
   const rowH = beatOn ? h * 0.6 : h, lineY = y0 + rowH * 0.66, beatY = y0 + rowH + (h - rowH) * 0.5;
   const tsw = rowH * 0.42, ggap = rowH * 0.16, bgap = rowH * 0.22;
-  const sigOf = b => m.sigs[b], sigShown = show.map((s, k) => k === 0 || sigOf(s.b) !== sigOf(show[k - 1].b));
+  const sigOf = s => s.mm.sigs[s.b], sigShown = show.map((s, k) => k === 0 || sigOf(s) !== sigOf(show[k - 1]));
   // 拍の段の右に書く「＝ 2拍子」
   const parts = m.bars.map(bg => meterOf(bg).name), beatLabel = '＝ ' + (parts.every(p => p === parts[0]) ? parts[0] : parts.join(' → '));
   const lfs = Math.max(12, Math.min(15 * K, (h - rowH) * 0.42));
@@ -1449,7 +1483,7 @@ function drawScore(st, now, y0, h, opt = {}) {
   let labR = beatOn ? cx.measureText(beatLabel).width + 14 * K : 0;
   const labL = beatOn ? (W < 640 ? 30 : 52) * K : 0;
   let fixed = 2 * pad + 18 * K + 26 * K + labL, T = 0;
-  show.forEach((s, k) => { const bg = m.bars[s.b]; fixed += (sigShown[k] ? tsw : 0) + (bg.length - 1) * ggap + (k ? bgap : 0); T += bg.reduce((a, v) => a + v, 0); });
+  show.forEach((s, k) => { const bg = s.mm.bars[s.b]; fixed += (sigShown[k] ? tsw : 0) + (bg.length - 1) * ggap + (k ? bgap : 0); T += bg.reduce((a, v) => a + v, 0); });
   if (labR && (W - fixed - labR) / T < 14) labR = 0;   // せまい画面：「＝ ○拍子」は見出しにもあるので省く
   fixed += labR;
   const sp = Math.max(8, Math.min((W - fixed) / T, rowH * 0.75));
@@ -1463,26 +1497,31 @@ function drawScore(st, now, y0, h, opt = {}) {
     txt(W < 640 ? '刻み' : '刻みの段', pad + 8 * K, lineY - rowH * 0.12, Math.max(11, lfs * 0.75), '#94a3b8', 800, 'left');
   }
   if (!opt.still) sigHits = [];
-  const curCopy = copies === 2 ? mod(st.measure, 2) : 0;
+  const curCopy = sNext ? 0 : copies === 2 ? mod(st.measure, 2) : 0;
   let x = xStart;
   const barAge = barHeadAge(now, m), stemTop = lineY - rowH * 0.44;
   show.forEach((s, k) => {
-    const b = s.b, bg = m.bars[b];
+    const b = s.b, M2 = s.mm, bg = M2.bars[b];
     if (k) {   // 小節線（拍の段までのばす）
       cx.strokeStyle = ink; cx.lineWidth = 1.6 * K;
       cx.beginPath(); cx.moveTo(x + bgap * 0.3, lineY - rowH * 0.36); cx.lineTo(x + bgap * 0.3, beatOn ? beatY + (h - rowH) * 0.25 : lineY + rowH * 0.2); cx.stroke();
       x += bgap;
     }
     if (sigShown[k]) {   // 拍子記号
-      const [nu, de] = sigOf(b).split('/'), fs = rowH * 0.3, cxs = x + tsw * 0.42;
+      const [nu, de] = sigOf(s).split('/'), fs = rowH * 0.3, cxs = x + tsw * 0.42;
       cx.font = `900 ${fs}px Georgia, "Times New Roman", serif`; cx.fillStyle = ink; cx.textAlign = 'center'; cx.textBaseline = 'middle';
       cx.fillText(nu, cxs, lineY - fs * 0.52); cx.fillText(de, cxs, lineY + fs * 0.5);
-      if (!opt.still) sigHits.push({ x0: x, x1: x + tsw, y0: y0, y1: y0 + h, sig: sigOf(b), cx: cxs, bar: b });
+      if (!opt.still) sigHits.push({ x0: x, x1: x + tsw, y0: y0, y1: y0 + h, sig: sigOf(s), cx: cxs, bar: b });
       x += tsw;
     }
-    const quarter = /\/4$/.test(sigOf(b)), live = s.c === curCopy;
+    const quarter = /\/4$/.test(sigOf(s)), live = s.c === curCopy && M2 === m;
+    if (s.next) {   // 次の小節：うすい緑の地と、下に「次の小節」
+      let wN = 0; bg.forEach((L, gi) => { wN += sp * L + (gi < bg.length - 1 ? ggap : 0); });
+      cx.fillStyle = 'rgba(132,204,22,0.12)'; rr(x - 4 * K, y0 + 6 * K, wN + (sigShown[k] ? tsw : 0) + 8 * K, h - 12 * K, 8 * K); cx.fill();
+      txt('▶ 次の小節', x + 2 * K, y0 + h - 6 * K, Math.max(11, Math.min(12 * K, h * 0.13)), '#15803d', 900, 'left');
+    }
     bg.forEach((L, gi) => {
-      const g = m.barStartGroup[b] + gi, s0 = m.starts[g], xs = [];
+      const g = M2.barStartGroup[b] + gi, s0 = M2.starts[g], xs = [];
       for (let q = 0; q < L; q++) xs.push(x + sp * (q + 0.5));
       const col = COLORS[L], curG = has && live && st.g === g;
       xs.forEach((nx, q) => {
@@ -1604,8 +1643,14 @@ function drawHeader(st) {
     bg.forEach((L, i) => { if (i) put('+', '#64748b', 4 * K); put(String(L), COLORS[L], 4 * K); });
     x += 6 * K;
   });
+  const sOn = songOnNow(), sL = sOn ? song.bars.length : 0, sCur = sOn && st.has && st.songBar >= 0 ? st.songBar : -1;
   if (pendingMeta) txt(`→ 次の小節から「${pendingMeta.preset.note}」`, pad, y + 24 * K, Math.max(13, 13 * K), LIME, 800, 'left');
-  else {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
+  else if (sOn) {   // 曲の進行：いまの拍子と、次の小節
+    const nx = song.bars[mod(sCur + 1, sL)], same = nx.join() === m.bars[0].join();
+    const t1 = meterText(m, true) + '　', t2 = same ? '次も同じ' : `次：${songBarLabel(nx)}`, fs2 = Math.max(13, 13.5 * K);
+    txt(t1, pad, y + 24 * K, fs2, '#e2e8f0', 800, 'left'); cx.font = `800 ${fs2}px ${FONT}`;
+    txt(t2, pad + cx.measureText(t1).width, y + 24 * K, fs2, same ? '#94a3b8' : LIME, 900, 'left');
+  } else {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
     const fs2 = Math.max(13, 13.5 * K), maxW = W - 2 * pad - (isQuarter(m) ? 170 : 110) * K;
     let t = meterText(m) + '　' + m.preset.note;
     cx.font = `800 ${fs2}px ${FONT}`;
@@ -1618,7 +1663,7 @@ function drawHeader(st) {
   const tempoY = y + (x > W - 120 * K ? 24 * K : 0);
   txt(tempoY === y ? tm[0] : tm[0] + (tm[1] ? `（${tm[1]}）` : ''), W - pad, tempoY, (tempoY === y ? 18 : 14) * K, ramp ? LIME : '#67e8f9', 800, 'right');
   if (st.has && tempoY === y) {
-    const mt = (tm[1] ? tm[1] + '・' : '') + `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`, mfs = Math.max(13, 12 * K);
+    const mt = (tm[1] ? tm[1] + '・' : '') + (sCur >= 0 ? `${mod(sCur, sL) + 1} / ${sL} 小節目` : `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`), mfs = Math.max(13, 12 * K);
     txt(mt, W - pad, y + 24 * K, mfs, '#a3b1c6', 600, 'right');
     cx.font = `600 ${mfs}px ${FONT}`;
     const lx = W - pad - cx.measureText(mt).width - 12 * K, age = barHeadAge(audioNow(), m), q = age < 0.7 ? 1 - age / 0.7 : 0;   // 小節の頭のランプ
@@ -4318,6 +4363,7 @@ function comparePresets(i) {
   return [pr.ap || PRESETS[pr.a], pr.bp || PRESETS[pr.b]];
 }
 function applyComparePair() {
+  songOff();
   const [A, B] = comparePresets(SET.cmpPair);
   selected = A; compareMeta = makeMeta(B);
   activeMeta = makeMeta(A); pendingMeta = null;
@@ -4945,6 +4991,139 @@ function drawScore2(st, now, y0, h) {
   }
 }
 
+/* =========================================================
+   曲の進行：小節ごとに変わるリズム（例：3+2×4, 2+3×2, 3+3+2）
+   ・1小節ずつ鳴らし、小節の頭で次の小節のリズムに切りかえる（どのモードの絵もそのまま使える）
+   ========================================================= */
+const SONG_MAX_BARS = 64;
+const SONG_EX = [   // 拍子と並びが確かな例だけ
+  { name: 'ブルーベック「トルコ風ブルー・ロンド」冒頭', text: '2+2+2+3×3, 3+3+3', note: '9/8：3小節は 2+2+2+3、4小節目だけ 3+3+3' },
+  { name: 'バーンスタイン「アメリカ」（『ウエスト・サイド物語』）', text: '6/8, 3/4', note: '6/8（トマト×2）と 3/4（パン×3）を交互に' },
+  { name: 'ブルガリアの踊り「コパニツァ」', text: '2+2+3+2+2', note: '11/8：まん中の拍だけ長い' },
+  { name: '練習：2+3 と 3+2 を2小節ずつ', text: '2+3×2, 3+2×2', note: '長い拍の場所が入れかわる' },
+  { name: '練習：3+3+2 を3回 → 4/4', text: '3+3+2×3, 2+2+2+2', note: '同じ8つの刻みで、まとまり方が変わる' },
+  { name: '練習：5/8 → 7/8 → 8/8', text: '2+3, 2+2+3, 3+3+2', note: '1小節ずつ、拍が1つずつふえる' },
+];
+let song = null, songPos = 0, songMetas = [], songNew = false;
+let savedSongs = [];
+try { savedSongs = JSON.parse(localStorage.getItem('kr_songs') || '[]').filter(s => s && typeof s.text === 'string'); } catch (e) {}
+function saveSongs() { try { localStorage.setItem('kr_songs', JSON.stringify(savedSongs)); } catch (e) {} }
+const SHORT = { '2/4': [2, 2], '3/4': [2, 2, 2], '4/4': [2, 2, 2, 2], '6/8': [3, 3], '9/8': [3, 3, 3], '12/8': [3, 3, 3, 3] };
+function barSig(g) { const t = g.reduce((a, v) => a + v, 0); if (g.every(L => L === 2)) return `${g.length}/4`; return `${t}/8`; }
+/* 文字の進行を読む：「3+2×4, 2+3, 6/8」→ 小節の並び。読めない所は err に入れる */
+function parseSong(text) {
+  const z = String(text || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[＋]/g, '+').replace(/[／]/g, '/')
+    .replace(/[×xX＊*✕]/g, 'x').replace(/[、，,|｜→\n\r\t　;；]/g, ' ').replace(/\s*\+\s*/g, '+').replace(/\s*x\s*/g, 'x');
+  const bars = [], err = [];
+  z.split(/\s+/).filter(t => t).forEach(tok => {
+    const mm = tok.match(/^(\d+\/\d+|[23](?:\+[23])*)(?:x(\d+))?$/);
+    if (!mm) { err.push(tok); return; }
+    let g = SHORT[mm[1]] ? SHORT[mm[1]].slice() : /^[23](\+[23])*$/.test(mm[1]) ? mm[1].split('+').map(Number) : null;
+    if (!g || g.length > 6 || g.reduce((a, v) => a + v, 0) > 16) { err.push(tok); return; }
+    const n = clamp(+(mm[2] || 1), 1, 32);
+    for (let i = 0; i < n && bars.length < SONG_MAX_BARS; i++) bars.push(g.slice());
+  });
+  return { bars, err };
+}
+/* 並び → 文字（続けて同じ小節は「×4」にまとめる） */
+function songText(bars) {
+  const out = []; let i = 0;
+  while (i < bars.length) { let j = i; while (j + 1 < bars.length && bars[j + 1].join() === bars[i].join()) j++; out.push(bars[i].join('+') + (j > i ? '×' + (j - i + 1) : '')); i = j + 1; }
+  return out.join(', ');
+}
+const songBarLabel = g => `${barSig(g)} [${g.join('+')}]`;
+function songMetaOf(i) { return songMetas[mod(i, songMetas.length)]; }
+function songSet(s) {   // 曲の進行を鳴らす（再生中なら次の小節の頭から）
+  const { bars } = parseSong(s.text); if (!bars.length) return false;
+  if (mode === 'V' || mode === 'W' || mode === 'F' || mode === 'X') setMode(lastMetaMode && lastMetaMode !== 'V' && lastMetaMode !== 'W' ? lastMetaMode : 'A');
+  song = { name: s.name || '自分で作った進行', text: songText(bars), bars, note: s.note || '' };
+  songMetas = bars.map(g => makeMeta({ cat: 'song', sig: barSig(g), bars: [g], note: g.map(L => L === 2 ? 'パン' : 'トマト').join('＋') }));
+  selected = songMetas[0].preset;
+  songPos = 0; pendingMeta = null;
+  if (playing) songNew = true; else { activeMeta = songMetas[0]; lastNote = null; accents = []; }
+  renderPresets(); updateBarRhythm(); renderSongEditor();
+  return true;
+}
+function songOff() { song = null; songMetas = []; songNew = false; }
+/* scheduleMeta から：小節の頭で、曲の次の小節に切りかえる */
+function songStep() {
+  if (!song || !songMetas.length) return;
+  if (songNew) { songNew = false; songPos = 0; }
+  activeMeta = songMetaOf(songPos); stepCounter = 0; subCounter = 0; measure = 0;
+  songPos++;
+}
+const songActive = () => !!song;
+const songOnNow = () => !!song && mode !== 'V' && mode !== 'W' && mode !== 'F' && mode !== 'X';
+
+/* ----- 曲の進行の編集（カードと文字の両方） ----- */
+let songDraft = [];
+try { songDraft = parseSong(localStorage.getItem('kr_songdraft') || '').bars; } catch (e) {}
+function songDraftSave() { try { localStorage.setItem('kr_songdraft', songText(songDraft)); } catch (e) {} }
+function songMsg(t, bad) { const el = $('#songMsg'); el.textContent = t; el.style.color = bad ? '#fda4af' : '#bef264'; clearTimeout(songMsg.t); songMsg.t = setTimeout(() => { el.textContent = ''; }, 3500); }
+function renderSongEditor(fromText) {
+  const box = $('#songChips'); if (!box) return;
+  if (!fromText) $('#songText').value = songText(songDraft);
+  box.innerHTML = '';
+  if (!songDraft.length) box.innerHTML = '<span class="empty">下のボタンで小節を足すか、上に文字で書いてください</span>';
+  let i = 0, bar = 1;
+  while (i < songDraft.length) {
+    let j = i; while (j + 1 < songDraft.length && songDraft[j + 1].join() === songDraft[i].join()) j++;
+    const g = songDraft[i], n = j - i + 1, c = document.createElement('span');
+    c.className = 'schip';
+    c.innerHTML = `<span class="sn">${bar}${n > 1 ? '〜' + (bar + n - 1) : ''}</span>${g.map(L => `<b class="c${L}">${L}</b>`).join('<i>+</i>')}${n > 1 ? `<span class="sx">×${n}</span>` : ''}<button class="sdel" title="消す">×</button>`;
+    const a = i, cnt = n;
+    c.querySelector('.sdel').onclick = () => { songDraft.splice(a, cnt); songDraftSave(); renderSongEditor(); };
+    box.appendChild(c); bar += n; i = j + 1;
+  }
+  $('#songInfo').textContent = songDraft.length ? `全部で ${songDraft.length} 小節（最大 ${SONG_MAX_BARS} 小節）` : '';
+}
+function songAdd(g, n = 1) {
+  if (songDraft.length >= SONG_MAX_BARS) { songMsg(`小節は ${SONG_MAX_BARS} まで`, true); return; }
+  for (let i = 0; i < n && songDraft.length < SONG_MAX_BARS; i++) songDraft.push(g.slice());
+  songDraftSave(); renderSongEditor();
+}
+function initSongEditor() {
+  const ADD = [[2, 2], [2, 2, 2], [2, 2, 2, 2], [3, 3], [2, 3], [3, 2], [2, 2, 3], [2, 3, 2], [3, 2, 2], [3, 3, 2], [2, 2, 2, 3], [3, 3, 3]];
+  const box = $('#songAdd');
+  ADD.forEach(g => { const b = document.createElement('button'); b.className = 'btn small'; b.innerHTML = `＋ ${g.map(L => `<span class="c${L}">${L}</span>`).join('+')}`; b.onclick = () => songAdd(g); box.appendChild(b); });
+  const mine = document.createElement('button'); mine.className = 'btn small'; mine.textContent = '＋ 🃏作ったリズム';
+  mine.onclick = () => { if (buildCards.length >= 2) songAdd(buildCards); else songMsg('「リズムを作る」でカードを2枚以上並べてください', true); };
+  box.appendChild(mine);
+  $('#songText').addEventListener('input', () => {
+    const { bars, err } = parseSong($('#songText').value); songDraft = bars; songDraftSave(); renderSongEditor(true);
+    if (err.length) songMsg(`読めない所：${err.slice(0, 3).join('　')}（例：3+2×4, 2+3, 6/8）`, true);
+  });
+  $('#songRep').onclick = () => { if (songDraft.length) songAdd(songDraft[songDraft.length - 1]); };
+  $('#songUndo').onclick = () => { songDraft.pop(); songDraftSave(); renderSongEditor(); };
+  $('#songClear').onclick = () => { if (!songDraft.length || confirm('小節の並びを全部消しますか？')) { songDraft = []; songDraftSave(); renderSongEditor(); } };
+  $('#songPlay').onclick = () => {
+    if (!songDraft.length) { songMsg('小節が1つもありません', true); return; }
+    songSet({ name: $('#songName').value.trim() || '自分で作った進行', text: songText(songDraft) });
+    if (!playing) start(); songMsg('この進行で鳴らします');
+  };
+  $('#songSave').onclick = () => {
+    if (!songDraft.length) { songMsg('小節が1つもありません', true); return; }
+    const name = $('#songName').value.trim() || `進行 ${savedSongs.length + 1}`;
+    const ex = savedSongs.findIndex(s => s.name === name);
+    const it = { name, text: songText(songDraft) };
+    if (ex >= 0) savedSongs[ex] = it; else savedSongs.push(it);
+    saveSongs(); renderPresets(); songMsg(`「${name}」を保存しました（リズムを選ぶ に出ます）`);
+  };
+  renderSongEditor();
+}
+function songButton(s, onDelete) {
+  const b = document.createElement('button');
+  b.className = 'preset span2' + (song && song.name === s.name && song.text === songText(parseSong(s.text).bars) ? ' on' : '');
+  const { bars } = parseSong(s.text);
+  b.innerHTML = `<div class="p-title">🎵 ${s.name}</div><div class="p-note">${songText(bars)}（${bars.length}小節）${s.note ? '・' + s.note : ''}</div>`;
+  b.onclick = () => { songSet(s); };
+  if (onDelete) { const d = document.createElement('span'); d.className = 'p-del'; d.textContent = '×'; d.title = 'この進行を消す'; d.onclick = e => { e.stopPropagation(); onDelete(); }; b.appendChild(d); }
+  const ed = document.createElement('span'); ed.className = 'p-edit'; ed.textContent = '✎'; ed.title = '編集する';
+  ed.onclick = e => { e.stopPropagation(); songDraft = bars.map(g => g.slice()); songDraftSave(); $('#songName').value = s.name; renderSongEditor(); openDrawer('secSong'); };
+  b.appendChild(ed);
+  return b;
+}
+
 requestAnimationFrame(frame);
 
 /* =========================================================
@@ -4965,6 +5144,11 @@ function updateBarRhythm() {
   if (mode === 'W' && quiz.cmpOn) { $('#barR1').textContent = '⚖ あなたの答え／正解'; $('#barR2').textContent = '上＝あなたの答え、下＝正解'; return; }
   if (isTup()) { $('#barR1').textContent = tupQuiz ? `連符：${tupName(tupQuiz)}` : `連符 ${tupSeq().join('→')}`; $('#barR2').textContent = tupQuiz ? '答えの連符' : `${SET.tupBeats}拍の小節・${SET.tupBars}小節ずつ${SET.tupCmp ? '・くらべる' : ''}（押して選ぶ）`; return; }
   if (mode === 'F') { $('#barR1').textContent = `ポリリズム ${SET.poly[0]} 対 ${SET.poly[1]}`; $('#barR2').textContent = '押して組み合わせを選ぶ'; return; }
+  if (songOnNow()) {
+    const L = song.bars.length, c = lastSongBar >= 0 ? mod(lastSongBar, L) : -1;
+    $('#barR1').textContent = `🎵 ${song.name}`;
+    $('#barR2').textContent = c >= 0 ? `${c + 1}/${L}小節・次：${song.bars[(c + 1) % L].join('+')}` : `${L}小節：${song.text}`; return;
+  }
   const p = selected, sigs = p.sigs || p.bars.map(() => p.sig);
   $('#barR1').textContent = p.bars.map((bg, b) => (b === 0 || sigs[b] !== sigs[b - 1] ? sigs[b] + ' ' : '') + '[' + bg.join('+') + ']').join(' → ');
   $('#barR2').textContent = pendingMeta ? '次の小節から切りかわります' : `${meterText(activeMeta, true)}・${p.note}（押して選ぶ）`;
@@ -4980,7 +5164,7 @@ function presetLabel(p) {
 }
 function presetButton(p, extraClass, onDelete) {
   const b = document.createElement('button');
-  b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && mode !== 'F' && mode !== 'X' ? ' on' : '');
+  b.className = 'preset' + extraClass + (presetKey(p) === presetKey(selected) && !songActive() && mode !== 'F' && mode !== 'X' ? ' on' : '');
   const song = p.cat !== 'custom' ? songOf(p) : null;
   b.innerHTML = `<div class="p-title">${presetLabel(p)}</div><div class="p-note">${meterText(makeMeta(p), true)}・${p.note}</div>` + (song ? `<div class="p-song">🎵 ${song}</div>` : '');
   b.onclick = () => selectPreset(p);
@@ -4999,6 +5183,12 @@ function renderPresets() {
     head(title);
     PRESETS.filter(p => p.cat === cat).forEach(p => box.appendChild(presetButton(p, p.bars.length > 1 || songOf(p) ? ' span2' : '')));
   });
+  head('曲の進行（小節ごとに変わる）');
+  SONG_EX.forEach(sx => box.appendChild(songButton(sx)));
+  if (savedSongs.length) {
+    head('保存した曲の進行');
+    savedSongs.forEach((sx, i) => box.appendChild(songButton(sx, () => { if (confirm('この進行を消しますか？')) { savedSongs.splice(i, 1); saveSongs(); renderPresets(); } })));
+  }
   if (customs.length) {
     head('自分で作ったリズム');
     customs.forEach((gs, i) => {
@@ -5010,7 +5200,7 @@ function renderPresets() {
   }
 }
 function selectPreset(p) {
-  selected = p;
+  songOff(); selected = p;
   if (mode === 'F' || mode === 'X') {   // ポリリズム・連符の中で選んだら、元のモードに戻して鳴らす
     activeMeta = makeMeta(p); pendingMeta = null;
     setMode(lastMetaMode);
@@ -5029,7 +5219,7 @@ function setMode(md) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === md));
   if (was === 'W' && md !== 'W') quizLeave();
   if (md === 'V' && was !== 'V') applyComparePair();
-  if (md === 'W' && was !== 'W') { if (playing) stop(); quiz.phase = 'setup'; }
+  if (md === 'W' && was !== 'W') { if (playing) stop(); songOff(); quiz.phase = 'setup'; }
   quizUI(); const cb = $('#cmpBtn'); if (cb) cb.hidden = md !== 'V' || window.innerWidth < 640; const tb = $('#tupBtn'); if (tb) tb.hidden = md !== 'X' || window.innerWidth < 640;
   const info = MODE_INFO[md];
   if (info) $('#modeCur').innerHTML = `<span class="em">${info.em}</span><span>${info.name}</span><span class="c-mute" style="font-size:13px">　（${MODE_ORDER.indexOf(md) + 1}/${MODE_ORDER.length}）▾</span>`;
@@ -5143,6 +5333,7 @@ $('#latUp').onclick = () => setLat(latencyMs + 10);
 setLat(latencyMs);
 
 /* ----- ポリリズムの組み合わせ ----- */
+setTimeout(initSongEditor, 0);
 function renderPolySel() {
   const box = $('#polySel'); box.innerHTML = '';
   POLY_PAIRS.forEach(pr => {
@@ -5593,6 +5784,7 @@ function shareUrl() {
   const pi = PRESETS.findIndex(p => presetKey(p) === presetKey(selected));
   if (pi >= 0) q.set('p', pi); else q.set('c', selected.bars[0].join(''));
   if (mode === 'F') q.set('y', SET.poly.join('x'));
+  if (songOnNow()) { q.set('q', song.text); q.set('qn', song.name); }
   if (mode === 'X') q.set('x', [SET.tupSeq, SET.tupN, SET.tupBars, SET.tupBeats, SET.tupCmp ? 1 : 0].join('.'));
   return location.href.split('#')[0] + '#' + q.toString();
 }
@@ -5605,6 +5797,7 @@ function applyHash() {
   if (y && /^\d+x\d+$/.test(y)) { const pr = y.split('x').map(Number); if (POLY_PAIRS.some(a => a[0] === pr[0] && a[1] === pr[1])) SET.poly = pr; }
   const xx = q.get('x'); if (xx && /^(up|alt|odd|one)\.[2-7]\.[124]\.[234]\.[01]$/.test(xx)) { const a = xx.split('.'); Object.assign(SET, { tupSeq: a[0], tupN: +a[1], tupBars: +a[2], tupBeats: +a[3], tupCmp: a[4] === '1' }); renderTupSel(); }
   if (m && MODE_INFO[m]) setMode(m);
+  const qs = q.get('q'); if (qs && parseSong(qs).bars.length) songSet({ name: (q.get('qn') || '共有された進行').slice(0, 40), text: qs });
   if (t >= 80 && t <= 300) setBpm(t);
 }
 $('#shareBtn').onclick = () => {
