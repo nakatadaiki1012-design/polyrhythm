@@ -885,6 +885,26 @@
 const COLORS = { 2: '#22d3ee', 3: '#fbbf24' };   // 2＝シアン / 3＝アンバー
 const LIME = '#a3e635';
 const SYL = { 2: ['パ', 'ン'], 3: ['ト', 'マ', 'ト'] };
+/* メトロノームの見せ方では「パン・トマト」を使わない（拍の番号・短い拍／長い拍にする）。学ぶ・あそぶ（くらべる・当てる・連符・まねっこ・レッスン）では使う */
+const ptOn = () => mode === 'V' || mode === 'W' || mode === 'Y' || mode === 'X' || (() => { try { return lessonOpen; } catch (e) { return false; } })();   // 読みこみ中はまだない
+const oddNow = () => { const g = activeMeta.groups; return !g.every(L => L === g[0]); };
+const syl = (L, k, n) => ptOn() ? SYL[L][k] : k === 0 ? (n !== undefined ? String(n) : '●') : '・';
+const pw = L => ptOn() ? (L === 2 ? 'パン' : 'トマト') : oddNow() ? (L === 2 ? '短い拍' : '長い拍') : '';
+function neutralTxt(t) {
+  if (ptOn() || typeof t !== 'string' || !/パン|トマト|パ・ン/.test(t)) return t;
+  if (oddNow()) return t.replace(/パ・ン・ト・マ・ト/g, '1・2…').replace(/パン（2）|パン/g, '短い拍').replace(/トマト（3）|トマト/g, '長い拍');
+  // 拍の長さがみな同じ拍子：パン・トマトをくらべる言い方は意味がないので、その部分をけずる
+  t = t.replace(/（[^（）]*(パン|トマト|パ・ン)[^（）]*）/g, '');
+  return t.split(/(?<=[。、])/).filter(x => !/パン|トマト|パ・ン/.test(x)).join('').replace(/[、]$/, '');
+}
+/* メトロノームの見せ方の説明（拍子に関係なく使える言い方） */
+const MODE_MLINE = { A: '角が床に「コトッ」とつく瞬間に音。とがった角＝拍の頭', B: '大きいボールは拍ごとに跳ぶ。着地の瞬間＝拍の頭', C: '光の球が1周＝1小節。色の境目を通る瞬間＝拍の頭',
+  D: '指揮の図形。打点で跳ね返る瞬間＝拍の頭', E: '刻みでぴょん、拍の頭で次の段へ', G: '車両の継ぎ目がレールの継ぎ目を通るとガタン！＝拍の頭。1両＝1拍',
+  H: '外側の大きな点＝拍の頭、内側の点＝刻み。小節ごとに模様が育つ', I: '大きな花火＝拍の頭、小さな火花＝刻み', J: '刻み→拍→小節の3つの歯車。かみ合うときだけ次の歯車が回る',
+  K: '刻みは小刻みに、拍の頭でぐっと踏み込む', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える',
+  N: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', O: '1拍＝1回の投げ。手に落ちる瞬間＝拍の頭', P: 'しずくが水面に落ちる瞬間に音。大きな波紋＝拍の頭',
+  Q: 'サクランボが乗った瞬間にゼリーがぷるん＝拍の頭', R: '振り子が鐘に当たる瞬間＝拍の頭', S: '大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）',
+  T: '拍の頭で花が開き、刻みごとに花びらがふえる', U: 'ハスの葉に着地する瞬間＝拍の頭' };
 const FONT = 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif';
 const PRESETS = [
   { cat: 'basic', sig: '2/4', bars: [[2, 2]], note: 'パン＋パン' },
@@ -962,7 +982,7 @@ function buildShape(mt) {
   const n = mt.total, units = [], verts = [];
   for (let i = 0; i < n; i++) {
     const g = mt.subToGroup[i], L = mt.groups[g], k = i - mt.starts[g];
-    units.push({ dur: 1, L, head: k === 0, label: SYL[L][k] });
+    units.push({ dur: 1, L, head: k === 0, label: syl(L, k, g - mt.barStartGroup[mt.barOfGroup[g]] + 1) });
   }
   const f = n >= 6 ? 0.9 : 0.86;
   for (let i = 0; i < n; i++) {
@@ -1939,6 +1959,7 @@ function rr(x, y, w, h, r) {
   cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
 }
 function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middle') {
+  if (typeof s === 'string' && s.length > 1 && /パン|トマト/.test(s)) s = neutralTxt(s);
   cx.font = `${weight} ${size}px ${FONT}`;
   if (align === 'center') {   // せまい画面で、まん中そろえの文字が画面の外にはみ出さないよう、小さくする
     const room = 2 * Math.min(x, W - x) - 28, w = cx.measureText(s).width;
@@ -2230,9 +2251,9 @@ function drawCaption(y0, h, fs) {
   const info = MODE_INFO[mode]; if (!info) return;
   cx.fillStyle = 'rgba(11,18,34,0.55)'; cx.fillRect(0, y0, W, h);
   const maxW = W - 2 * 14 * K - 44;   // 右はしの「？」ボタンのぶんをあける
-  let t = info.line, f = fs;
+  let t = !ptOn() && MODE_MLINE[mode] ? MODE_MLINE[mode] : neutralTxt(info.line), f = fs;
   cx.font = `700 ${f}px ${FONT}`;
-  if (cx.measureText(t).width > maxW) t = info.short;
+  if (cx.measureText(t).width > maxW) t = !ptOn() && MODE_MLINE[mode] ? MODE_MLINE[mode] : neutralTxt(info.short);
   let w = (cx.font = `700 ${f}px ${FONT}`, cx.measureText(t).width);
   if (w > maxW) { f = Math.max(14, f * maxW / w); cx.font = `700 ${f}px ${FONT}`; w = cx.measureText(t).width; }
   while (w > maxW && t.length > 4) { t = t.slice(0, -2) + '…'; w = cx.measureText(t).width; }
@@ -2287,7 +2308,7 @@ function drawHeader(st) {
     txt(t2, pad + cx.measureText(t1).width, y + 24 * K, fs2, endNow ? '#fda4af' : same ? '#94a3b8' : LIME, 900, 'left');
   } else {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
     const fs2 = Math.max(13, 13.5 * K), maxW = W - 2 * pad - (isQuarter(m) ? 170 : 110) * K;
-    let t = meterText(m) + '　' + m.preset.note;
+    let t = meterText(m) + (ptOn() || m.preset.tune || m.preset.cat === 'custom' ? '　' + m.preset.note : '');
     cx.font = `800 ${fs2}px ${FONT}`;
     if (cx.measureText(t).width > maxW) t = meterText(m);
     if (cx.measureText(t).width > maxW) t = meterText(m, true) + '　' + m.preset.note;
@@ -2323,9 +2344,9 @@ function drawStrip(st, y0, h) {
       cx.lineWidth = (k === 0 ? 3 : 1.2) * K; cx.strokeStyle = hexA(col, k === 0 ? 0.95 : 0.45); cx.stroke();
       if (big) {   // 投影用：まとまりの中で何拍目か
         txt(String(k + 1), x + bw / 2, by + bh * 0.44, Math.min(bh * 0.62, bw * 0.9), on ? '#0f172a' : col, 900);
-        txt(SYL[L][k], x + bw / 2, by + bh * 0.85, Math.min(bh * 0.15, bw * 0.4), on ? '#0f172a' : hexA(col, 0.8), 700);
+        txt(syl(L, k, g - m.barStartGroup[m.barOfGroup[g]] + 1), x + bw / 2, by + bh * 0.85, Math.min(bh * 0.15, bw * 0.4), on ? '#0f172a' : hexA(col, 0.8), 700);
       } else {
-        txt(SYL[L][k], x + bw / 2, by + bh / 2 + 1, Math.min(bh * (h < 80 ? 0.62 : 0.5), bw * 0.55), on ? '#0f172a' : col, k === 0 ? 900 : 600);
+        txt(syl(L, k, g - m.barStartGroup[m.barOfGroup[g]] + 1), x + bw / 2, by + bh / 2 + 1, Math.min(bh * (h < 80 ? 0.62 : 0.5), bw * 0.55), on ? '#0f172a' : col, k === 0 ? 900 : 600);
         if (k === 0 && bh > 40 * K) txt('>', x + 8 * K, by + 10 * K, 11 * K, on ? '#0f172a' : col, 900);
       }
       if (k < L - 1) { x += bw + gap; continue; }
@@ -2634,7 +2655,7 @@ function drawBounce(st, now, ah) {
     cx.stroke(); cx.setLineDash([]);
     rr(x0 + 3 * K, backY + 3 * K, w - 6 * K, 16 * K, 5 * K);
     cx.fillStyle = hexA(col, cur ? 0.45 : 0.16); cx.fill();
-    txt(`${L === 2 ? 'パン' : 'トマト'}（${L}）`, x0 + w / 2, backY + 11 * K, 11 * K, cur ? '#ffffff' : hexA(col, 0.8), 800);
+    txt(pw(L) ? `${pw(L)}（${L}）` : '', x0 + w / 2, backY + 11 * K, 11 * K, cur ? '#ffffff' : hexA(col, 0.8), 800);
     if (cur) {
       const topY = backY - hBig(L);
       txt(`滞空 刻み${L}つ`, x0 + w / 2, topY - 34 * K, 13 * K, col, 800);
@@ -2650,7 +2671,7 @@ function drawBounce(st, now, ah) {
       rr(tx + 2 * K, frontY + 4 * K, u - 4 * K, tileH, 6 * K);
       cx.fillStyle = lit ? hexA(col, s === 0 ? 0.9 : 0.55) : hexA(col, s === 0 ? 0.22 : 0.1); cx.fill();
       cx.strokeStyle = hexA(col, s === 0 ? 0.9 : 0.4); cx.lineWidth = (s === 0 ? 2.5 : 1) * K; cx.stroke();
-      txt(SYL[L][s], tx + u / 2, frontY + 4 * K + tileH / 2, Math.min(tileH * 0.55, u * 0.45), lit ? '#0f172a' : col, s === 0 ? 900 : 600);
+      txt(syl(L, s), tx + u / 2, frontY + 4 * K + tileH / 2, Math.min(tileH * 0.55, u * 0.45), lit ? '#0f172a' : col, s === 0 ? 900 : 600);
     }
   }
 
@@ -2768,7 +2789,7 @@ function drawOrbit(st, now, ah) {
   cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(cxC, cyC, hub, 0, Math.PI * 2); cx.fill();
   cx.strokeStyle = 'rgba(148,163,184,0.4)'; cx.lineWidth = 2 * K; cx.stroke();
   const L = m.groups[st.g], k = clamp(Math.floor(st.pos - m.starts[st.g]), 0, L - 1);
-  txt(st.has ? SYL[L][k] : '▶', cxC, cyC + 1, hub * 1.05, st.has ? COLORS[L] : '#475569', 900);
+  txt(st.has ? syl(L, k) : '▶', cxC, cyC + 1, hub * 1.05, st.has ? COLORS[L] : '#475569', 900);
 }
 
 /* ---------- 共通：顔つきのボール ---------- */
@@ -2847,7 +2868,7 @@ function drawStairs(st, now, ah) {
     // 刻みの目印と言葉
     for (let s = 0; s < Lk(k); s++) {
       const lit = cur && q >= s;
-      txt(SYL[Lk(k)][s], x0 + (s + 0.5) * u, yT + 20 * K, Math.min(18 * K, u * 0.4), lit ? '#ffffff' : hexA(col, 0.85), s === 0 ? 900 : 600);
+      txt(syl(Lk(k), s), x0 + (s + 0.5) * u, yT + 20 * K, Math.min(18 * K, u * 0.4), lit ? '#ffffff' : hexA(col, 0.85), s === 0 ? 900 : 600);
       if (s > 0) { cx.fillStyle = hexA('#ffffff', 0.35); cx.fillRect(x0 + s * u - 1, yT - 4 * K, 2, 4 * K); }
     }
     // 小節の旗
@@ -2883,7 +2904,7 @@ function drawStairs(st, now, ah) {
   // 言葉がポンと出る
   if (st.has && lastNote && (!stairPops.length || stairPops[stairPops.length - 1].t !== lastNote.time)) {
     const n = lastNote, Ln = n.meta.groups[n.g];
-    stairPops.push({ t: n.time, s: SYL[Ln][n.sub - n.meta.starts[n.g]], acc: n.isAcc, col: COLORS[Ln] });
+    stairPops.push({ t: n.time, s: syl(Ln, n.sub - n.meta.starts[n.g]), acc: n.isAcc, col: COLORS[Ln] });
     if (stairPops.length > 8) stairPops.shift();
   }
 
@@ -3202,9 +3223,9 @@ function drawTrain(st, now, ah) {
         rr(wx0, wy, ww, wh, 5 * K);
         cx.fillStyle = lit ? '#fef9c3' : 'rgba(15,23,42,0.7)'; cx.fill();
         if (lit) { cx.shadowColor = '#fde047'; cx.shadowBlur = 18 * K; cx.fill(); cx.shadowBlur = 0; }
-        txt(SYL[L][k], wx0 + ww / 2, wy + wh / 2 + 0.5, Math.min(wh * 0.62, ww * 0.6), lit ? '#0f172a' : hexA(head ? '#ecfccb' : col, 0.9), k === 0 ? 900 : 700);
+        txt(syl(L, k), wx0 + ww / 2, wy + wh / 2 + 0.5, Math.min(wh * 0.62, ww * 0.6), lit ? '#0f172a' : hexA(head ? '#ecfccb' : col, 0.9), k === 0 ? 900 : 700);
       }
-      txt(L === 2 ? 'パン' : 'トマト', cxm, carBot - carH * 0.32, Math.min(carH * 0.17, u * 0.42), head ? '#1a2e05' : '#0f172a', 900);
+      txt(pw(L), cxm, carBot - carH * 0.32, Math.min(carH * 0.17, u * 0.42), head ? '#1a2e05' : '#0f172a', 900);
       if (head) {   // 小節の頭の車両の目印
         cx.fillStyle = '#f8fafc'; rr(bx0 + 6 * K, carTop - 16 * K, 58 * K, 14 * K, 7 * K); cx.fill();
         txt('小節の頭', bx0 + 35 * K, carTop - 8.5 * K, 9.5 * K, '#3f6212', 900);
@@ -3574,7 +3595,7 @@ function drawGears(st, now, ah) {
     if (cur) { cx.shadowColor = COLORS[Lg]; cx.shadowBlur = 12 * K; }
     cx.beginPath(); cx.arc(xs, ys, bandR, a0, a1); cx.stroke(); cx.shadowBlur = 0;
     const am = (a0 + a1) / 2, fs = Math.min(14 * K, 0.85 * s, (Lg * ws * gs.rr * 0.56) / 3.4);
-    if (fs >= 7) txt(Lg === 2 ? 'パン' : 'トマト', xs + Math.cos(am) * gs.rr * 0.6, ys + Math.sin(am) * gs.rr * 0.6, fs, hexA(COLORS[Lg], cur ? 1 : 0.7), 800);
+    if (fs >= 7) txt(pw(Lg), xs + Math.cos(am) * gs.rr * 0.6, ys + Math.sin(am) * gs.rr * 0.6, fs, hexA(COLORS[Lg], cur ? 1 : 0.7), 800);
   });
   // マス目の点（1拍＝1マス）
   for (let k = 0; k < N; k++) {
@@ -3593,7 +3614,7 @@ function drawGears(st, now, ah) {
   { const hubR = gs.rr * 0.3;
     cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(xs, ys, hubR, 0, Math.PI * 2); cx.fill();
     cx.strokeStyle = hexA(SUBC, 0.8); cx.lineWidth = 2 * K; cx.stroke();
-    const lab = has ? SYL[L][clamp(kCur, 0, L - 1)] : '▶', fs = Math.min(hubR * 1.1, 46 * K);
+    const lab = has ? syl(L, clamp(kCur, 0, L - 1)) : '▶', fs = Math.min(hubR * 1.1, 46 * K);
     if (fs >= 7) txt(lab, xs, ys + 0.5, fs, kCur === 0 && has ? COLORS[L] : '#ffffff', 900); }
 
   // ===== 拍の歯車 =====
@@ -3626,7 +3647,7 @@ function drawGears(st, now, ah) {
     cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(xt, yt, hubR, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
     cx.strokeStyle = hexA(COLORS[L], 0.9); cx.lineWidth = 2 * K; cx.stroke();
     const fs = Math.min(hubR * 0.5, 22 * K);
-    if (fs >= 7) txt(L === 2 ? 'パン' : 'トマト', xt, yt + 0.5, fs, COLORS[L], 900); }
+    if (fs >= 7) txt(pw(L), xt, yt + 0.5, fs, COLORS[L], 900); }
 
   // ===== 小節の歯車 =====
   { // 拍の歯車の前にある小さな歯車（小節の頭の拍にだけ歯がある）
@@ -3642,7 +3663,7 @@ function drawGears(st, now, ah) {
     cx.fillStyle = '#0b1222'; cx.beginPath(); cx.arc(xt, yt, hubR, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
     cx.strokeStyle = hexA(COLORS[L], 0.9); cx.lineWidth = 2 * K; cx.stroke();
     const fs = Math.min(hubR * 0.62, 22 * K);
-    if (fs >= 7) txt(L === 2 ? 'パン' : 'トマト', xt, yt + 0.5, fs, COLORS[L], 900);
+    if (fs >= 7) txt(pw(L), xt, yt + 0.5, fs, COLORS[L], 900);
     // 小節の歯車（ふつうの歯車。歯1つ＝1小節）
     gearPoly(xq, yq, Q, sp, rotQ);
     cx.fillStyle = '#0d1730'; cx.fill();
@@ -3761,7 +3782,7 @@ function drawDancer(st, now, ah) {
       if (isHead(j)) {
         const Lj = m.groups[m.subToGroup[mod(j, N)]], c = COLORS[Lj];
         footPrint(x, y, Math.min(0.5 * u, 24 * K) + 2 * K, c, fade, false);
-        txt(Lj === 2 ? 'パン' : 'トマト', x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
+        txt(pw(Lj), x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
       } else {
         cx.fillStyle = `rgba(226,232,240,${0.55 * fade})`;
         cx.beginPath(); cx.ellipse(x, y, Math.min(0.15 * u, 7 * K) + 1.5 * K, Math.min(0.1 * u, 5 * K) + 1 * K, 0, 0, Math.PI * 2); cx.fill();
@@ -3851,7 +3872,7 @@ function drawDancer(st, now, ah) {
   // 上の説明は1行だけ：小節の頭の直後は「小節の頭！」、それ以外は今の拍の動き
   const dfs = Math.max(13, 14 * K);
   if (barFlash > 0.35) txt(narrow ? '小節の頭！ 並びがもう一度' : '小節の頭！ 足あとの並びが、もう一度はじまる', W / 2, 84 * K, dfs, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
-  else if (has) txt((L === 2 ? 'パン' : 'トマト') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 84 * K, dfs, col, 900);
+  else if (has) txt((pw(L) || '拍の頭') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 84 * K, dfs, col, 900);
   else txt('▶ 再生すると、踊りはじめます', W / 2, 84 * K, dfs, '#e2e8f0', 700);
 }
 
@@ -3925,7 +3946,7 @@ function drawDomino(st, now, ah) {
   for (let j = j0; j <= j1; j++) {
     const d = info(j), x = sx(j), col = COLORS[d.L], cur = has && d.g === st.g && Math.floor(j / N) === Math.floor(k0 / N);
     cx.fillStyle = hexA(col, cur ? 0.9 : 0.35); cx.fillRect(x - u / 2 + 1.5 * K, gy + 5 * K, u - 3 * K, 7 * K);
-    txt(SYL[d.L][d.k], x, gy + 24 * K, Math.max(12, Math.min(u * 0.5, 16 * K)), hexA(col, d.head ? 1 : 0.7), d.head ? 900 : 600);
+    txt(syl(d.L, d.k), x, gy + 24 * K, Math.max(12, Math.min(u * 0.5, 16 * K)), hexA(col, d.head ? 1 : 0.7), d.head ? 900 : 600);
     if (d.bar) barXs.push(x - u / 2);
   }
   for (let i = 0; i < barXs.length; i++) {
@@ -4016,7 +4037,7 @@ function drawJuggle(st, now, ah) {
     if (lit && kCur === k && ageS < 0.25) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.25); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(p[0], p[1], (6 + 30 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
   }
   { const apex = pathPt(side, L, 0.5);
-    txt(`${L === 2 ? 'パン' : 'トマト'}（空中に 刻み${L}つ）`, apex[0], apex[1] - 22 * K, Math.max(13, 14 * K), col, 900); }
+    txt(`${pw(L) || '1拍'}（空中に 刻み${L}つ）`, apex[0], apex[1] - 22 * K, Math.max(13, 14 * K), col, 900); }
 
   // 人（シンプルな形）
   const bob = 3 * K * Math.exp(-ageS / 0.07) + 5 * K * Math.exp(-ageH / 0.1) * (kCur === 0 ? 1 : 0);
@@ -4130,7 +4151,7 @@ function drawDrops(st, now, ah) {
   m.groups.forEach((L, g) => {
     const a = x0 + m.starts[g] * step, b = a + L * step, cur = has && g === st.g, col = COLORS[L];
     cx.fillStyle = hexA(col, cur ? 0.85 : 0.3); rr(a + 3 * K, bandY, b - a - 6 * K, 7 * K, 3.5 * K); cx.fill();
-    txt(L === 2 ? 'パン' : 'トマト', (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, step * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
+    txt(pw(L), (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, step * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
   });
   m.barStartSub.forEach((bs, b) => {
     if (m.nBars < 2 || b === 0) return;
@@ -4213,7 +4234,7 @@ function drawJelly(st, now, ah) {
     const b = box(gi);
     cx.fillStyle = 'rgba(226,232,240,0.14)'; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, b.w * 0.6, 8 * K, 0, 0, Math.PI * 2); cx.fill();
     cx.strokeStyle = 'rgba(226,232,240,0.35)'; cx.lineWidth = 1.5 * K; cx.stroke();
-    txt(b.L === 2 ? 'パン' : 'トマト', b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(COLORS[b.L], has && gi === g ? 1 : 0.65), 800);
+    txt(pw(b.L), b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(COLORS[b.L], has && gi === g ? 1 : 0.65), 800);
   }
   // それぞれのゼリーのゆれ：最後にサクランボが乗った時刻からの経過時間で決める
   const lastHit = gi => {   // 秒
@@ -4363,7 +4384,7 @@ function drawPendulum(st, now, ah) {
       const q = bobPos(Lp, amp * Math.sin(Math.PI * k / Lp)), lit = act && kCur >= k;
       cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.5); cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5 : 3.5) * K, 0, Math.PI * 2); cx.fill();
     }
-    txt(Lp === 2 ? 'パン（ひも 短い）' : 'トマト（ひも 長い）', cxC + p.side * Math.min(W * 0.24, 230 * K), bobY + br + 18 * K, Math.max(12, 13 * K), hexA(col, act ? 1 : 0.7), 800);
+    txt(ptOn() ? (Lp === 2 ? 'パン（ひも 短い）' : 'トマト（ひも 長い）') : (Lp === 2 ? 'ひも 短い' : 'ひも 長い'), cxC + p.side * Math.min(W * 0.24, 230 * K), bobY + br + 18 * K, Math.max(12, 13 * K), hexA(col, act ? 1 : 0.7), 800);
   }
   // 鐘
   const bar = has && m.barStartGroup.includes(g), hit = has && ageH < 0.5 ? 1 - ageH / 0.5 : 0;
@@ -4445,7 +4466,7 @@ function drawNotes(st, now, ah) {
       if (near > 0) { cx.shadowColor = col; cx.shadowBlur = 20 * K * near; }
       cx.fillStyle = res ? hexA(TAPK[res].color, 0.9) : col; cx.beginPath(); cx.arc(x, laneY, r, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
       cx.strokeStyle = d.bar ? LIME : '#ffffff'; cx.lineWidth = (d.bar ? 4 : 2.5) * K; cx.stroke();
-      txt(d.L === 2 ? 'パ' : 'ト', x, laneY + 1, r * 0.95, '#0f172a', 900);
+      txt(ptOn() ? (d.L === 2 ? 'パ' : 'ト') : String(d.n || '●'), x, laneY + 1, r * 0.95, '#0f172a', 900);
       cx.globalAlpha = 1;
     } else {
       cx.fillStyle = hexA('#e2e8f0', 0.7 * fade); cx.beginPath(); cx.arc(x, laneY, laneH * 0.07, 0, Math.PI * 2); cx.fill();
@@ -4562,7 +4583,7 @@ function drawFlowers(st, now, ah) {
         cx.beginPath(); cx.arc(hx, hy, R * (0.8 + 1.2 * q), 0, Math.PI * 2); cx.stroke();
         if (isBar) barFlash = 1 - q;
       }
-      if (d === 0 && R > 14) txt(L === 2 ? 'パン' : 'トマト', x, y + 14 * K, Math.max(12, 13 * K), hexA(col, 0.9), 800);
+      if (d === 0 && R > 14) txt(pw(L), x, y + 14 * K, Math.max(12, 13 * K), hexA(col, 0.9), 800);
     });
   }
   if (barFlash > 0) txt('小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
@@ -4605,7 +4626,7 @@ function drawFrog(st, now, ah) {
     const sink = age >= 0 && age < 0.6 ? 6 * K * Math.exp(-age / 0.15) * Math.cos(age * 20) : 0, pr = Math.min(u * 0.75, 40 * K);
     cx.fillStyle = '#15803d'; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0.25, Math.PI * 2 - 0.05); cx.lineTo(x, waterY + 4 * K + sink); cx.closePath(); cx.fill();
     cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0, Math.PI * 2); cx.stroke();
-    txt(d.Lg === 2 ? 'パン' : 'トマト', x, waterY + pr * 0.3 + 18 * K, Math.max(12, 13 * K), hexA(col, 0.95), 800);
+    txt(pw(d.Lg), x, waterY + pr * 0.3 + 18 * K, Math.max(12, 13 * K), hexA(col, 0.95), 800);
     if (d.bar) {   // ハスの花
       const fx = x + pr * 0.55, fy = waterY + sink - 2 * K, fr = pr * 0.3;
       for (let p = 0; p < 5; p++) { const a = -Math.PI / 2 + (p - 2) * 0.45; cx.fillStyle = '#f9a8d4'; cx.beginPath(); cx.ellipse(fx + Math.cos(a) * fr * 0.5, fy + Math.sin(a) * fr * 0.5, fr * 0.5, fr * 0.22, a, 0, Math.PI * 2); cx.fill(); }
@@ -4776,7 +4797,7 @@ function drawKarakuri(st, now, ah) {
       if (hitQ > 0.05) { cx.shadowColor = c; cx.shadowBlur = 18 * K * hitQ; }
       cx.fillStyle = c; rr(x - w / 2, y + vib, w, h, 3 * K); cx.fill(); cx.shadowBlur = 0;
     }
-    if (d.k === 0) txt(d.L === 2 ? 'パン' : 'トマト', x, yBot + 30 * K > ah - 6 * K ? y - 26 * K : y + 46 * K, Math.max(12, 13 * K), hexA(col, has && i <= iL && i + d.L > iL ? 1 : 0.7), 900);
+    if (d.k === 0) txt(pw(d.L), x, yBot + 30 * K > ah - 6 * K ? y - 26 * K : y + 46 * K, Math.max(12, 13 * K), hexA(col, has && i <= iL && i + d.L > iL ? 1 : 0.7), 900);
   });
   // ゴールと旗
   const lastBeat = iL === Nb - 1, flagUp = has ? (lastBeat ? clamp((f - 0.35) / 0.2, 0, 1) : barT < 0.6 * dur * 2 && iL >= 0 && st.sc > 0 ? 1 - clamp(barT / (dur * 1.2), 0, 1) : 0) : 0;
@@ -6600,8 +6621,8 @@ $('#helpBtn').onclick = e => {
   e.stopPropagation();
   const info = MODE_INFO[mode];
   $('#helpTitle').textContent = `${info.em} ${info.name}`;
-  $('#helpList').innerHTML = info.detail.map(t => `<li>${t}</li>`).join('');
-  $('#helpNote').innerHTML = '<b class="c2">パン</b>＝刻み2つの拍（短い拍）、<b class="c3">トマト</b>＝刻み3つの拍（長い拍）。<br>強さは3段階：<b class="c-lime">小節の頭</b> ＞ <b>拍の頭</b> ＞ 刻み。拍の頭が「重心」です。';
+  $('#helpList').innerHTML = info.detail.map(t => `<li>${neutralTxt(t)}</li>`).join('');
+  $('#helpNote').innerHTML = !ptOn() ? '強さは3段階：<b class="c-lime">小節の頭</b> ＞ <b>拍の頭</b> ＞ 細分。拍の強さは「拍子」の引き出しで変えられます。変拍子では、<b class="c2">水色</b>＝短い拍（8分音符2つ）、<b class="c3">黄色</b>＝長い拍（8分音符3つ）。' : '<b class="c2">パン</b>＝刻み2つの拍（短い拍）、<b class="c3">トマト</b>＝刻み3つの拍（長い拍）。<br>強さは3段階：<b class="c-lime">小節の頭</b> ＞ <b>拍の頭</b> ＞ 刻み。拍の頭が「重心」です。';
   openModal('#helpPop');
 };
 
