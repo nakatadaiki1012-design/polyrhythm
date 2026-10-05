@@ -26,7 +26,11 @@
   @media (max-width: 1299px) { .top-hint { display: none; } }
   #body { flex: 1; display: flex; min-height: 0; position: relative; }
   #stage { position: relative; flex: 1; min-width: 0; min-height: 0; }
-  #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  #swipeTip { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); padding: 10px 20px; border-radius: 16px; background: rgba(15,23,42,.88);
+              border: 1px solid #475569; color: #fff; font-size: 20px; font-weight: 900; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; z-index: 5; }
+  #swipeTip.on { opacity: 1; transition: none; }
+  #swipeTip small { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; text-align: center; margin-top: 2px; }
+  #stage canvas { position: absolute; inset: 0; display: block; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
 
   /* モード選び（パソコン：グループごとに並べる） */
   .modes { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; }
@@ -468,7 +472,7 @@
   <div id="songMap" class="song-map" hidden></div>
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
+    <div id="stage"><canvas id="cv"></canvas><div id="swipeTip"></div><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
       <div id="fsbar"><button id="fsDown">−</button><b id="fsBpm">120</b><button id="fsUp">＋</button><button class="fsplay" id="fsPlay">▶</button><button id="fsExit">⤢</button></div></div>
 
     <!-- ===== メトロノームの操作 ===== -->
@@ -6879,6 +6883,30 @@ cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら
   cv.dataset.sigHit = '';
 }, true);
 cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; const tp = cvPos(e); tapPos = { x: tp[0], y: tp[1], t: performance.now() }; if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+/* 横スワイプで見せ方を切り替える（左へ＝次、右へ＝前）。学ぶ・あそぶの画面では切り替えない */
+let swipe0 = null, swipeTipT = 0;
+const VIEW_ORDER = MODE_ORDER.filter(k => MODE_INFO[k].g !== 'g4');
+function swipeView(d) {
+  const i = VIEW_ORDER.indexOf(mode); if (i < 0) return false;
+  const k = VIEW_ORDER[mod(i + d, VIEW_ORDER.length)]; setMode(k);
+  const tip = $('#swipeTip'), inf = MODE_INFO[k];
+  tip.innerHTML = `${inf.em || ''} ${inf.name}<small>${VIEW_ORDER.indexOf(k) + 1} / ${VIEW_ORDER.length}　← スワイプで切り替え →</small>`;
+  tip.classList.add('on'); clearTimeout(swipeTipT); swipeTipT = setTimeout(() => tip.classList.remove('on'), 1100);
+  return true;
+}
+cv.addEventListener('pointerdown', e => { swipe0 = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, true);
+cv.addEventListener('pointerup', e => {
+  const s0 = swipe0; swipe0 = null; if (!s0 || s0.id !== e.pointerId) return;
+  const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || performance.now() - s0.t > 800) return;
+  if (swipeView(dx < 0 ? 1 : -1)) cv.dataset.sigHit = '1';   // スワイプのあとのクリックで再生／停止しない
+});
+cv.addEventListener('pointercancel', () => { swipe0 = null; });
+if (!SET.swipeHint) {   // はじめての人に、スワイプできることを1回だけ知らせる
+  setTimeout(() => { const tip = $('#swipeTip'); if (VIEW_ORDER.indexOf(mode) < 0) return;
+    tip.innerHTML = `← 絵を横にスワイプ →<small>見せ方（電車・歯車・花火…）が切り替わります</small>`; tip.classList.add('on');
+    setTimeout(() => tip.classList.remove('on'), 3000); SET.swipeHint = true; saveSet(); }, 900);
+}
 cv.addEventListener('click', () => {
   if (cv.dataset.sigHit) { cv.dataset.sigHit = ''; return; }
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
