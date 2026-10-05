@@ -26,7 +26,11 @@
   @media (max-width: 1299px) { .top-hint { display: none; } }
   #body { flex: 1; display: flex; min-height: 0; position: relative; }
   #stage { position: relative; flex: 1; min-width: 0; min-height: 0; }
-  #stage canvas { position: absolute; inset: 0; display: block; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  #swipeTip { position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%); padding: 10px 20px; border-radius: 16px; background: rgba(15,23,42,.88);
+              border: 1px solid #475569; color: #fff; font-size: 20px; font-weight: 900; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; z-index: 5; }
+  #swipeTip.on { opacity: 1; transition: none; }
+  #swipeTip small { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; text-align: center; margin-top: 2px; }
+  #stage canvas { position: absolute; inset: 0; display: block; touch-action: pan-y pinch-zoom; -webkit-user-select: none; user-select: none; }
 
   /* モード選び（パソコン：グループごとに並べる） */
   .modes { display: flex; flex-wrap: wrap; gap: 6px 14px; flex: 1; min-width: 0; }
@@ -468,7 +472,7 @@
   <div id="songMap" class="song-map" hidden></div>
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
+    <div id="stage"><canvas id="cv"></canvas><div id="swipeTip"></div><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
       <div id="fsbar"><button id="fsDown">−</button><b id="fsBpm">120</b><button id="fsUp">＋</button><button class="fsplay" id="fsPlay">▶</button><button id="fsExit">⤢</button></div></div>
 
     <!-- ===== メトロノームの操作 ===== -->
@@ -494,6 +498,7 @@
         <button class="pchip" data-p="mute">消音練習</button>
         <button class="pchip" data-p="timer">タイマー</button>
         <button class="pchip" data-p="check">ズレ判定</button>
+        <button class="pchip" id="progBtn">🎼 テンポのプログラム</button>
         <button class="pchip" id="barBand">🎸 伴奏</button>
       </div>
       <button class="play" id="barPlay">▶ スタート</button>
@@ -569,9 +574,9 @@
 
     <!-- 曲の進行 -->
     <details class="sec" id="secSong">
-      <summary><span class="sum-main">🎵 曲の進行を作る<span class="sum-sub">合奏の曲に合わせて、小節ごとに拍子を変える</span></span></summary>
-      <div class="hint" style="margin-bottom:6px">曲の楽譜を見ながら、1小節ずつリズムを並べます。文字でも書けます。<br>例：<b>[A] ♩=80 4/4×2, 3/4, 2+2+3×2</b>　（2+3＝パン＋トマト、5/4・6/8 などの拍子記号、×4＝4小節続ける、[A]＝練習番号、♩=80・♪=160＝そこからのテンポ）</div>
-      <textarea id="songText" class="song-text" rows="2" placeholder="3+2×4, 2+3×2, 3+3+2"></textarea>
+      <summary><span class="sum-main">🎼 テンポ・拍子のプログラム（曲の進行）<span class="sum-sub">曲に合わせて、小節ごとにテンポ・accel.・rit.・拍子を変える</span></span></summary>
+      <div class="hint" style="margin-bottom:6px">曲の楽譜を見ながら、1小節ずつリズムを並べます。文字でも書けます。<br>例：<b>[A] ♩=80 4/4×8, accel 4/4×4, ♩=120 4/4×8, rit 4/4×2, ♩=72 4/4</b><br>（4/4・3/4・6/8 などの拍子、2+3 のような変拍子、×4＝4小節続ける、[A]＝練習番号、♩=80・♪=160＝その小節からのテンポ、<b>accel</b>＝その小節から次のテンポまで だんだん速く、<b>rit</b>＝だんだん遅く）</div>
+      <textarea id="songText" class="song-text" rows="2" placeholder="♩=80 4/4×8, accel 4/4×4, ♩=120 4/4×8"></textarea>
       <div class="cards song-chips" id="songChips"></div>
       <div class="build-info" id="songInfo"></div>
       <div class="lbl2" style="margin:6px 0 4px">小節を足す</div>
@@ -579,6 +584,9 @@
       <div class="btns" style="margin-top:6px">
         <button class="btn small" id="songRep">最後の小節をもう1回</button>
         <button class="btn small" id="songMark">＋ 練習番号</button>
+        <button class="btn small" id="songTempo">＋ テンポを変える</button>
+        <button class="btn small" id="songAccel">＋ accel.（だんだん速く）</button>
+        <button class="btn small" id="songRit">＋ rit.（だんだん遅く）</button>
         <button class="btn small" id="songUndo">1つもどす</button>
         <button class="btn small" id="songClear">ぜんぶ消す</button>
       </div>
@@ -820,6 +828,7 @@
   <div class="hint">変拍子は「くわしい設定 → リズムを作る」で、2（短い拍）と 3（長い拍）を並べて作れます。</div>
   <div class="sh">拍の強さ</div>
   <div class="hint">押すと「強 → 中 → 弱 → 鳴らさない」と変わります（ボールの見せ方では、絵の点をタップしても変えられます）。</div>
+  <div class="row"><div><div class="lbl">1拍目（小節の頭）を強く</div><div class="hint">OFF：強拍なし。どの拍も同じ強さで鳴る</div></div><button class="sw" id="downSw"></button></div>
   <div class="accrow" id="accRow"></div>
   <div class="btns"><button class="btn" id="accReset">強さを元にもどす</button><button class="btn" id="moreRhythm">🎼 曲の進行・民謡・保存したリズム →</button></div>
 </div></div>
@@ -864,7 +873,7 @@
 </div></div>
 
 <!-- モードの一覧（スマホ） -->
-<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>見せ方を選ぶ</h3><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
+<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>見せ方を選ぶ</h3><div class="row" style="margin:-4px 0 6px"><div><div class="lbl">楽譜・カウント帯・説明も出す</div><div class="hint">OFF（はじめ）：絵と拍の番号だけのシンプルな画面</div></div><button class="sw" id="simpleSw"></button></div><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- くわしい説明 -->
 <div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
@@ -1023,11 +1032,12 @@ const SET = {
   tapOn: false, tapHead: false,
   fadeOn: false, fadeN: 2, fadeS: 4,
   rampOn: false, rampStart: 100, rampEnd: 180, rampStep: 5, rampEvery: 2,
-  big: false, voice: false, subOn: false, poly: [3, 2], msub: 1, msound: 'click', muteOn: false, mOn: 2, mOff: 2, rand: 0, timerMin: 0, accMap: {}, mBpm: 240, mMode: 'MB', mPreset: null,
-  bodyOn: false, countOn: true, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
+  big: false, voice: false, subOn: false, poly: [3, 2], msub: 1, msound: 'click', muteOn: false, mOn: 2, mOff: 2, rand: 0, timerMin: 0, accMap: {}, mBpm: 240, mMode: 'MB', mPreset: null, simpleView: true, downbeat: true,
+  bodyOn: false, countOn: false, stopMode: 'bar', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
   tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true, beatRow: true, songLoop: true, homeAuto: true, band: false, fileOn: true, fileClick: true,
 };
 try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
+if (!SET.v3) { SET.countOn = false; SET.simpleView = true; SET.v3 = true; }   // メトロノームにしたとき：カウントインなし・シンプル表示から
 function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
 
 let customs = [];   // 自分で作ったリズム（まとまりの並び）
@@ -1383,7 +1393,7 @@ function fileSaveSync() { try { const all = JSON.parse(localStorage.getItem('kr_
 function barSubs0() { const m = song && songOnNow() ? songMetas[0] : activeMeta; return m.nBars > 1 ? m.barStartSub[1] : m.total; }
 function songBarTime(n) {   // 1小節目の頭から、n 小節目の頭までの時間（曲の進行のテンポ変化もふくむ）
   if (!(song && songOnNow())) return 0;
-  let t = 0; for (let i = 0; i < n; i++) t += songMetas[i].total * 60 / (songTempoAt(i) || bpm);
+  let t = 0; for (let i = 0; i < n; i++) { const rp = song.bars[i].rp; if (rp) for (let s2 = 0; s2 < songMetas[i].total; s2++) t += 60 / Math.round(rampBpm(rp, s2) * 10) * 10; else t += songMetas[i].total * 60 / (songTempoAt(i) || bpm); }
   return t;
 }
 function fileStart(T) {   // start() から：曲を鳴らし、1小節目（または練習を始める小節）が来る時刻を返す
@@ -1565,7 +1575,7 @@ function playTick(t, lv) {
 const metaKey = m => m.bars.map(b => b.join('+')).join('|');
 function accOf(m) {   // 拍の強さ（小節の頭＝強、ほかの拍＝中。拍子ごとに覚える）
   const k = metaKey(m); let a = SET.accMap[k];
-  if (!a || a.length !== m.groups.length) a = m.groups.map((_, g) => m.barStartSub.includes(m.starts[g]) ? 3 : 2);
+  if (!a || a.length !== m.groups.length) a = m.groups.map((_, g) => SET.downbeat && m.barStartSub.includes(m.starts[g]) ? 3 : 2);
   return a;
 }
 function setAcc(m, g, v) { const a = accOf(m).slice(); a[g] = v; SET.accMap[metaKey(m)] = a; saveSet(); }
@@ -1617,6 +1627,7 @@ function scheduleMeta() {
   else if (curSub === 0 && songOnNow()) songStep();   // 曲の進行：小節の頭で次の小節へ
   const m = activeMeta;
   if (m.barStartSub.includes(curSub)) onBarStart();
+  if (songOnNow() && songPos > 0) { const rp = song.bars[songPos - 1] && song.bars[songPos - 1].rp; if (rp) { bpm = Math.round(rampBpm(rp, curSub) * 10) / 10; uiBpmDirty = true; } }   // accel.・rit.
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
   const L = m.groups[g], k = curSub - m.starts[g], stg = curStage;
   const maneResp = mode === 'Y' && measure % 2 === 1;   // まねっこ：偶数回め＝お手本、奇数回め＝あなたの番
@@ -1833,6 +1844,7 @@ function stop() {
   frozenFrac = lastNote ? clamp((audioNow() - lastNote.time) / lastNote.dur, 0, 0.999) : 0;
   if (lastNote && lastNote.kind === 'tup') tupFrozen = clamp((audioNow() - lastNote.beatT) / lastNote.D, 0, 0.999);
   playing = false; clearInterval(timer); queue = []; fileStop();
+  if (typeof song !== 'undefined' && song && songOnNow()) { const t0 = songTempoAt(songStartAt >= song.from && songStartAt <= song.to ? songStartAt : song.from); if (t0) { bpm = t0; uiBpmDirty = true; } }   // プログラムの途中で止めたら、はじめのテンポにもどす
   stopReq = false; stopAt = null; countInfo = null;
   if (pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; lastNote = null; accents = []; }
   if (typeof updateBarRhythm === 'function') updateBarRhythm();
@@ -2003,9 +2015,12 @@ function frame() {
   let stripH = SET.big ? clamp(H * (H < 760 ? 0.2 : 0.27), 90, 400) : slim ? (fsNow ? clamp(H * 0.06, 32, 54) : clamp(H * 0.08, 40, 72)) : clamp(H * 0.15, 56, 120);
   const bandH = (SET.tapOn || SET.fadeOn) ? 26 * K : 0;
   const bodyH = SET.bodyOn && (mode !== 'F' || isTup()) ? Math.round(Math.max(34, 34 * K)) : 0;
-  const capFs = Math.max(14, 13.5 * K), capH = Math.round(capFs * 2.1);
+  const simpleV = SET.simpleView && !['W', 'V', 'X', 'F', 'Y'].includes(mode) && !lessonOpen;   // シンプル表示：楽譜とカウント帯をかくす
+  if (simpleV) { stripH = 0; }
+  const capFs = Math.max(14, 13.5 * K), capH = simpleV && MODE_INFO[mode] && MODE_INFO[mode].g === 'g0' ? 0 : Math.round(capFs * 2.1);
   const tallScore = SET.beatRow && !isTup();   // 拍の段のぶん高くする
   let scoreH = SET.scoreOn && (mode !== 'F' || isTup()) ? Math.round((tallScore ? (SET.big ? clamp(H * 0.13, 70, 130) : clamp(H * 0.17, 84, 156)) : (SET.big ? clamp(H * 0.09, 48, 96) : clamp(H * 0.12, 54, 112))) * (fsNow ? 0.88 : 1)) : 0;
+  if (simpleV) scoreH = 0;
   const cmp2 = mode === 'V' || (mode === 'W' && quiz.cmpOn && quiz.phase === 'reveal');   // くらべる：下のカード帯のかわりに、楽譜を上下2段で出す
   if (cmp2) { scoreH = Math.round(clamp(H * (fsNow ? 0.17 : 0.2), 100, 200)); stripH = 0; }   // 大きな数字のときは楽譜を少し小さく
   const sceneH = H - stripH - bandH - capH - scoreH - bodyH, belowY = sceneH + capH + bodyH;
@@ -2056,10 +2071,10 @@ function frame() {
     else drawStairs(st, now, sceneH);
     drawHeader(st);
     if (cmp2) drawScore2(st, now, belowY + bandH, scoreH);
-    else { if (scoreH) drawScore(st, now, belowY + bandH, scoreH); drawStrip(st, belowY + bandH + scoreH, stripH); }
+    else { if (scoreH) drawScore(st, now, belowY + bandH, scoreH); if (stripH) drawStrip(st, belowY + bandH + scoreH, stripH); }
     drawBarMark(now, st.m, sceneH);
   }
-  if (!hide && !quizHide) drawCaption(sceneH, capH, capFs);
+  if (!hide && !quizHide && capH) drawCaption(sceneH, capH, capFs);
   if (bodyH && !quizHide) drawBody(null, now, sceneH + capH, bodyH);
   placeHelp(hide ? -1 : sceneH + capH / 2);
   if (mode === 'W') { const qb = Math.round(H - sceneH + 6) + 'px'; if (cv.dataset.qb !== qb) { cv.dataset.qb = qb; $('#quizUI').style.setProperty('--qb', qb); } }
@@ -2292,10 +2307,11 @@ function drawHeader(st) {
   const fs = (m.nBars > 1 ? (W < 520 ? 16 : 21) : 26) * K;
   cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${fs}px ${FONT}`;
   const put = (s, c, gapAfter) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + gapAfter; };
+  const simpleH = SET.simpleView && !ptOn() && m.nBars === 1 && metF(m) !== 1 && !songOnNow() && !pendingMeta;   // シンプル表示の 4/4 などは「4/4」だけ
   m.bars.forEach((bg, b) => {
     if (b) put('→', '#475569', 8 * K);
     put(m.sigs[b], '#e2e8f0', 8 * K);
-    bg.forEach((L, i) => { if (i) put('+', '#64748b', 4 * K); put(String(L), COLORS[L], 4 * K); });
+    if (!simpleH) bg.forEach((L, i) => { if (i) put('+', '#64748b', 4 * K); put(String(L), COLORS[L], 4 * K); });
     x += 6 * K;
   });
   const sOn = songOnNow(), sL = sOn ? song.bars.length : 0, sCur = sOn && st.has && st.songBar >= 0 ? st.songBar : -1;
@@ -2306,7 +2322,7 @@ function drawHeader(st) {
     const cb = sCur >= 0 ? song.bars[mod(sCur, sL)] : null, t1 = (cb && cb.mark ? `［${cb.mark}］` : '') + meterText(m, true) + '　', t2 = endNow ? 'この小節でおわり' : (nb.mark ? `次：［${nb.mark}］` : '次：') + (same ? '同じ' : songBarLabel(nx)) + (nb.t ? `　${tempoStr(nb.t)}` : ''), fs2 = Math.max(13, 13.5 * K);
     txt(t1, pad, y + 24 * K, fs2, '#e2e8f0', 800, 'left'); cx.font = `800 ${fs2}px ${FONT}`;
     txt(t2, pad + cx.measureText(t1).width, y + 24 * K, fs2, endNow ? '#fda4af' : same ? '#94a3b8' : LIME, 900, 'left');
-  } else {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
+  } else if (!simpleH) {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
     const fs2 = Math.max(13, 13.5 * K), maxW = W - 2 * pad - (isQuarter(m) ? 170 : 110) * K;
     let t = meterText(m) + (ptOn() || m.preset.tune || m.preset.cat === 'custom' ? '　' + m.preset.note : '');
     cx.font = `800 ${fs2}px ${FONT}`;
@@ -2319,7 +2335,7 @@ function drawHeader(st) {
   const tempoY = y + (x > W - 120 * K ? 24 * K : 0);
   txt(tempoY === y ? tm[0] : tm[0] + (tm[1] ? `（${tm[1]}）` : ''), W - pad, tempoY, (tempoY === y ? 18 : 14) * K, ramp ? LIME : '#67e8f9', 800, 'right');
   if (st.has && tempoY === y) {
-    const mt = (tm[1] ? tm[1] + '・' : '') + (sCur >= 0 ? `${mod(sCur, sL) + 1} / ${sL} 小節目` : `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`), mfs = Math.max(13, 12 * K);
+    const mt = (tm[1] && !simpleH ? tm[1] + '・' : '') + (sCur >= 0 ? `${mod(sCur, sL) + 1} / ${sL} 小節目` : `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`), mfs = Math.max(13, 12 * K);
     txt(mt, W - pad, y + 24 * K, mfs, '#a3b1c6', 600, 'right');
     cx.font = `600 ${mfs}px ${FONT}`;
     const lx = W - pad - cx.measureText(mt).width - 12 * K, age = barHeadAge(audioNow(), m), q = age < 0.7 ? 1 - age / 0.7 : 0;   // 小節の頭のランプ
@@ -5888,12 +5904,14 @@ function parseSong(text) {
   const z = String(text || '').replace(/[０-９Ａ-Ｚａ-ｚ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/[＋]/g, '+').replace(/[／]/g, '/').replace(/[＝]/g, '=')
     .replace(/[［【〔「]/g, '[').replace(/[］】〕」]/g, ']').replace(/[×xX＊*✕]/g, 'x').replace(/[、，,|｜→\n\r\t　;；]/g, ' ')
     .replace(/\s*\+\s*/g, '+').replace(/(\d)\s*x\s*(\d)/g, '$1x$2').replace(/([♩♪qeQE]|テンポ)\s*=\s*/g, '$1=');
-  const bars = [], err = []; let mark = null, tempo = null;
+  const bars = [], err = []; let mark = null, tempo = null, ramp = null;
   z.split(/\s+/).filter(t => t).forEach(tok => {
     let mm;
     if ((mm = tok.match(/^\[([^\]]{1,4})\]$/))) { mark = mm[1]; return; }   // 練習番号
-    if ((mm = tok.match(/^(♩|q|Q|テンポ)=(\d{2,3})$/))) { tempo = clamp(+mm[2] * 2, 80, 300); return; }   // ♩＝○（♪ の数になおす）
-    if ((mm = tok.match(/^(♪|e|E)=(\d{2,3})$/))) { tempo = clamp(+mm[2], 80, 300); return; }
+    if (/^(accel|accel\.|acc\.?|アッチェレランド|だんだん速く|cresc)$/i.test(tok)) { ramp = 'accel'; return; }   // ここから、次のテンポまで だんだん速く
+    if (/^(rit|rit\.|ritard\.?|rall|rall\.|リタルダンド|だんだん遅く)$/i.test(tok)) { ramp = 'rit'; return; }   // だんだん遅く
+    if ((mm = tok.match(/^(♩|q|Q|テンポ)=(\d{2,3})$/))) { tempo = clamp(+mm[2] * 2, 40, 600); return; }   // ♩＝○（♪ の数になおす）
+    if ((mm = tok.match(/^(♪|e|E)=(\d{2,3})$/))) { tempo = clamp(+mm[2], 40, 600); return; }
     mm = tok.match(/^(\d+\/\d+|[23](?:\+[23])*)(?:x(\d+))?$/);
     if (!mm) { err.push(tok); return; }
     let g = null; const sq = mm[1].match(/^(\d+)\/(\d+)$/);
@@ -5905,10 +5923,10 @@ function parseSong(text) {
     if (!g || g.length > 8 || g.reduce((a, v) => a + v, 0) > 16) { err.push(tok); return; }
     const n = clamp(+(mm[2] || 1), 1, 64);
     for (let i = 0; i < n && bars.length < SONG_MAX_BARS; i++) {
-      const b = { g: g.slice() }; if (i === 0 && mark) b.mark = mark; if (i === 0 && tempo) b.t = tempo;
+      const b = { g: g.slice() }; if (i === 0 && mark) b.mark = mark; if (i === 0 && tempo) b.t = tempo; if (i === 0 && ramp) b.ramp = ramp;
       bars.push(b);
     }
-    mark = null; tempo = null;
+    mark = null; tempo = null; ramp = null;
   });
   return { bars, err };
 }
@@ -5917,21 +5935,36 @@ const tempoStr = t => (t % 2 ? `♪=${t}` : `♩=${t / 2}`);
 function songText(bars) {
   const out = []; let i = 0;
   while (i < bars.length) {
-    let j = i; while (j + 1 < bars.length && bars[j + 1].g.join() === bars[i].g.join() && !bars[j + 1].mark && !bars[j + 1].t) j++;
+    let j = i; while (j + 1 < bars.length && bars[j + 1].g.join() === bars[i].g.join() && !bars[j + 1].mark && !bars[j + 1].t && !bars[j + 1].ramp) j++;
     const b = bars[i], g = b.g, sh = g.every(L => L === 2) && g.length !== 2 ? `${g.length}/4` : g.every(L => L === 3) && g.length > 1 ? `${g.length * 3}/8` : g.join('+');
-    out.push((b.mark ? `[${b.mark}] ` : '') + (b.t ? tempoStr(b.t) + ' ' : '') + sh + (j > i ? '×' + (j - i + 1) : ''));
+    out.push((b.mark ? `[${b.mark}] ` : '') + (b.t ? tempoStr(b.t) + ' ' : '') + (b.ramp ? b.ramp + ' ' : '') + sh + (j > i ? '×' + (j - i + 1) : ''));
     i = j + 1;
   }
   return out.join(', ');
 }
 const songBarLabel = g => `${barSig(g)} [${g.join('+')}]`;
 function songMetaOf(i) { return songMetas[mod(i, songMetas.length)]; }
+/* accel.／rit.：その小節から、次にテンポが書いてある小節まで、刻みごとに少しずつテンポを変える */
+function songRamps() {
+  if (!song) return;
+  song.bars.forEach(b => { delete b.rp; });
+  song.bars.forEach((b, i) => {
+    if (!b.ramp) return;
+    let j = i + 1; while (j < song.bars.length && !song.bars[j].t) j++;
+    if (j >= song.bars.length) return;   // 目標のテンポがない
+    const from = songTempoAt(i), to = song.bars[j].t; let total = 0;
+    for (let k = i; k < j; k++) total += songMetas[k].total;
+    let off = 0; for (let k = i; k < j; k++) { song.bars[k].rp = { from, to, off, total, kind: b.ramp }; off += songMetas[k].total; }
+  });
+}
+const rampBpm = (rp, sub) => rp.from + (rp.to - rp.from) * ((rp.off + sub) / rp.total);
 function songTempoAt(i) { if (!song) return null; for (let j = i; j >= 0; j--) if (song.bars[j].t) return song.bars[j].t; return song.t0; }
 function songSet(s) {   // 曲の進行を鳴らす（再生中なら次の小節の頭から）
   const { bars } = parseSong(s.text); if (!bars.length) return false;
   if (mode === 'V' || mode === 'W' || mode === 'F' || mode === 'X') setMode(lastMetaMode && lastMetaMode !== 'V' && lastMetaMode !== 'W' ? lastMetaMode : 'A');
   song = { name: s.name || '自分で作った進行', text: songText(bars), bars, note: s.note || '', t0: bpm, from: 0, to: bars.length - 1 };
   songMetas = bars.map(b => makeMeta({ cat: 'song', sig: barSig(b.g), bars: [b.g], note: b.g.map(L => L === 2 ? 'パン' : 'トマト').join('＋') }));
+  songRamps();
   selected = songMetas[0].preset;
   songPos = 0; songStartAt = 0; pendingMeta = null; songJump = null;
   if (bars[0].t) setBpm(bars[0].t);
@@ -5974,7 +6007,7 @@ function renderSongMap() {
   if (!on) { el.innerHTML = ''; return; }
   const L = song.bars.length;
   el.innerHTML = `<div class="sm-head"><b>🎵 ${song.name}</b><span>${L}小節${SET.songLoop ? `・${song.from + 1}〜${song.to + 1}小節をくり返す` : '・最後で止まる'}</span><button class="btn small" id="smEdit">✎ 進行</button></div>
-    <div class="sm-row" id="smRow">${song.bars.map((b, i) => `<button class="sm-cell ${i < song.from || i > song.to ? 'out' : ''}" data-i="${i}" title="${i + 1}小節目から">${b.mark ? `<span class="sm-mk">${b.mark}</span>` : ''}<span class="sm-no">${i + 1}</span><span class="sm-g">${b.g.map(L2 => `<i class="c${L2}">${L2}</i>`).join('')}</span>${b.t ? `<span class="sm-t">${tempoStr(b.t)}</span>` : ''}</button>`).join('')}</div>`;
+    <div class="sm-row" id="smRow">${song.bars.map((b, i) => `<button class="sm-cell ${i < song.from || i > song.to ? 'out' : ''}" data-i="${i}" title="${i + 1}小節目から">${b.mark ? `<span class="sm-mk">${b.mark}</span>` : ''}<span class="sm-no">${i + 1}</span><span class="sm-g">${b.g.map(L2 => `<i class="c${L2}">${L2}</i>`).join('')}</span>${b.t ? `<span class="sm-t">${tempoStr(b.t)}</span>` : ''}${b.ramp && b.rp ? `<span class="sm-t">${b.ramp === 'accel' ? '↗ accel.' : '↘ rit.'}</span>` : b.rp ? `<span class="sm-t" style="opacity:.6">${b.rp.kind === 'accel' ? '↗' : '↘'}</span>` : ''}</button>`).join('')}</div>`;
   el.querySelectorAll('.sm-cell').forEach(c => c.onclick = () => songSeek(+c.dataset.i));
   $('#smEdit').onclick = () => openDrawer('secSong');
   songMapMark(lastSongBar);
@@ -5999,10 +6032,10 @@ function renderSongEditor(fromText) {
   if (!songDraft.length) box.innerHTML = '<span class="empty">下のボタンで小節を足すか、上に文字で書いてください</span>';
   let i = 0, bar = 1;
   while (i < songDraft.length) {
-    let j = i; while (j + 1 < songDraft.length && songDraft[j + 1].g.join() === songDraft[i].g.join() && !songDraft[j + 1].mark && !songDraft[j + 1].t) j++;
+    let j = i; while (j + 1 < songDraft.length && songDraft[j + 1].g.join() === songDraft[i].g.join() && !songDraft[j + 1].mark && !songDraft[j + 1].t && !songDraft[j + 1].ramp) j++;
     const b = songDraft[i], n = j - i + 1, c = document.createElement('span');
     c.className = 'schip';
-    c.innerHTML = `${b.mark ? `<span class="smk">${b.mark}</span>` : ''}<span class="sn">${bar}${n > 1 ? '〜' + (bar + n - 1) : ''}</span>${b.t ? `<span class="st">${tempoStr(b.t)}</span>` : ''}${b.g.map(L => `<b class="c${L}">${L}</b>`).join('<i>+</i>')}${n > 1 ? `<span class="sx">×${n}</span>` : ''}<button class="sdel" title="消す">×</button>`;
+    c.innerHTML = `${b.mark ? `<span class="smk">${b.mark}</span>` : ''}<span class="sn">${bar}${n > 1 ? '〜' + (bar + n - 1) : ''}</span>${b.t ? `<span class="st">${tempoStr(b.t)}</span>` : ''}${b.ramp ? `<span class="st">${b.ramp === 'accel' ? '↗accel.' : '↘rit.'}</span>` : ''}${b.g.map(L => `<b class="c${L}">${L}</b>`).join('<i>+</i>')}${n > 1 ? `<span class="sx">×${n}</span>` : ''}<button class="sdel" title="消す">×</button>`;
     const a = i, cnt = n;
     c.querySelector('.sdel').onclick = () => { songDraft.splice(a, cnt); songDraftSave(); renderSongEditor(); };
     box.appendChild(c); bar += n; i = j + 1;
@@ -6024,10 +6057,24 @@ function songAddMark() {
   songDraft.push({ g: songDraft[songDraft.length - 1].g.slice(), mark: mk }); songDraftSave(); renderSongEditor();
   songMsg(`［${mk}］の小節を足しました（文字で、リズムやテンポを書きかえられます）`);
 }
+function songAddFlag(kind) {   // テンポを変える小節・accel.／rit. を始める小節を足す（拍子は1つ前の小節と同じ）
+  if (!songDraft.length) { songMsg('先に小節を足してください', true); return; }
+  const last = songDraft[songDraft.length - 1].g.slice();
+  if (kind === 't') {
+    const v = prompt('この小節からのテンポ（♩＝いくつ？　8分音符で数える曲は ♪160 のように）', '120'); if (!v) return;
+    const mm = String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).match(/(♪)?\s*(\d{2,3})/); if (!mm) return;
+    songDraft.push({ g: last, t: clamp(mm[1] ? +mm[2] : +mm[2] * 2, 40, 600) });
+    songMsg(`${tempoStr(songDraft[songDraft.length - 1].t)} の小節を足しました`);
+  } else {
+    songDraft.push({ g: last, ramp: kind });
+    songMsg(`${kind === 'accel' ? 'accel.（だんだん速く）' : 'rit.（だんだん遅く）'}の小節を足しました。続けて小節を足し、最後に「＋ テンポを変える」で、着いたときのテンポを入れてください`);
+  }
+  songDraftSave(); renderSongEditor();
+}
 function initSongEditor() {
   const ADD = [[2, 2], [2, 2, 2], [2, 2, 2, 2], [2, 2, 2, 2, 2], [3, 3], [3, 3, 3], [2, 3], [3, 2], [2, 2, 3], [2, 3, 2], [3, 2, 2], [3, 3, 2], [2, 2, 2, 3]];
   const box = $('#songAdd');
-  ADD.forEach(g => { const b = document.createElement('button'); b.className = 'btn small'; b.innerHTML = `＋ ${g.map(L => `<span class="c${L}">${L}</span>`).join('+')}<span class="c-mute" style="font-size:11px"> ${barSig(g)}</span>`; b.onclick = () => songAdd(g); box.appendChild(b); });
+  ADD.forEach(g => { const b = document.createElement('button'); b.className = 'btn small'; const uni = g.every(L => L === g[0]); b.innerHTML = uni ? `＋ ${barSig(g)}` : `＋ ${barSig(g)}<span class="c-mute" style="font-size:11px"> ${g.join('+')}</span>`; b.onclick = () => songAdd(g); box.appendChild(b); });
   const mine = document.createElement('button'); mine.className = 'btn small'; mine.textContent = '＋ 🃏作ったリズム';
   mine.onclick = () => { if (buildCards.length >= 2) songAdd(buildCards); else songMsg('「リズムを作る」でカードを2枚以上並べてください', true); };
   box.appendChild(mine);
@@ -6037,6 +6084,7 @@ function initSongEditor() {
   });
   $('#songRep').onclick = () => { if (songDraft.length) songAdd(songDraft[songDraft.length - 1].g); };
   $('#songMark').onclick = songAddMark;
+  $('#songTempo').onclick = () => songAddFlag('t'); $('#songAccel').onclick = () => songAddFlag('accel'); $('#songRit').onclick = () => songAddFlag('rit');
   $('#songUndo').onclick = () => { songDraft.pop(); songDraftSave(); renderSongEditor(); };
   $('#songClear').onclick = () => { if (!songDraft.length || confirm('小節の並びを全部消しますか？')) { songDraft = []; songDraftSave(); renderSongEditor(); } };
   $('#songPlay').onclick = () => {
@@ -6614,7 +6662,7 @@ document.querySelectorAll('.modal').forEach(m => {
 $('#drClose').onclick = closeDrawer;
 $('#barSet').onclick = () => $('#app').classList.contains('dr-open') ? closeDrawer() : openDrawer();
 $('#barRhythm').onclick = () => { if (mode === 'W') return; if (mode === 'F' || mode === 'V' || mode === 'X') { openDrawer(mode === 'F' ? 'secPoly' : mode === 'V' ? 'secCompare' : 'secTup'); return; } renderMetro(); openModal('#shMeter'); };
-$('#modeCur').onclick = () => { sheetMore = false; renderModes(); document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === mode)); openModal('#modeSheet'); $('#sheetBox').scrollTop = 0; updateMoreHint(); };
+$('#modeCur').onclick = () => { $('#simpleSw').classList.toggle('on', !SET.simpleView); sheetMore = false; renderModes(); document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === mode)); openModal('#modeSheet'); $('#sheetBox').scrollTop = 0; updateMoreHint(); };
 function updateMoreHint() { const b = $('#sheetBox'); $('#moreHint').classList.toggle('off', b.scrollTop + b.clientHeight >= b.scrollHeight - 30); }
 $('#sheetBox').addEventListener('scroll', updateMoreHint);
 $('#helpBtn').onclick = e => {
@@ -6835,6 +6883,30 @@ cv.addEventListener('pointerdown', e => {   // 拍子記号をタップしたら
   cv.dataset.sigHit = '';
 }, true);
 cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; const tp = cvPos(e); tapPos = { x: tp[0], y: tp[1], t: performance.now() }; if (tapActive() && !($('#app').classList.contains('dr-open') && drawerOverlay())) { e.preventDefault(); onTap(tapTime(e)); } });
+/* 横スワイプで見せ方を切り替える（左へ＝次、右へ＝前）。学ぶ・あそぶの画面では切り替えない */
+let swipe0 = null, swipeTipT = 0;
+const VIEW_ORDER = MODE_ORDER.filter(k => MODE_INFO[k].g !== 'g4');
+function swipeView(d) {
+  const i = VIEW_ORDER.indexOf(mode); if (i < 0) return false;
+  const k = VIEW_ORDER[mod(i + d, VIEW_ORDER.length)]; setMode(k);
+  const tip = $('#swipeTip'), inf = MODE_INFO[k];
+  tip.innerHTML = `${inf.em || ''} ${inf.name}<small>${VIEW_ORDER.indexOf(k) + 1} / ${VIEW_ORDER.length}　← スワイプで切り替え →</small>`;
+  tip.classList.add('on'); clearTimeout(swipeTipT); swipeTipT = setTimeout(() => tip.classList.remove('on'), 1100);
+  return true;
+}
+cv.addEventListener('pointerdown', e => { swipe0 = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, true);
+cv.addEventListener('pointerup', e => {
+  const s0 = swipe0; swipe0 = null; if (!s0 || s0.id !== e.pointerId) return;
+  const dx = e.clientX - s0.x, dy = e.clientY - s0.y;
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || performance.now() - s0.t > 800) return;
+  if (swipeView(dx < 0 ? 1 : -1)) cv.dataset.sigHit = '1';   // スワイプのあとのクリックで再生／停止しない
+});
+cv.addEventListener('pointercancel', () => { swipe0 = null; });
+if (!SET.swipeHint) {   // はじめての人に、スワイプできることを1回だけ知らせる
+  setTimeout(() => { const tip = $('#swipeTip'); if (VIEW_ORDER.indexOf(mode) < 0) return;
+    tip.innerHTML = `← 絵を横にスワイプ →<small>見せ方（電車・歯車・花火…）が切り替わります</small>`; tip.classList.add('on');
+    setTimeout(() => tip.classList.remove('on'), 3000); SET.swipeHint = true; saveSet(); }, 900);
+}
 cv.addEventListener('click', () => {
   if (cv.dataset.sigHit) { cv.dataset.sigHit = ''; return; }
   if ($('#app').classList.contains('dr-open') && drawerOverlay()) { closeDrawer(); return; }
@@ -6987,6 +7059,7 @@ function renderMetro() {
   const mk = (box, list, sub) => { box.innerHTML = ''; list.forEach(([sig, g]) => { const p = mP(sig, g); box.appendChild(optB(presetKey(p) === cur && !songActive(), `${sig}<small>${sub(g)}</small>`, () => { pickMeter(p); closeModals(); })); }); };
   mk($('#gBasic'), M_BASIC, g => `♩ × ${g.length}`); mk($('#gComp'), M_COMP, g => `♩. × ${g.length}`); mk($('#gOdd'), M_ODD, g => g.join('+'));
   $('#nVal').textContent = f === 2 && m.nBars === 1 ? m.groups.length : 4;
+  $('#downSw').classList.toggle('on', SET.downbeat);
   const ar = $('#accRow'); ar.innerHTML = ''; const acc = accOf(m);
   m.groups.forEach((L, g) => { const b = document.createElement('button'); b.className = 'acc l' + acc[g]; b.innerHTML = `${g - m.groups.findIndex((_, i) => m.barOfGroup[i] === m.barOfGroup[g]) + 1}<small>${['×', '弱', '中', '強'][acc[g]]}${f === 2 ? '' : '・' + L}</small>`;
     b.onclick = () => { const v = accOf(m)[g]; setAcc(m, g, v === 0 ? 3 : v - 1); renderMetro(); }; ar.appendChild(b); });
@@ -6999,6 +7072,7 @@ function renderMetro() {
   // チップ
   $('#vSub').textContent = (subList().find(x => x[0] === SET.msub) || subList()[0])[1];
   $('#vSound').textContent = (MSOUNDS.find(x => x[0] === SET.msound) || MSOUNDS[0])[1];
+  const pb = $('#progBtn'); if (pb) pb.classList.toggle('on', songActive());
   document.querySelectorAll('#prac .pchip[data-p]').forEach(b => {
     const k = b.dataset.p, on = k === 'count' ? SET.countOn : k === 'ramp' ? SET.rampOn : k === 'mute' ? (SET.muteOn || SET.rand > 0) : k === 'timer' ? SET.timerMin > 0 : SET.tapOn;
     b.classList.toggle('on', !!on); if (k === 'timer') b.textContent = SET.timerMin ? `タイマー ${SET.timerMin}分` : 'タイマー';
@@ -7028,6 +7102,8 @@ $('#trySound').onclick = trySound;
 $('#vol2').oninput = e => { volume = +e.target.value / 100; if (master) master.gain.value = volume; const v = $('#vol'); if (v) { v.value = e.target.value; } const vv = $('#volVal'); if (vv) vv.textContent = e.target.value; };
 $('#nDn').onclick = () => { const m = makeMetaCached(selected), n = clamp((metF(m) === 2 && m.nBars === 1 ? m.groups.length : 4) - 1, 1, 12); pickMeter(mP(`${n}/4`, Array(n).fill(2))); };
 $('#nUp').onclick = () => { const m = makeMetaCached(selected), n = clamp((metF(m) === 2 && m.nBars === 1 ? m.groups.length : 4) + 1, 1, 12); pickMeter(mP(`${n}/4`, Array(n).fill(2))); };
+$('#downSw').onclick = () => { SET.downbeat = !SET.downbeat; SET.accMap = {}; saveSet(); renderMetro(); };
+$('#simpleSw').onclick = () => { SET.simpleView = !SET.simpleView; saveSet(); $('#simpleSw').classList.toggle('on', !SET.simpleView); };
 $('#accReset').onclick = () => { delete SET.accMap[metaKey(makeMetaCached(selected))]; saveSet(); renderMetro(); };
 $('#moreRhythm').onclick = () => { closeModals(); openDrawer('secRhythm'); };
 const swM = (id, fn) => { $(id).onclick = () => { fn(); saveSet(); renderMetro(); refreshPanels(); }; };
@@ -7041,6 +7117,7 @@ document.querySelectorAll('#rampEvery2 button').forEach(b => b.onclick = () => {
 [['#segMOn', 'mOn'], ['#segMOff', 'mOff'], ['#segRand', 'rand'], ['#segTimer', 'timerMin']].forEach(([id, k]) => document.querySelectorAll(id + ' button').forEach(b => b.onclick = () => { SET[k] = +b.dataset.v; saveSet(); renderMetro(); }));
 document.querySelectorAll('#tapTarget2 button').forEach(b => b.onclick = () => { SET.tapHead = b.dataset.v === 'head'; saveSet(); renderMetro(); refreshPanels(); });
 $('#tapReset2').onclick = () => $('#tapReset').onclick();
+$('#progBtn').onclick = () => { closeModals(); if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V' || mode === 'Y') setMode(lastMetaMode || 'MB'); openDrawer('secSong'); };
 $('#toDrawerPrac').onclick = () => { closeModals(); openDrawer('secPractice'); };
 /* ★ プリセット */
 let mPresets = []; try { mPresets = JSON.parse(localStorage.getItem('vm_presets') || '[]'); } catch (e) {}
