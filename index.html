@@ -4379,21 +4379,119 @@ const FW = {
   bar: { cols: ['#f472b6', '#f9a8d4', '#ffffff'], inner: '#a3e635' },
 };
 /* @@BEGIN drawFireworks */
+// 花火：オフスクリーンのキャンバス（空・町・水面・光の粒）
+let fwBgCache = null, fwCityCache = null, fwLayer = null;
+const fwSprites = {};
+function fwCanvas(w, h) {
+  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(w * d)); c.height = Math.max(1, Math.ceil(h * d));
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { c, g, d, w, h };
+}
+// 光の粒（中心が白く、まわりが色でにじむ）
+function fwSprite(col, core = 1) {
+  const key = col + core;
+  if (fwSprites[key]) return fwSprites[key];
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, `rgba(255,255,255,${core})`); gr.addColorStop(0.1, hexA(col, 1)); gr.addColorStop(0.28, hexA(col, 0.42));
+  gr.addColorStop(0.55, hexA(col, 0.1)); gr.addColorStop(1, hexA(col, 0));
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return (fwSprites[key] = c);
+}
+// けむり（やわらかい灰色のかたまり）
+function fwSmokeSprite() {
+  if (fwSprites.smoke) return fwSprites.smoke;
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(160,170,190,0.55)'); gr.addColorStop(0.5, 'rgba(120,130,155,0.22)'); gr.addColorStop(1, 'rgba(100,110,140,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return (fwSprites.smoke = c);
+}
+// 夜空（グラデーション・星・町明かりのもや）
+function fwSky(horizon) {
+  const key = [W, horizon, K].join();
+  if (fwBgCache && fwBgCache.key === key) return fwBgCache.cv.c;
+  const cv = fwCanvas(W, horizon), g = cv.g;
+  const sky = g.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, '#01020a'); sky.addColorStop(0.45, '#060b24'); sky.addColorStop(0.8, '#141640'); sky.addColorStop(1, '#2b2048');
+  g.fillStyle = sky; g.fillRect(0, 0, W, horizon);
+  const glow = g.createLinearGradient(0, horizon * 0.7, 0, horizon);   // 町明かりで地平線がぼんやり明るい
+  glow.addColorStop(0, 'rgba(251,146,60,0)'); glow.addColorStop(1, 'rgba(251,146,60,0.16)');
+  g.fillStyle = glow; g.fillRect(0, horizon * 0.7, W, horizon * 0.3);
+  for (let i = 0; i < 6; i++) {   // うすい雲
+    const x = hash01(i + 900) * W, y = horizon * (0.15 + 0.6 * hash01(i + 930)), rx = W * (0.25 + 0.3 * hash01(i + 960));
+    g.save(); g.translate(x, y); g.scale(1, 0.12);
+    const cg = g.createRadialGradient(0, 0, 0, 0, 0, rx); cg.addColorStop(0, 'rgba(90,100,150,0.06)'); cg.addColorStop(1, 'rgba(90,100,150,0)');
+    g.fillStyle = cg; g.beginPath(); g.arc(0, 0, rx, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  for (let i = 0; i < 160; i++) {   // 星
+    const y = Math.pow(hash01(i + 50), 1.6) * horizon * 0.85, a = (0.25 + 0.6 * hash01(i + 5)) * (1 - y / horizon);
+    const r = (0.35 + 0.8 * Math.pow(hash01(i + 77), 3)) * K;
+    g.fillStyle = `rgba(${220 + 35 * hash01(i + 3) | 0},${225 + 20 * hash01(i + 4) | 0},255,${a})`;
+    g.beginPath(); g.arc(hash01(i) * W, y, r, 0, Math.PI * 2); g.fill();
+  }
+  fwBgCache = { key, cv }; return cv.c;
+}
+// 町なみ（遠いビル・近いビル・窓の明かり・川岸の街灯）
+function fwCity(horizon) {
+  const key = [W, horizon, K].join();
+  if (fwCityCache && fwCityCache.key === key) return fwCityCache;
+  const cv = fwCanvas(W, horizon), g = cv.g, lamps = [], beacons = [];
+  // 遠いビル（かすんで青っぽい）
+  for (let x = -10 * K, i = 0; x < W; i++) {
+    const bw = (18 + 30 * hash01(i + 610)) * K, h = (20 + 52 * hash01(i + 640)) * K;
+    g.fillStyle = '#121735'; g.fillRect(x, horizon - h, bw, h);
+    for (let wy = horizon - h + 5 * K; wy < horizon - 3 * K; wy += 6 * K)
+      for (let wx = x + 3 * K; wx < x + bw - 3 * K; wx += 5 * K)
+        if (hash01(i * 131 + wx * 0.7 + wy * 1.3) > 0.82) { g.fillStyle = 'rgba(253,230,138,0.28)'; g.fillRect(wx, wy, 1.6 * K, 2 * K); }
+    x += bw + 2 * K;
+  }
+  // 近いビル
+  for (let x = -6 * K, i = 0; x < W; i++) {
+    const bw = (26 + 34 * hash01(i + 400)) * K, h = (16 + 50 * hash01(i + 430)) * K, top = horizon - h;
+    const bg = g.createLinearGradient(x, 0, x + bw, 0); bg.addColorStop(0, '#0c1226'); bg.addColorStop(1, '#05080f');
+    g.fillStyle = bg; g.fillRect(x, top, bw, h);
+    g.fillStyle = 'rgba(148,163,210,0.18)'; g.fillRect(x, top, bw, 1 * K);   // 屋上のふち
+    if (hash01(i + 470) > 0.6) {   // アンテナと赤い灯
+      const ax = x + bw * (0.3 + 0.4 * hash01(i + 480)), ah2 = (8 + 14 * hash01(i + 490)) * K;
+      g.strokeStyle = '#0b1020'; g.lineWidth = 1.2 * K; g.beginPath(); g.moveTo(ax, top); g.lineTo(ax, top - ah2); g.stroke();
+      beacons.push({ x: ax, y: top - ah2, ph: hash01(i + 500) * 6 });
+    } else if (hash01(i + 520) > 0.5) {   // 屋上の箱
+      g.fillStyle = '#070b17'; g.fillRect(x + bw * 0.2, top - 4 * K, bw * 0.3, 4 * K);
+    }
+    const warm = ['rgba(253,224,71,', 'rgba(254,215,170,', 'rgba(224,242,254,'];
+    for (let wy = top + 5 * K; wy < horizon - 4 * K; wy += 7 * K)
+      for (let wx = x + 4 * K; wx < x + bw - 5 * K; wx += 6 * K) {
+        const r = hash01(i * 97 + wx * 0.91 + wy * 1.7);
+        if (r > 0.66) { g.fillStyle = warm[(r * 30 | 0) % 3] + (0.35 + 0.5 * (r - 0.66) / 0.34) + ')'; g.fillRect(wx, wy, 2.4 * K, 3.2 * K); }
+      }
+    x += bw + (1 + 6 * hash01(i + 450)) * K;
+  }
+  // 川岸と街灯
+  g.fillStyle = '#04060c'; g.fillRect(0, horizon - 3 * K, W, 3 * K);
+  for (let x = 14 * K; x < W; x += 34 * K) {
+    lamps.push(x);
+    const lg = g.createRadialGradient(x, horizon - 6 * K, 0, x, horizon - 6 * K, 7 * K);
+    lg.addColorStop(0, 'rgba(255,214,150,0.9)'); lg.addColorStop(0.25, 'rgba(255,180,90,0.35)'); lg.addColorStop(1, 'rgba(255,180,90,0)');
+    g.fillStyle = lg; g.fillRect(x - 7 * K, horizon - 13 * K, 14 * K, 14 * K);
+  }
+  fwCityCache = { key, c: cv.c, lamps, beacons }; return fwCityCache;
+}
+
 function drawFireworks(st, now, ah) {
   const m = st.m, T = m.total, dur = 60 / bpm;
   const S = st.has ? st.sc + st.frac : 0;                       // いま何個目の8分音符か（小数つき）
   const horizon = ah * 0.8, base = Math.min(W, ah);
   const rise = Math.min(0.7, Math.max(0.35, dur * 1.6));        // 打ち上げにかかる時間
-  const g0 = 34 * K;                                            // 重力（火の粉が下がる量）
+  const g0 = 38 * K;                                            // 重力（火の粉が下がる量）
 
-  // 空
-  const sky = cx.createLinearGradient(0, 0, 0, horizon);
-  sky.addColorStop(0, '#020617'); sky.addColorStop(1, '#111a3a');
-  cx.fillStyle = sky; cx.fillRect(0, 0, W, horizon);
-  for (let i = 0; i < 60; i++) {
-    const tw = 0.3 + 0.3 * Math.sin(now * 1.3 + i * 2.1);
-    cx.fillStyle = `rgba(226,232,240,${tw * (0.4 + 0.6 * hash01(i + 5))})`;
-    cx.fillRect(hash01(i) * W, hash01(i + 50) * horizon * 0.8, 1.5 * K, 1.5 * K);
+  // 空（キャッシュ）＋またたく星
+  cx.drawImage(fwSky(horizon), 0, 0, W, horizon);
+  for (let i = 0; i < 14; i++) {
+    const tw = Math.max(0, Math.sin(now * (1.1 + hash01(i + 700)) + i * 2.1));
+    cx.fillStyle = `rgba(241,245,255,${0.7 * tw * tw})`;
+    const x = hash01(i + 720) * W, y = hash01(i + 740) * horizon * 0.5, r = 0.9 * K;
+    cx.fillRect(x - r, y - r * 0.3, r * 2, r * 0.6); cx.fillRect(x - r * 0.3, y - r, r * 0.6, r * 2);
   }
 
   // 花火の場所：まとまりの位置で横に並べる（毎小節同じ場所）
@@ -4406,86 +4504,156 @@ function drawFireworks(st, now, ah) {
 
   // 空の明るさ（直前の大きな花火）
   const lastHead = (() => { for (let p = Math.floor(S); p > S - 8; p--) if (m.starts.includes(mod(p, T))) return p; return null; })();
+  let flash = 0, flashCol = '#ffffff', flashX = W / 2;
   if (st.has && lastHead !== null) {
     const age = (S - lastHead) * dur, sp = spot(lastHead);
-    if (age >= 0 && age < 0.5) {
-      const fl = cx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, base * 0.9);
-      fl.addColorStop(0, hexA(sp.bar ? FW.bar.cols[0] : FW[sp.L].cols[0], 0.22 * (1 - age / 0.5)));
-      fl.addColorStop(1, 'rgba(0,0,0,0)');
+    if (age >= 0 && age < 0.6) {
+      flash = Math.pow(1 - age / 0.6, 2); flashCol = sp.bar ? FW.bar.cols[0] : FW[sp.L].cols[0]; flashX = sp.x;
+      const fl = cx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, base * 0.95);
+      fl.addColorStop(0, hexA(flashCol, 0.26 * flash)); fl.addColorStop(0.5, hexA(flashCol, 0.08 * flash)); fl.addColorStop(1, 'rgba(0,0,0,0)');
       cx.fillStyle = fl; cx.fillRect(0, 0, W, horizon);
     }
   }
 
-  // 花火を描く（水面に映すためにもう一度使う）
-  const drawAll = (alphaMul) => {
-    cx.save(); cx.globalCompositeOperation = 'lighter';
-    if (!st.has) { cx.restore(); return; }
-    const pMin = Math.floor(S - 2.6 / dur) - 1, pMax = Math.ceil(S + rise / dur) + 1;
+  // 花火を別のキャンバスに描く（そのまま空に重ね、水面にもゆらして映す）
+  if (!fwLayer || fwLayer.w !== W || fwLayer.h !== horizon) fwLayer = fwCanvas(W, horizon);
+  const c = fwLayer.g, dp = fwLayer.d;
+  c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, fwLayer.c.width, fwLayer.c.height); c.setTransform(dp, 0, 0, dp, 0, 0);
+  c.globalCompositeOperation = 'lighter'; c.lineCap = 'round';
+  const dot = (col, x, y, s, a, core = 1) => { if (a <= 0.01) return; c.globalAlpha = Math.min(1, a); c.drawImage(fwSprite(col, core), x - s / 2, y - s / 2, s, s); };
+  const smokes = [];
+  if (st.has) {
+    const pMin = Math.floor(S - 4 / dur) - 1, pMax = Math.ceil(S + rise / dur) + 1;
     for (let p = pMin; p <= pMax; p++) {
       if (p < 0) continue;
-      const c = mod(p, T), head = m.starts.includes(c), dt = (S - p) * dur;   // dt：開いてからの時間（マイナスは開く前）
+      const cc = mod(p, T), head = m.starts.includes(cc), dt = (S - p) * dur;   // dt：開いてからの時間（マイナスは開く前）
       const sp = spot(p);
-      if (head && dt < 0 && dt > -rise) {                       // 打ち上げ中の玉
-        const q = 1 + dt / rise, e = 1 - Math.pow(1 - q, 2.2);
-        const x = sp.x + (hash01(p) - 0.5) * 10 * K, y = horizon - (horizon - sp.y) * e;
-        for (let i = 0; i < 6; i++) {
-          const yy = y + i * 9 * K * (1 - q * 0.5);
-          cx.fillStyle = `rgba(254,240,138,${alphaMul * (0.8 - i * 0.13)})`;
-          cx.beginPath(); cx.arc(x + Math.sin(p + i) * 1.5 * K, yy, (2.6 - i * 0.3) * K, 0, Math.PI * 2); cx.fill();
+      if (head && dt < 0 && dt > -rise) {                       // 打ち上げ中の玉：火の粉の尾を引いてのぼる
+        const q = 1 + dt / rise, pos = qq => { const e = 1 - Math.pow(1 - qq, 2.2); return { x: sp.x + (hash01(p) - 0.5) * 10 * K + Math.sin(qq * 9 + p) * 1.5 * K * (1 - qq), y: horizon - (horizon - sp.y) * e }; };
+        const P = pos(q);
+        for (let i = 1; i < 12; i++) {
+          const qq = q - i * 0.025; if (qq < 0) break;
+          const o = pos(qq), fall = i * i * 0.25 * K;
+          dot(i % 3 ? '#fdba74' : '#fde68a', o.x + (hash01(p * 9 + i) - 0.5) * 3 * K * i * 0.3, o.y + fall, (5 - i * 0.3) * K, (1 - i / 12) * 0.7, 0.6);
         }
+        dot('#fff7ed', P.x, P.y, 12 * K, 0.95);
+        continue;
       }
       if (dt < 0) continue;
       if (head) {                                               // 大きな花火
         const F = FW[sp.L], life = F.life, R = base * F.size * (sp.bar ? 1.12 : 1);
+        if (dt < 4) smokes.push({ sp, dt, R, col: sp.bar ? FW.bar.cols[0] : F.cols[0] });
         if (dt > life) continue;
         const cols = sp.bar ? FW.bar.cols : F.cols, tau = 0.22;
         const rings = sp.bar ? [[1, F.n], [0.55, Math.round(F.n * 0.6)]] : [[1, F.n]];
+        const lifeQ = dt / life;
         rings.forEach(([rs, n], ri) => {
           for (let i = 0; i < n; i++) {
             const a = (i / n) * Math.PI * 2 + hash01(p * 31 + i) * 0.12, v = rs * (0.82 + 0.18 * hash01(p * 17 + i));
-            const disp = t => R * v * (1 - Math.exp(-t / tau));
-            const x1 = sp.x + Math.cos(a) * disp(dt), y1 = sp.y + Math.sin(a) * disp(dt) + g0 * dt * dt;
-            const t0 = Math.max(0, dt - 0.07), x0 = sp.x + Math.cos(a) * disp(t0), y0 = sp.y + Math.sin(a) * disp(t0) + g0 * t0 * t0;
-            let al = Math.pow(1 - dt / life, 1.4);
-            if (sp.L === 3 && dt > 0.6) al *= 0.55 + 0.45 * Math.sin(now * 40 + i * 1.7);   // トマト：きらきら長く残る
+            const ca = Math.cos(a), sa = Math.sin(a);
+            const at = t => { const dd = R * v * (1 - Math.exp(-t / tau)); return [sp.x + ca * dd, sp.y + sa * dd + g0 * t * t]; };
+            let al = Math.pow(1 - lifeQ, 1.3);
+            if (sp.L === 3 && dt > 0.6) al *= 0.45 + 0.55 * Math.max(0, Math.sin(now * 40 + i * 1.7));   // トマト：きらきら長く残る
             const col = ri === 1 ? FW.bar.inner : cols[i % cols.length];
-            cx.strokeStyle = hexA(col, al * alphaMul); cx.lineWidth = (ri ? 2 : 2.6) * K; cx.lineCap = 'round';
-            cx.beginPath(); cx.moveTo(x0, y0); cx.lineTo(x1, y1); cx.stroke();
+            // しっぽ（さっきまでいた場所をたどって、だんだん消える）
+            const tl = 0.06 + 0.12 * (1 - lifeQ);
+            const p1 = at(dt), p2 = at(Math.max(0, dt - tl * 0.35)), p3 = at(Math.max(0, dt - tl * 0.7)), p4 = at(Math.max(0, dt - tl));
+            c.globalAlpha = al * 0.25; c.strokeStyle = col; c.lineWidth = 2.6 * K;
+            c.beginPath(); c.moveTo(p4[0], p4[1]); c.lineTo(p3[0], p3[1]); c.lineTo(p2[0], p2[1]); c.stroke();
+            c.globalAlpha = al * 0.7; c.lineWidth = 1.5 * K;
+            c.beginPath(); c.moveTo(p3[0], p3[1]); c.lineTo(p2[0], p2[1]); c.lineTo(p1[0], p1[1]); c.stroke();
+            dot(col, p1[0], p1[1], (ri ? 10 : 13) * K * (1 - lifeQ * 0.45), al, dt < 0.3 ? 1 : 0.75);
           }
         });
-        if (dt < 0.12) {                                        // 開いた瞬間の光
-          cx.fillStyle = `rgba(255,255,255,${alphaMul * (1 - dt / 0.12)})`;
-          cx.beginPath(); cx.arc(sp.x, sp.y, R * 0.25 * (1 + dt * 4), 0, Math.PI * 2); cx.fill();
+        if (dt < 0.16) {                                        // 開いた瞬間の光
+          const q = dt / 0.16;
+          dot('#ffffff', sp.x, sp.y, R * (0.9 + q * 1.2), 1 - q);
+          dot(cols[0], sp.x, sp.y, R * (2 + q), (1 - q) * 0.6, 0);
         }
-      } else if (dt < 0.45) {                                   // 刻み：小さな火花
-        const n = 12, q = dt / 0.45, R2 = base * 0.05;
+      } else if (dt < 0.5) {                                    // 刻み：小さな火花（パチッ）
+        const n = 14, q = dt / 0.5, R2 = base * 0.055;
         const ox = sp.x + (hash01(p * 3) - 0.5) * base * 0.18, oy = sp.y + (hash01(p * 5) - 0.3) * base * 0.12;
+        const col = sp.bar ? '#f9a8d4' : FW[sp.L].cols[0];
         for (let i = 0; i < n; i++) {
-          const a = i / n * Math.PI * 2 + p, d = R2 * (1 - Math.exp(-dt / 0.08));
-          cx.fillStyle = hexA(i % 2 ? '#ffffff' : (sp.bar ? '#f9a8d4' : FW[sp.L].cols[0]), (1 - q) * alphaMul);
-          cx.beginPath(); cx.arc(ox + Math.cos(a) * d, oy + Math.sin(a) * d + 10 * K * dt, 1.8 * K, 0, Math.PI * 2); cx.fill();
+          const a = i / n * Math.PI * 2 + p, dd = t => R2 * (0.7 + 0.3 * hash01(p + i * 3)) * (1 - Math.exp(-t / 0.08));
+          const x1 = ox + Math.cos(a) * dd(dt), y1 = oy + Math.sin(a) * dd(dt) + 14 * K * dt * dt * 4;
+          const t0 = Math.max(0, dt - 0.06), x0 = ox + Math.cos(a) * dd(t0), y0 = oy + Math.sin(a) * dd(t0) + 14 * K * t0 * t0 * 4;
+          c.globalAlpha = (1 - q) * 0.5; c.strokeStyle = col; c.lineWidth = 1.2 * K;
+          c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+          dot(i % 2 ? '#ffffff' : col, x1, y1, 5.5 * K, 1 - q, 0.8);
         }
+        if (dt < 0.08) dot(col, ox, oy, 24 * K, 1 - dt / 0.08);
       }
     }
-    cx.restore();
-  };
-  drawAll(1);
+  }
+  c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
 
-  // 町と川（水面に花火が映る）
-  cx.fillStyle = '#030712'; cx.fillRect(0, horizon, W, ah - horizon);
-  cx.save(); cx.beginPath(); cx.rect(0, horizon + 4 * K, W, ah - horizon); cx.clip();
-  cx.translate(0, 2 * horizon + 8 * K); cx.scale(1, -1); cx.globalAlpha = 0.28; drawAll(1); cx.restore();
-  for (let i = 0; i < 9; i++) {                                // 水面のゆらぎ
-    cx.fillStyle = 'rgba(148,163,184,0.06)';
-    cx.fillRect(0, horizon + (8 + i * 9) * K, W, 1 * K);
+  // けむり（開いたあとに残り、風で流れる）
+  if (smokes.length) {
+    const sm = fwSmokeSprite();
+    smokes.forEach(({ sp, dt, R, col }) => {
+      const a = Math.min(1, dt / 0.3) * (1 - dt / 4);
+      for (let k = 0; k < 5; k++) {
+        const ang = hash01(k + sp.g * 5) * Math.PI * 2, rr2 = R * (0.3 + 0.5 * hash01(k + 40)) * (0.6 + 0.4 * Math.min(1, dt));
+        const s = R * (1.1 + 0.4 * hash01(k + 80)) * (0.8 + dt * 0.25);
+        const x = sp.x + Math.cos(ang) * rr2 + dt * 9 * K, y = sp.y + Math.sin(ang) * rr2 * 0.7 + dt * 4 * K;
+        cx.globalAlpha = a * 0.3; cx.drawImage(sm, x - s / 2, y - s / 2, s, s);
+      }
+      if (dt < 0.8) {   // 花火の光に照らされたけむり
+        cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = (1 - dt / 0.8) * 0.35;
+        cx.drawImage(fwSprite(col, 0), sp.x - R, sp.y - R, R * 2, R * 2); cx.globalCompositeOperation = 'source-over';
+      }
+    });
+    cx.globalAlpha = 1;
   }
-  const bw0 = 38 * K;
-  for (let i = 0; i * bw0 < W + bw0; i++) {
-    const h = (12 + 46 * hash01(i + 400)) * K, x = i * bw0 - 6 * K;
-    cx.fillStyle = '#060b18'; cx.fillRect(x, horizon - h, bw0 * (0.75 + 0.3 * hash01(i + 9)), h + 3 * K);
-    for (let wy = horizon - h + 6 * K; wy < horizon - 4 * K; wy += 9 * K)
-      if (hash01(i * 17 + Math.round(wy)) > 0.7) { cx.fillStyle = 'rgba(253,224,71,0.45)'; cx.fillRect(x + 6 * K, wy, 3 * K, 4 * K); }
+  // 花火を空に重ねる
+  cx.save(); cx.globalCompositeOperation = 'lighter'; cx.drawImage(fwLayer.c, 0, 0, W, horizon); cx.restore();
+
+  // 川の水面
+  const hR = ah - horizon, city = fwCity(horizon);
+  const wg = cx.createLinearGradient(0, horizon, 0, ah);
+  wg.addColorStop(0, '#0d1230'); wg.addColorStop(0.3, '#060a1c'); wg.addColorStop(1, '#020309');
+  cx.fillStyle = wg; cx.fillRect(0, horizon, W, hR);
+  if (flash > 0) {   // 水面も一瞬明るく
+    const fl = cx.createRadialGradient(flashX, horizon, 0, flashX, horizon, base * 0.7);
+    fl.addColorStop(0, hexA(flashCol, 0.16 * flash)); fl.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = fl; cx.fillRect(0, horizon, W, hR);
   }
+  // 水面に映る花火と町（さざ波で横にゆれる）
+  const strip = 3 * K, sc0 = fwLayer.d, cc2 = city.c, sc1 = cc2.width / W;
+  for (let d0 = 0; d0 < hR; d0 += strip) {
+    const sy = horizon - d0 - strip; if (sy < 0) break;
+    const f = d0 / hR, off = Math.sin(d0 * 0.42 / K + now * 2.2) * (0.6 + 3 * f) * K + Math.sin(d0 * 0.13 / K - now * 1.3) * 1.5 * K * f;
+    cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.5 * (1 - f * 0.7);
+    cx.drawImage(fwLayer.c, 0, sy * sc0, fwLayer.c.width, strip * sc0, off, horizon + d0, W, strip);
+    cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = 0.6;
+    cx.drawImage(cc2, 0, sy * sc1, cc2.width, strip * sc1, off * 0.6, horizon + d0, W, strip);
+  }
+  cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+  const dim = cx.createLinearGradient(0, horizon, 0, ah);   // 奥ほど反射が強く、手前は暗い
+  dim.addColorStop(0, 'rgba(2,4,12,0.15)'); dim.addColorStop(1, 'rgba(2,4,12,0.6)');
+  cx.fillStyle = dim; cx.fillRect(0, horizon, W, hR);
+  // 街灯の光の帯（水面にのびる）
+  cx.save(); cx.globalCompositeOperation = 'lighter';
+  city.lamps.forEach((x, i) => {
+    for (let k = 0; k < 6; k++) {
+      const y = horizon + (3 + k * k * 1.6) * K; if (y > ah) break;
+      const w = (3 + k * 0.8) * K, o = Math.sin(now * 2 + k * 1.7 + i) * k * 0.7 * K;
+      cx.fillStyle = `rgba(255,190,110,${0.3 * (1 - k / 6)})`; cx.fillRect(x - w / 2 + o, y, w, 1.4 * K);
+    }
+  });
+  for (let i = 0; i < 10; i++) {   // さざ波のきらめき
+    const y = horizon + (6 + i * i * 0.9) * K; if (y > ah) break;
+    const x = mod(hash01(i + 300) * W + now * (8 + i * 2) * K, W + 60 * K) - 30 * K;
+    cx.fillStyle = `rgba(148,163,184,${0.08 + 0.04 * Math.sin(now * 3 + i)})`; cx.fillRect(x, y, (30 + 30 * hash01(i)) * K, 0.8 * K);
+  }
+  cx.restore();
+  // 町（花火の手前）
+  cx.drawImage(city.c, 0, 0, W, horizon);
+  city.beacons.forEach(b => {   // アンテナの赤い灯（ゆっくり点滅）
+    const a = 0.5 + 0.5 * Math.sin(now * 2.5 + b.ph);
+    cx.fillStyle = `rgba(248,113,113,${0.4 + 0.6 * a})`; cx.beginPath(); cx.arc(b.x, b.y, 1.3 * K, 0, Math.PI * 2); cx.fill();
+  });
 
   // 開いた花火の名前（パン！／トマト！）
   if (st.has && lastHead !== null) {
@@ -5304,6 +5472,67 @@ function playJuggle(t, head, L, barHead) {
    ・拍の頭は大きなしずく → 大きな波紋（トマトはパンより大きく、長く広がる）。刻みは小さなしずく
    ・毎小節、同じ場所に同じ大きさのしずくが落ちるので、波紋の重なりが同じ模様でくり返される */
 /* @@BEGIN drawDrops */
+// しずく：背景（暗い部屋の光・水槽の水）をキャッシュ
+let dropsBg = null;
+function dropsBackground(top, waterY, ah) {
+  const key = [W, ah, K, top, waterY].join();
+  if (dropsBg && dropsBg.key === key) return dropsBg.c;
+  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+  // 奥の壁（左上から光）
+  const wall = g.createLinearGradient(0, 0, 0, waterY);
+  wall.addColorStop(0, '#050d18'); wall.addColorStop(0.7, '#0a2032'); wall.addColorStop(1, '#0f3146');
+  g.fillStyle = wall; g.fillRect(0, 0, W, waterY);
+  const lx = W * 0.22, ly = top + (waterY - top) * 0.25, lr = Math.max(W, waterY) * 0.55;
+  let rg = g.createRadialGradient(lx, ly, 0, lx, ly, lr);
+  rg.addColorStop(0, 'rgba(125,211,252,0.16)'); rg.addColorStop(0.5, 'rgba(56,189,248,0.05)'); rg.addColorStop(1, 'rgba(56,189,248,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, W, waterY);
+  for (let i = 0; i < 9; i++) {   // ぼけた光の玉（ボケ）
+    const x = hash01(i + 41) * W, y = top * 0.6 + hash01(i + 61) * (waterY - top) * 0.8, r = (8 + 22 * hash01(i + 81)) * K;
+    const bg = g.createRadialGradient(x, y, r * 0.6, x, y, r);
+    bg.addColorStop(0, `rgba(186,230,253,${0.015 + 0.02 * hash01(i)})`); bg.addColorStop(0.85, `rgba(186,230,253,${0.03 + 0.03 * hash01(i)})`); bg.addColorStop(1, 'rgba(186,230,253,0)');
+    g.fillStyle = bg; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  // 水（奥は空を映して明るく、手前は深い）
+  const wg = g.createLinearGradient(0, waterY, 0, ah);
+  wg.addColorStop(0, '#2a6f8f'); wg.addColorStop(0.08, '#14506d'); wg.addColorStop(0.45, '#0a3349'); wg.addColorStop(1, '#03131f');
+  g.fillStyle = wg; g.fillRect(0, waterY, W, ah - waterY);
+  // 光の映りこみ（水面にのびる帯）
+  g.save(); g.translate(lx, waterY + (ah - waterY) * 0.12); g.scale(1, 0.12);
+  rg = g.createRadialGradient(0, 0, 0, 0, 0, W * 0.4);
+  rg.addColorStop(0, 'rgba(186,230,253,0.22)'); rg.addColorStop(1, 'rgba(186,230,253,0)');
+  g.fillStyle = rg; g.beginPath(); g.arc(0, 0, W * 0.4, 0, Math.PI * 2); g.fill(); g.restore();
+  // 水面のふち（光るライン）
+  const sl = g.createLinearGradient(0, 0, W, 0);
+  sl.addColorStop(0, 'rgba(186,230,253,0.25)'); sl.addColorStop(0.3, 'rgba(224,242,254,0.7)'); sl.addColorStop(1, 'rgba(186,230,253,0.2)');
+  g.fillStyle = sl; g.fillRect(0, waterY - 0.5 * K, W, 1.5 * K);
+  dropsBg = { key, c }; return c;
+}
+// 透きとおった水のしずく1つ（tint：色味、st：のび）
+function dropsDrop(x, y, sz, tint, stretch, alpha) {
+  const top = y - sz * (1.25 + stretch), bot = y + sz;
+  cx.save(); cx.globalAlpha = alpha;
+  cx.beginPath(); cx.moveTo(x, top);
+  cx.bezierCurveTo(x + sz * 0.25, y - sz * 0.9, x + sz, y - sz * 0.35, x + sz, y + sz * 0.05);
+  cx.bezierCurveTo(x + sz, bot - sz * 0.05, x + sz * 0.5, bot, x, bot);
+  cx.bezierCurveTo(x - sz * 0.5, bot, x - sz, bot - sz * 0.05, x - sz, y + sz * 0.05);
+  cx.bezierCurveTo(x - sz, y - sz * 0.35, x - sz * 0.25, y - sz * 0.9, x, top);
+  cx.closePath();
+  const g = cx.createRadialGradient(x + sz * 0.15, y + sz * 0.2, 0, x, y, sz * 1.25);
+  g.addColorStop(0, hexA(tint, 0.18)); g.addColorStop(0.65, hexA(tint, 0.38)); g.addColorStop(1, hexA(shade(tint, -0.55), 0.85));
+  cx.fillStyle = g; cx.fill();
+  cx.strokeStyle = hexA(shade(tint, 0.5), 0.55); cx.lineWidth = Math.max(0.7, sz * 0.08); cx.stroke();
+  // 底にあつまる光（屈折）
+  cx.fillStyle = hexA(shade(tint, 0.7), 0.55);
+  cx.beginPath(); cx.ellipse(x + sz * 0.12, y + sz * 0.58, sz * 0.5, sz * 0.2, -0.15, 0, Math.PI * 2); cx.fill();
+  // 左上のハイライト
+  cx.fillStyle = 'rgba(255,255,255,0.92)';
+  cx.beginPath(); cx.ellipse(x - sz * 0.38, y - sz * 0.25, sz * 0.18, sz * 0.3, 0.5, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(x + sz * 0.45, y + sz * 0.35, sz * 0.07, 0, Math.PI * 2); cx.fill();
+  cx.restore();
+}
+
 function drawDrops(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
   const top = 112 * K, waterY = top + (ah - top) * 0.56, depth = (ah - top) * 0.36;
@@ -5313,22 +5542,29 @@ function drawDrops(st, now, ah) {
   const info = j => { const i = mod(j, N), g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
   const Tf = Math.min(0.7, Math.max(0.35, dur * 1.8));                 // しずくが落ちるのにかかる時間（秒）
   const dropTop = top + 6 * K;
+  const szOf = d => Math.min(step * 0.16, 16 * K) * (d.head ? (d.L === 3 ? 1 : 0.82) : 0.48) + 2 * K;
 
-  // 空と水面
-  const sky = cx.createLinearGradient(0, top - 40 * K, 0, waterY);
-  sky.addColorStop(0, 'rgba(15,23,42,0)'); sky.addColorStop(1, 'rgba(30,58,138,0.25)');
-  cx.fillStyle = sky; cx.fillRect(0, top - 40 * K, W, waterY - top + 40 * K);
-  const wg = cx.createLinearGradient(0, waterY, 0, waterY + depth);
-  wg.addColorStop(0, '#0c4a6e'); wg.addColorStop(1, '#082f49');
-  cx.fillStyle = wg; cx.fillRect(0, waterY, W, ah - waterY);
-  cx.strokeStyle = 'rgba(125,211,252,0.45)'; cx.lineWidth = 1.5 * K;
-  cx.beginPath(); cx.moveTo(0, waterY); cx.lineTo(W, waterY); cx.stroke();
+  // 背景と水（キャッシュ）
+  cx.drawImage(dropsBackground(top, waterY, ah), 0, 0, W, ah);
+  // 水面のゆるいうねり（光の筋）
+  cx.save(); cx.beginPath(); cx.rect(0, waterY, W, ah - waterY); cx.clip();
+  for (let i = 0; i < 7; i++) {
+    const yy = waterY + Math.pow((i + 1) / 8, 1.6) * depth * 0.75, w = (40 + 60 * hash01(i + 3)) * K * (0.6 + yy / ah);
+    const xx = mod(hash01(i + 20) * W + Math.sin(now * 0.5 + i) * 30 * K + now * 6 * K, W + w) - w;
+    cx.fillStyle = `rgba(186,230,253,${0.05 + 0.03 * Math.sin(now * 1.7 + i * 2)})`; cx.fillRect(xx, yy, w, (0.8 + i * 0.25) * K);
+  }
+  cx.restore();
 
-  // まとまりの帯（水面の手前）と言葉
+  // まとまりの帯（水の中に沈んだ光るタイル）と言葉
   const bandY = waterY + depth * 0.82;
   m.groups.forEach((L, g) => {
     const a = x0 + m.starts[g] * step, b = a + L * step, cur = has && g === st.g, col = COLORS[L];
-    cx.fillStyle = hexA(col, cur ? 0.85 : 0.3); rr(a + 3 * K, bandY, b - a - 6 * K, 7 * K, 3.5 * K); cx.fill();
+    cx.save();
+    if (cur) { cx.shadowColor = col; cx.shadowBlur = 14 * K; }
+    const tg = cx.createLinearGradient(0, bandY, 0, bandY + 7 * K);
+    tg.addColorStop(0, hexA(shade(col, 0.35), cur ? 0.9 : 0.32)); tg.addColorStop(1, hexA(shade(col, -0.3), cur ? 0.8 : 0.25));
+    cx.fillStyle = tg; rr(a + 3 * K, bandY, b - a - 6 * K, 7 * K, 3.5 * K); cx.fill(); cx.restore();
+    cx.fillStyle = `rgba(255,255,255,${cur ? 0.45 : 0.15})`; cx.fillRect(a + 6 * K, bandY + 1 * K, b - a - 12 * K, 1 * K);
     txt(pw(L), (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, step * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
   });
   m.barStartSub.forEach((bs, b) => {
@@ -5337,14 +5573,23 @@ function drawDrops(st, now, ah) {
     cx.beginPath(); cx.moveTo(x, top); cx.lineTo(x, ah - 4 * K); cx.stroke(); cx.setLineDash([]);
   });
 
-  // 落ちる場所の目印（上）
+  // 落ちる場所の目印（上）：金属のパイプとノズル。ノズルの輪が拍の色に光る
+  const pipeY = dropTop - 9 * K, pr = 3.5 * K;
+  softShadow(W / 2, pipeY + 14 * K, span * 0.55, 4 * K, 0.25);
+  cx.fillStyle = metalGrad(0, pipeY - pr, 0, pipeY + pr, 'chrome');
+  cx.fillRect(x0 - 12 * K, pipeY - pr, span + 24 * K, pr * 2);
+  for (const ex of [x0 - 12 * K, x0 + span + 12 * K]) { cx.fillStyle = metalGrad(0, pipeY - pr * 1.5, 0, pipeY + pr * 1.5, 'steel'); rr(ex - 3 * K, pipeY - pr * 1.5, 6 * K, pr * 3, 1.5 * K); cx.fill(); }
   for (let i = 0; i < N; i++) {
-    const d = info(i), x = xOf(i);
-    cx.fillStyle = d.head ? hexA(COLORS[d.L], 0.85) : 'rgba(148,163,184,0.5)';
-    cx.beginPath(); cx.arc(x, dropTop, (d.head ? 4.5 : 2.5) * K, 0, Math.PI * 2); cx.fill();
+    const d = info(i), x = xOf(i), nw = (d.head ? 3.4 : 2.4) * K;
+    cx.fillStyle = metalGrad(x - nw, 0, x + nw, 0, 'chrome');
+    cx.beginPath(); cx.moveTo(x - nw, pipeY); cx.lineTo(x + nw, pipeY); cx.lineTo(x + nw * 0.6, dropTop - 1 * K); cx.lineTo(x - nw * 0.6, dropTop - 1 * K); cx.closePath(); cx.fill();
+    const lc = d.head ? COLORS[d.L] : '#94a3b8';
+    cx.fillStyle = hexA(lc, d.head ? 0.95 : 0.55);
+    if (d.head) { cx.shadowColor = lc; cx.shadowBlur = 6 * K; }
+    cx.fillRect(x - nw * 0.85, pipeY + pr * 0.9, nw * 1.7, 1.8 * K); cx.shadowBlur = 0;
   }
 
-  // 波紋（これまでに落ちたしずく）
+  // 波紋（これまでに落ちたしずく）：明るい山と暗い谷
   let barFlash = 0;
   cx.save(); cx.beginPath(); cx.rect(0, waterY - 1, W, ah - waterY + 1); cx.clip();
   const back = Math.ceil(3.2 / dur) + 1;
@@ -5356,33 +5601,87 @@ function drawDrops(st, now, ah) {
     const vmax = d.head ? (d.L === 3 ? 1.5 : 1.15) * step : 0.6 * step, rings = d.head ? 3 : 1;
     for (let r = 0; r < rings; r++) {
       const rad = (age - r * 0.12) * vmax * 2.2 + 3 * K; if (age - r * 0.12 < 0) continue;
-      cx.strokeStyle = hexA(col, (1 - q) * (d.head ? 0.85 : 0.6) * (1 - r * 0.25)); cx.lineWidth = (d.head ? 2.6 : 1.4) * K * (1 - q * 0.6);
-      cx.beginPath(); cx.ellipse(x, waterY + 2 * K, rad, rad * 0.28, 0, 0, Math.PI * 2); cx.stroke();
+      const a = (1 - q) * (d.head ? 0.85 : 0.6) * (1 - r * 0.25), lw = (d.head ? 2.6 : 1.4) * K * (1 - q * 0.6);
+      cx.strokeStyle = `rgba(2,12,22,${a * 0.55})`; cx.lineWidth = lw * 1.3;   // 谷（暗い）
+      cx.beginPath(); cx.ellipse(x, waterY + 2 * K + lw, rad + lw, (rad + lw) * 0.28, 0, 0, Math.PI * 2); cx.stroke();
+      cx.strokeStyle = hexA(col, a); cx.lineWidth = lw;                        // 山（光る）
+      cx.beginPath(); cx.ellipse(x, waterY + 2 * K, rad, rad * 0.28, 0, Math.PI * 1.05, Math.PI * 1.95, false); cx.stroke();
+      cx.strokeStyle = hexA(col, a * 0.55);
+      cx.beginPath(); cx.ellipse(x, waterY + 2 * K, rad, rad * 0.28, 0, -0.05 * Math.PI, Math.PI * 1.05); cx.stroke();
     }
     if (d.bar && age < 0.6) barFlash = Math.max(barFlash, 1 - age / 0.6);
   }
   cx.restore();
 
-  // しぶき（拍の頭で、水が王冠のようにはねる）
+  // しぶき（拍の頭で、水が王冠のようにはねる。そのあと真ん中から水柱）
   if (has) {
     const j = Math.floor(S), d = info(j), age = (S - j) * dur;
     if (d.head && age < 0.45) {
-      const x = xOf(d.i), n = d.L === 3 ? 9 : 7, hgt = (d.L === 3 ? 46 : 32) * K, col = d.bar ? '#d9f99d' : '#e0f2fe';
-      for (let i = 0; i < n; i++) {
-        const a = Math.PI * (0.12 + 0.76 * i / (n - 1)), v = hgt * (0.7 + 0.3 * hash01(i + j));
-        const t = age / 0.45, px = x - Math.cos(a) * v * 0.9 * t, py = waterY - Math.sin(a) * v * (4 * t * (1 - t));
-        cx.fillStyle = hexA(col, 1 - t); cx.beginPath(); cx.arc(px, py, (2.6 - 1.2 * t) * K, 0, Math.PI * 2); cx.fill();
+      const x = xOf(d.i), n = d.L === 3 ? 9 : 7, hgt = (d.L === 3 ? 46 : 32) * K, col = d.bar ? '#d9f99d' : '#e0f2fe', t = age / 0.45;
+      const sz = szOf(d), rc = sz * (1.2 + 2.2 * t), hc = hgt * 0.42 * Math.sin(Math.PI * Math.min(1, t * 1.6)) * (1 - t * 0.3);
+      if (hc > 1) {   // 王冠の壁
+        const tg = cx.createLinearGradient(0, waterY - hc, 0, waterY);
+        tg.addColorStop(0, hexA(col, 0.55 * (1 - t))); tg.addColorStop(1, hexA(d.head ? COLORS[d.L] : col, 0.12));
+        cx.fillStyle = tg; cx.beginPath();
+        cx.ellipse(x, waterY - hc, rc * 1.08, rc * 0.3, 0, Math.PI, 0, true);
+        cx.lineTo(x + rc, waterY); cx.ellipse(x, waterY, rc, rc * 0.28, 0, 0, Math.PI, false); cx.closePath(); cx.fill();
+        cx.strokeStyle = hexA('#ffffff', 0.55 * (1 - t)); cx.lineWidth = 1.2 * K;
+        cx.beginPath(); cx.ellipse(x, waterY - hc, rc * 1.08, rc * 0.3, 0, 0, Math.PI * 2); cx.stroke();
+        cx.lineCap = 'round';
+        for (let i = 0; i < n + 3; i++) {   // ふちのとげ
+          const a = (i / (n + 3)) * Math.PI * 2 + j, bx = x + Math.cos(a) * rc * 1.08, by = waterY - hc + Math.sin(a) * rc * 0.3, sp = hc * (0.25 + 0.2 * hash01(i + j * 3));
+          cx.strokeStyle = hexA(col, 0.7 * (1 - t)); cx.lineWidth = 1.6 * K;
+          cx.beginPath(); cx.moveTo(bx, by); cx.lineTo(bx + Math.cos(a) * sp * 0.4, by - sp); cx.stroke();
+          cx.fillStyle = hexA('#ffffff', 0.85 * (1 - t)); cx.beginPath(); cx.arc(bx + Math.cos(a) * sp * 0.4, by - sp, 1.6 * K, 0, Math.PI * 2); cx.fill();
+        }
       }
+      if (t > 0.35) {   // 真ん中から上がる水柱
+        const tt = (t - 0.35) / 0.65, jh = hgt * 0.75 * Math.sin(Math.PI * tt), jw = sz * 0.35;
+        const cg = cx.createLinearGradient(x - jw, 0, x + jw, 0);
+        cg.addColorStop(0, hexA(col, 0.35)); cg.addColorStop(0.35, 'rgba(255,255,255,0.75)'); cg.addColorStop(1, hexA(shade(col, -0.3), 0.3));
+        cx.fillStyle = cg; cx.beginPath(); cx.moveTo(x - jw * 1.6, waterY); cx.quadraticCurveTo(x - jw * 0.5, waterY - jh * 0.6, x - jw * 0.6, waterY - jh);
+        cx.lineTo(x + jw * 0.6, waterY - jh); cx.quadraticCurveTo(x + jw * 0.5, waterY - jh * 0.6, x + jw * 1.6, waterY); cx.closePath(); cx.fill();
+        if (jh > 3 * K) dropsDrop(x, waterY - jh - sz * 0.5, sz * 0.45, d.head ? COLORS[d.L] : '#bae6fd', 0, 1 - tt * 0.5);
+      }
+      for (let i = 0; i < n; i++) {   // とび散る水玉
+        const a = Math.PI * (0.12 + 0.76 * i / (n - 1)), v = hgt * (0.7 + 0.3 * hash01(i + j));
+        const px = x - Math.cos(a) * v * 0.9 * t, py = waterY - Math.sin(a) * v * (4 * t * (1 - t)), r = (2.6 - 1.2 * t) * K;
+        cx.fillStyle = hexA(col, 0.5 * (1 - t)); cx.beginPath(); cx.arc(px, py, r, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = hexA('#ffffff', 1 - t); cx.beginPath(); cx.arc(px - r * 0.3, py - r * 0.3, r * 0.45, 0, Math.PI * 2); cx.fill();
+      }
+    } else if (!d.head && age < 0.3) {   // 刻み：小さな水柱
+      const x = xOf(d.i), tt = age / 0.3, jh = 12 * K * Math.sin(Math.PI * tt);
+      cx.fillStyle = `rgba(224,242,254,${0.6 * (1 - tt)})`;
+      cx.beginPath(); cx.moveTo(x - 3 * K, waterY); cx.quadraticCurveTo(x, waterY - jh * 0.5, x, waterY - jh); cx.quadraticCurveTo(x, waterY - jh * 0.5, x + 3 * K, waterY); cx.fill();
+      cx.beginPath(); cx.arc(x, waterY - jh - 2 * K, 1.6 * K, 0, Math.PI * 2); cx.fill();
     }
   }
-  // 落ちてくるしずく（予告）：ちょうど刻みの瞬間に水面に着く
-  for (let j = Math.max(0, Math.floor(S) + 1); j <= Math.floor(S) + Math.ceil(Tf / dur) + 1; j++) {
-    const tl = (j - S) * dur; if (tl > Tf || tl < 0) continue;
-    const d = info(j), p = 1 - tl / Tf, y = dropTop + (waterY - dropTop) * p * p, x = xOf(d.i);
-    const sz = Math.min(step * 0.16, 16 * K) * (d.head ? (d.L === 3 ? 1 : 0.82) : 0.48) + 2 * K, col = d.head ? COLORS[d.L] : '#bae6fd';
-    cx.fillStyle = hexA(col, 0.95);
-    cx.beginPath(); cx.moveTo(x, y - sz * (1.6 + p)); cx.quadraticCurveTo(x + sz, y - sz * 0.2, x, y + sz * 0.8); cx.quadraticCurveTo(x - sz, y - sz * 0.2, x, y - sz * (1.6 + p)); cx.fill();
-    if (d.head) { cx.fillStyle = hexA('#ffffff', 0.6); cx.beginPath(); cx.arc(x - sz * 0.3, y - sz * 0.1, sz * 0.22, 0, Math.PI * 2); cx.fill(); }
+  // ノズルの先でふくらむしずく と 落ちてくるしずく：ちょうど刻みの瞬間に水面に着く
+  for (let j = Math.max(0, Math.floor(S) + 1); j <= Math.floor(S) + N + Math.ceil(Tf / dur) + 1; j++) {
+    const tl = (j - S) * dur, d = info(j), x = xOf(d.i), sz = szOf(d), col = d.head ? COLORS[d.L] : '#bae6fd';
+    if (tl > Tf) {   // まだノズルの先：だんだんふくらむ
+      const gw = clamp(1 - (tl - Tf) / (N * dur * 0.9), 0, 1);
+      if (gw > 0.05 && tl - Tf < N * dur) { const bs = sz * (0.35 + 0.55 * gw); dropsDrop(x, dropTop + bs * 0.4, bs, col, -0.4 * (1 - gw), 0.95); }
+      continue;
+    }
+    if (tl < 0) continue;
+    const p = 1 - tl / Tf, y = dropTop + (waterY - dropTop) * p * p;
+    // 速さの筋（モーションブラー）
+    const v = (waterY - dropTop) * 2 * p / Tf * 0.04;
+    if (v > 2 * K) {
+      const mg = cx.createLinearGradient(0, y - sz - v, 0, y);
+      mg.addColorStop(0, hexA(col, 0)); mg.addColorStop(1, hexA(col, 0.25));
+      cx.fillStyle = mg; cx.fillRect(x - sz * 0.35, y - sz - v, sz * 0.7, v);
+    }
+    dropsDrop(x, y, sz, col, 0.15 + p * 0.6, 1);
+    // 水面に映るしずく（近づくほどはっきり）
+    const ry = 2 * waterY - y + 4 * K;
+    if (p > 0.45) {
+      cx.save(); cx.beginPath(); cx.rect(0, waterY + 1, W, depth); cx.clip();
+      cx.translate(x, ry); cx.scale(1, -0.8); cx.globalAlpha = (p - 0.45) * 0.6;
+      cx.fillStyle = hexA(shade(col, 0.3), 0.5); cx.beginPath(); cx.ellipse(0, 0, sz * 0.8, sz, 0, 0, Math.PI * 2); cx.fill();
+      cx.restore();
+    }
     if (p > 0.75) { cx.strokeStyle = hexA(col, (p - 0.75) * 2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 2 * K, sz * 1.4, sz * 0.4, 0, 0, Math.PI * 2); cx.stroke(); }   // 水面に映る影
   }
 
@@ -5398,6 +5697,42 @@ function drawDrops(st, now, ah) {
    ・トマトのゼリーは大きく、長くゆれる。刻みでは小さく「ぷるっ」
    ・サクランボの跳ぶ高さと時間も拍の長さで変わる（トマトは高く長く） */
 /* @@BEGIN drawJelly */
+// ゼリー：背景（かべ・木のテーブル）のキャッシュ
+let jellyBg = null;
+function jellyBackground(plateY, ah) {
+  const key = [W, ah, K, plateY].join();
+  if (jellyBg && jellyBg.key === key) return jellyBg.c;
+  const tY = plateY - 24 * K, d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+  // かべ（左上からのあたたかい光）
+  const wall = g.createLinearGradient(0, 0, 0, tY);
+  wall.addColorStop(0, '#0f0d16'); wall.addColorStop(1, '#2a2129');
+  g.fillStyle = wall; g.fillRect(0, 0, W, tY);
+  const sp = g.createRadialGradient(W * 0.2, tY * 0.35, 0, W * 0.2, tY * 0.35, Math.max(W, tY) * 0.75);
+  sp.addColorStop(0, 'rgba(255,228,196,0.16)'); sp.addColorStop(0.5, 'rgba(255,228,196,0.05)'); sp.addColorStop(1, 'rgba(255,228,196,0)');
+  g.fillStyle = sp; g.fillRect(0, 0, W, tY);
+  // テーブル（クルミ材）
+  const tg = g.createLinearGradient(0, tY, 0, ah);
+  tg.addColorStop(0, '#5c3b24'); tg.addColorStop(0.25, '#4a2d1a'); tg.addColorStop(1, '#22140a');
+  g.fillStyle = tg; g.fillRect(0, tY, W, ah - tY);
+  g.save(); g.beginPath(); g.rect(0, tY, W, ah - tY); g.clip();
+  for (let i = 0; i < 22; i++) {   // 木目（奥ほどつまって見える）
+    const f = i / 22, yy = tY + Math.pow(f, 1.5) * (ah - tY);
+    g.strokeStyle = `rgba(20,8,2,${0.12 + 0.1 * hash01(i + 5)})`; g.lineWidth = (0.6 + f * 1.4) * K;
+    g.beginPath(); for (let x = 0; x <= W; x += 10 * K) { const y = yy + Math.sin(x * 0.012 / K + i * 1.7) * (1 + f * 3) * K; x ? g.lineTo(x, y) : g.moveTo(x, y); } g.stroke();
+  }
+  const sh = g.createRadialGradient(W * 0.25, tY, 0, W * 0.25, tY, W * 0.7);   // つやの照り返し
+  sh.addColorStop(0, 'rgba(255,220,180,0.16)'); sh.addColorStop(1, 'rgba(255,220,180,0)');
+  g.fillStyle = sh; g.fillRect(0, tY, W, ah - tY);
+  g.restore();
+  g.fillStyle = 'rgba(255,220,180,0.18)'; g.fillRect(0, tY, W, 1 * K);   // テーブルの奥のふち
+  const wsh = g.createLinearGradient(0, tY - 10 * K, 0, tY);   // かべとの境の影
+  wsh.addColorStop(0, 'rgba(0,0,0,0)'); wsh.addColorStop(1, 'rgba(0,0,0,0.35)');
+  g.fillStyle = wsh; g.fillRect(0, tY - 10 * K, W, 10 * K);
+  jellyBg = { key, c }; return c;
+}
+
 function drawJelly(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, has = st.has;
   const top = 116 * K, plateY = ah - Math.max(30 * K, (ah - top) * 0.12);
@@ -5409,12 +5744,22 @@ function drawJelly(st, now, ah) {
   const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0, L = m.groups[g];
   const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
 
-  // 皿
+  cx.drawImage(jellyBackground(plateY, ah), 0, 0, W, ah);
+  // 皿（白い陶器）
   for (let gi = 0; gi < G; gi++) {
-    const b = box(gi);
-    cx.fillStyle = 'rgba(226,232,240,0.14)'; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, b.w * 0.6, 8 * K, 0, 0, Math.PI * 2); cx.fill();
-    cx.strokeStyle = 'rgba(226,232,240,0.35)'; cx.lineWidth = 1.5 * K; cx.stroke();
-    txt(pw(b.L), b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(COLORS[b.L], has && gi === g ? 1 : 0.65), 800);
+    const b = box(gi), rx = b.w * 0.6, ry = 8 * K;
+    softShadow(b.cxx + 5 * K, plateY + 7 * K, rx * 1.05, ry * 1.4, 0.55);
+    let pg = cx.createLinearGradient(b.cxx - rx, plateY - ry, b.cxx + rx, plateY + ry);
+    pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.5, '#e5e7eb'); pg.addColorStop(1, '#9ca3af');
+    cx.fillStyle = pg; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx, ry, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = '#6b7280'; cx.beginPath(); cx.ellipse(b.cxx, plateY + 5.5 * K, rx, ry, 0, 0, Math.PI); cx.fill();   // 皿の厚み
+    cx.fillStyle = pg; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx, ry, 0, 0, Math.PI * 2); cx.fill();
+    pg = cx.createLinearGradient(0, plateY - ry * 0.6, 0, plateY + ry * 0.6);
+    pg.addColorStop(0, '#c9ccd3'); pg.addColorStop(1, '#f3f4f6');
+    cx.fillStyle = pg; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx * 0.74, ry * 0.62, 0, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = 'rgba(255,255,255,0.9)'; cx.lineWidth = 1.2 * K;
+    cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx * 0.97, ry * 0.94, 0, Math.PI * 1.05, Math.PI * 1.6); cx.stroke();
+    txt(pw(b.L), b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(shade(COLORS[b.L], 0.2), has && gi === g ? 1 : 0.7), 800);
   }
   // それぞれのゼリーのゆれ：最後にサクランボが乗った時刻からの経過時間で決める
   const lastHit = gi => {   // 秒
@@ -5431,22 +5776,65 @@ function drawJelly(st, now, ah) {
     if (act && kCur > 0) sy -= 0.07 * Math.exp(-ageS / 0.1) * Math.cos(30 * ageS);           // 刻みの「ぷるっ」
     const sx = 1 / Math.sqrt(Math.max(0.4, sy)), lean = 0.12 * big * Math.exp(-t / tau) * Math.sin(om * t * 0.5);
     const w = b.w * 0.86 * sx, h = b.h * sy, xb = b.cxx, yb = plateY;
+    // 光がゼリーを通りぬけて、皿の右下に色のついた光がおちる
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const cg = cx.createRadialGradient(xb + w * 0.3, yb + 4 * K, 0, xb + w * 0.3, yb + 4 * K, w * 0.5);
+    cg.addColorStop(0, hexA(col, act ? 0.55 : 0.3)); cg.addColorStop(1, hexA(col, 0));
+    cx.fillStyle = cg; cx.beginPath(); cx.ellipse(xb + w * 0.3, yb + 4 * K, w * 0.5, 7 * K, 0, 0, Math.PI * 2); cx.fill(); cx.restore();
     // 形（上がせまいプリン形。上はゆれて左右にずれる）
     const topW = w * 0.62, sh = lean * h;
+    const shape = () => {
+      cx.beginPath();
+      cx.moveTo(xb - w / 2, yb);
+      cx.bezierCurveTo(xb - w / 2, yb - h * 0.5, xb - topW / 2 + sh * 0.6, yb - h * 0.85, xb - topW / 2 + sh, yb - h);
+      cx.quadraticCurveTo(xb + sh, yb - h * 1.08, xb + topW / 2 + sh, yb - h);
+      cx.bezierCurveTo(xb + topW / 2 + sh * 0.6, yb - h * 0.85, xb + w / 2, yb - h * 0.5, xb + w / 2, yb);
+      cx.quadraticCurveTo(xb, yb + 3 * K, xb - w / 2, yb);
+      cx.closePath();
+    };
+    shape();
+    const gr = cx.createLinearGradient(xb - w / 2, yb - h, xb + w / 2, yb);
+    gr.addColorStop(0, hexA(shade(col, 0.3), act ? 0.9 : 0.72)); gr.addColorStop(0.55, hexA(col, act ? 0.82 : 0.62)); gr.addColorStop(1, hexA(shade(col, -0.5), act ? 0.92 : 0.8));
+    cx.save();
+    if (act) { cx.shadowColor = hexA(col, 0.7); cx.shadowBlur = 18 * K; }
+    cx.fillStyle = gr; cx.fill(); cx.restore();
+    cx.save(); shape(); cx.clip();
+    // 中からにじむ光（光が中で散らばる）
+    cx.globalCompositeOperation = 'lighter';
+    const ig = cx.createRadialGradient(xb + sh * 0.5 + w * 0.08, yb - h * 0.3, 0, xb + sh * 0.5 + w * 0.08, yb - h * 0.3, Math.max(w, h) * 0.6);
+    ig.addColorStop(0, hexA(shade(col, 0.55), act ? 0.5 : 0.25)); ig.addColorStop(1, hexA(col, 0));
+    cx.fillStyle = ig; cx.fillRect(xb - w, yb - h * 1.2, w * 2, h * 1.3);
+    cx.globalCompositeOperation = 'source-over';
+    // ふちは厚みのぶん暗く（屈折）
+    shape(); cx.strokeStyle = hexA(shade(col, -0.65), 0.45); cx.lineWidth = w * 0.14; cx.stroke();
+    if (b.L === 3) {   // カラメル（プリンの上）
+      const cy0 = yb - h * 0.8;
+      const cgr = cx.createLinearGradient(0, yb - h * 1.1, 0, cy0 + 4 * K);
+      cgr.addColorStop(0, '#5a1d06'); cgr.addColorStop(0.6, '#8a3a0c'); cgr.addColorStop(1, '#b45309');
+      cx.fillStyle = cgr; cx.beginPath(); cx.moveTo(xb - w, yb - h * 1.2);
+      cx.lineTo(xb + w, yb - h * 1.2); cx.lineTo(xb + w, cy0);
+      for (let k = 0; k <= 8; k++) { const x = xb + w / 2 - k * w / 8 + sh * 0.8, y = cy0 + (k % 2 ? 1 : 0.3) * (2 + 3 * hash01(k + gi)) * K; cx.lineTo(x, y); }
+      cx.lineTo(xb - w, cy0); cx.closePath(); cx.fill();
+      cx.fillStyle = 'rgba(255,214,150,0.35)'; cx.beginPath(); cx.ellipse(xb - topW * 0.15 + sh, yb - h * 1.0, topW * 0.28, h * 0.035 + 1, -0.05, 0, Math.PI * 2); cx.fill();
+    } else {   // 小さなあわ
+      for (let k = 0; k < 6; k++) {
+        const bx = xb + (hash01(k + gi * 7) - 0.5) * w * 0.6 + sh * 0.5, byy = yb - h * (0.15 + 0.7 * hash01(k + gi * 7 + 30)), br = (1 + 1.6 * hash01(k + 60)) * K;
+        cx.strokeStyle = 'rgba(255,255,255,0.4)'; cx.lineWidth = 0.8 * K; cx.beginPath(); cx.arc(bx, byy, br, 0, Math.PI * 2); cx.stroke();
+        cx.fillStyle = 'rgba(255,255,255,0.55)'; cx.beginPath(); cx.arc(bx - br * 0.35, byy - br * 0.35, br * 0.3, 0, Math.PI * 2); cx.fill();
+      }
+    }
+    cx.restore();
+    // つや（左上からの光の映りこみ）
+    shape(); cx.strokeStyle = hexA('#ffffff', act ? 0.45 : 0.25); cx.lineWidth = 1.2 * K; cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,0.5)';
     cx.beginPath();
-    cx.moveTo(xb - w / 2, yb);
-    cx.bezierCurveTo(xb - w / 2, yb - h * 0.5, xb - topW / 2 + sh * 0.6, yb - h * 0.85, xb - topW / 2 + sh, yb - h);
-    cx.quadraticCurveTo(xb + sh, yb - h * 1.08, xb + topW / 2 + sh, yb - h);
-    cx.bezierCurveTo(xb + topW / 2 + sh * 0.6, yb - h * 0.85, xb + w / 2, yb - h * 0.5, xb + w / 2, yb);
-    cx.closePath();
-    const gr = cx.createLinearGradient(0, yb - h, 0, yb);
-    gr.addColorStop(0, hexA(col, act ? 0.95 : 0.7)); gr.addColorStop(1, hexA(col, act ? 0.6 : 0.4));
-    if (act) { cx.shadowColor = col; cx.shadowBlur = 22 * K; }
-    cx.fillStyle = gr; cx.fill(); cx.shadowBlur = 0;
-    cx.strokeStyle = hexA('#ffffff', act ? 0.7 : 0.35); cx.lineWidth = 2 * K; cx.stroke();
-    cx.fillStyle = 'rgba(255,255,255,0.35)';   // つや
-    cx.beginPath(); cx.ellipse(xb - w * 0.22 + sh * 0.5, yb - h * 0.62, w * 0.06, h * 0.2, -0.2, 0, Math.PI * 2); cx.fill();
-    if (m.barStartGroup.includes(gi)) { cx.fillStyle = LIME; cx.beginPath(); cx.arc(xb + w / 2 - 6 * K, yb - 8 * K, 4 * K, 0, Math.PI * 2); cx.fill(); }
+    cx.moveTo(xb - w * 0.36, yb - h * 0.12);
+    cx.bezierCurveTo(xb - w * 0.36, yb - h * 0.5, xb - topW * 0.4 + sh * 0.6, yb - h * 0.78, xb - topW * 0.3 + sh * 0.9, yb - h * 0.93);
+    cx.bezierCurveTo(xb - topW * 0.36 + sh * 0.6, yb - h * 0.7, xb - w * 0.3, yb - h * 0.45, xb - w * 0.32, yb - h * 0.12);
+    cx.closePath(); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,0.9)'; cx.beginPath(); cx.ellipse(xb - topW * 0.2 + sh, yb - h * 0.98, w * 0.05, h * 0.025 + 1, -0.2, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,0.25)'; cx.beginPath(); cx.ellipse(xb + w * 0.32 + sh * 0.3, yb - h * 0.35, w * 0.025, h * 0.16, 0.1, 0, Math.PI * 2); cx.fill();
+    if (m.barStartGroup.includes(gi)) shadeSphere(xb + w / 2 - 6 * K, yb - 6 * K, 4.5 * K, LIME, 'gloss');   // 小節の頭の目印（ライムのキャンディ）
     b.topY = yb - h * 1.04; b.topX = xb + sh;
     box[gi] = b;
   }
@@ -5457,28 +5845,49 @@ function drawJelly(st, now, ah) {
   const fly = clamp((u - 0.12) / 0.88, 0, 1);
   const hgt = (plateY - top) * (L === 3 ? 0.55 : 0.32);
   const xA = bA.topX, yA = bA.topY, xB = bB.cxx, yB = plateY - bB.h * 1.04;
-  let cxp = xA + (xB - xA) * fly, cyp = yA + (yB - yA) * fly - 4 * hgt * fly * (1 - fly);
+  const posAt = f => [xA + (xB - xA) * f, yA + (yB - yA) * f - 4 * hgt * f * (1 - f)];
+  let [cxp, cyp] = posAt(fly);
   const cr = Math.max(6, Math.min(12 * K, unit * 0.22));
   // 跳ぶ道の点線
   if (has) {
-    cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.5); cx.lineWidth = 2 * K; cx.beginPath();
-    for (let i = 0; i <= 30; i++) { const f = i / 30, px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f); i ? cx.lineTo(px, py - cr) : cx.moveTo(px, py - cr); }
+    cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.45); cx.lineWidth = 2 * K; cx.beginPath();
+    for (let i = 0; i <= 30; i++) { const [px, py] = posAt(i / 30); i ? cx.lineTo(px, py - cr) : cx.moveTo(px, py - cr); }
     cx.stroke(); cx.setLineDash([]);
     for (let k = 1; k < L; k++) {   // 刻みごとの位置
-      const f = clamp((k / L - 0.12) / 0.88, 0, 1), px = xA + (xB - xA) * f, py = yA + (yB - yA) * f - 4 * hgt * f * (1 - f), lit = kCur >= k;
+      const f = clamp((k / L - 0.12) / 0.88, 0, 1), [px, py] = posAt(f), lit = kCur >= k;
+      if (lit) { cx.save(); cx.shadowColor = '#ffffff'; cx.shadowBlur = 8 * K; }
       cx.fillStyle = lit ? '#ffffff' : 'rgba(226,232,240,0.45)'; cx.beginPath(); cx.arc(px, py - cr, (lit ? 4.5 : 3) * K, 0, Math.PI * 2); cx.fill();
+      if (lit) cx.restore();
     }
   }
-  cx.strokeStyle = '#4ade80'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(cxp, cyp - cr * 1.6); cx.quadraticCurveTo(cxp + cr * 0.9, cyp - cr * 2.6, cxp + cr * 1.4, cyp - cr * 2.8); cx.stroke();
-  cx.fillStyle = '#ef4444'; cx.shadowColor = '#ef4444'; cx.shadowBlur = 12 * K;
-  cx.beginPath(); cx.arc(cxp, cyp - cr, cr, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
-  cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(cxp - cr * 0.35, cyp - cr * 1.35, cr * 0.28, 0, Math.PI * 2); cx.fill();
+  // テーブルに落ちるサクランボの影（高いほどうすく大きい）
+  if (fly > 0 && fly < 1) {
+    const hFrac = clamp((plateY - cyp) / Math.max(1, plateY - top), 0, 1);
+    softShadow(cxp + 6 * K, plateY + 6 * K, cr * (1.2 + hFrac), cr * 0.35, 0.35 * (1 - hFrac * 0.7));
+  }
+  // 速く動くときの残像
+  if (fly > 0 && fly < 1) {
+    for (let k = 3; k >= 1; k--) {
+      const [gx, gy] = posAt(Math.max(0, fly - k * 0.035));
+      cx.fillStyle = `rgba(200,30,58,${0.12 / k})`; cx.beginPath(); cx.arc(gx, gy - cr, cr, 0, Math.PI * 2); cx.fill();
+    }
+  }
+  // 軸
+  cx.lineCap = 'round';
+  const sg = cx.createLinearGradient(cxp, cyp - cr * 2.8, cxp, cyp - cr * 1.6);
+  sg.addColorStop(0, '#6b4a1f'); sg.addColorStop(1, '#4d7c2a');
+  cx.strokeStyle = sg; cx.lineWidth = Math.max(1.5, 2.2 * K);
+  cx.beginPath(); cx.moveTo(cxp, cyp - cr * 1.75); cx.quadraticCurveTo(cxp + cr * 0.9, cyp - cr * 2.6, cxp + cr * 1.4, cyp - cr * 2.8); cx.stroke();
+  // 実（つやのある赤）
+  shadeSphere(cxp, cyp - cr, cr, '#c8102e', 'gloss');
+  cx.strokeStyle = 'rgba(80,0,10,0.45)'; cx.lineWidth = 1 * K;
+  cx.beginPath(); cx.arc(cxp, cyp - cr * 1.7, cr * 0.25, 0.2, Math.PI - 0.2); cx.stroke();   // 軸のくぼみ
   // 着地の光
   let barFlash = 0;
   if (has && ageH < 0.5) {
     const q = ageH / 0.5, bar = m.barStartGroup.includes(g);
     cx.strokeStyle = hexA(bar ? LIME : COLORS[L], 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
-    cx.beginPath(); cx.ellipse(bA.cxx, plateY, bA.w * (0.5 + 0.5 * q), 10 * K * (1 + q), 0, 0, Math.PI * 2); cx.stroke();
+    cx.beginPath(); cx.ellipse(bA.cxx, plateY + 4 * K, bA.w * (0.5 + 0.5 * q), 10 * K * (1 + q), 0, 0, Math.PI * 2); cx.stroke();
     if (bar) barFlash = 1 - q;
   }
   if (barFlash > 0) txt('小節の頭！ サクランボが最初のゼリーにもどった', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
@@ -5909,6 +6318,74 @@ function playPendulum(t, head, L, barHead) {
    ・1小節ぶんの花が1列の花だんになる。小節が終わると列が奥へ下がり、手前に新しい列が咲く
    ・同じリズムなら、どの列も同じ並び → 花だんの模様で「くり返し」が見える */
 /* @@BEGIN drawFlowers */
+// 花：花びら・葉の絵（色ごとに1回だけ作る）と、背景（空・遠くの木・芝生）のキャッシュ
+const flowersSpr = {};
+let flowersBg = null;
+function flowersPetal(col, L) {
+  const key = col + L;
+  if (flowersSpr[key]) return flowersSpr[key];
+  const w = 128, h = 64, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'), hw = L === 3 ? 24 : 29;
+  const path = () => { g.beginPath(); g.moveTo(2, 32); g.bezierCurveTo(30, 32 - hw * 0.9, 80, 32 - hw * 1.1, 118, 32 - hw * 0.35); g.quadraticCurveTo(128, 32, 118, 32 + hw * 0.35); g.bezierCurveTo(80, 32 + hw * 1.1, 30, 32 + hw * 0.9, 2, 32); g.closePath(); };
+  path();
+  let gr = g.createLinearGradient(0, 0, w, 0);
+  gr.addColorStop(0, shade(col, -0.45)); gr.addColorStop(0.3, shade(col, -0.1)); gr.addColorStop(0.75, col); gr.addColorStop(1, shade(col, 0.4));
+  g.fillStyle = gr; g.fill();
+  g.save(); g.clip();
+  gr = g.createLinearGradient(0, 32 - hw, 0, 32 + hw);   // 丸みの陰影（上が明るい）
+  gr.addColorStop(0, 'rgba(255,255,255,0.35)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.05)'); gr.addColorStop(1, 'rgba(0,0,0,0.3)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.strokeStyle = hexA(shade(col, -0.5), 0.35); g.lineWidth = 1.6;   // すじ
+  for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(4, 32); g.quadraticCurveTo(60, 32 + i * hw * 0.25, 112, 32 + i * hw * 0.32); g.stroke(); }
+  g.restore();
+  path(); g.strokeStyle = hexA(shade(col, 0.55), 0.6); g.lineWidth = 1.5; g.stroke();
+  return (flowersSpr[key] = c);
+}
+function flowersLeaf() {
+  if (flowersSpr.leaf) return flowersSpr.leaf;
+  const w = 96, h = 40, c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d');
+  g.beginPath(); g.moveTo(1, 20); g.bezierCurveTo(30, 0, 70, 2, 95, 20); g.bezierCurveTo(70, 38, 30, 40, 1, 20); g.closePath();
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#6fcf6a'); gr.addColorStop(0.5, '#2f8f3a'); gr.addColorStop(1, '#14532d');
+  g.fillStyle = gr; g.fill();
+  g.strokeStyle = 'rgba(220,252,231,0.45)'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(3, 20); g.quadraticCurveTo(50, 18, 92, 20); g.stroke();
+  g.lineWidth = 0.8; for (let i = 1; i < 5; i++) { const x = i * 18; g.beginPath(); g.moveTo(x, 19.5); g.lineTo(x + 10, 10 + i * 0.5); g.moveTo(x, 20.5); g.lineTo(x + 10, 30 - i * 0.5); g.stroke(); }
+  return (flowersSpr.leaf = c);
+}
+function flowersBackground(top, front, ah) {
+  const key = [W, ah, K, top, front].join();
+  if (flowersBg && flowersBg.key === key) return flowersBg;
+  const hz = top + (front - top) * 0.2, d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
+  // 朝の空
+  const sky = g.createLinearGradient(0, 0, 0, hz);
+  sky.addColorStop(0, '#0b1730'); sky.addColorStop(0.55, '#24406a'); sky.addColorStop(0.85, '#7f8fb0'); sky.addColorStop(1, '#e9b98d');
+  g.fillStyle = sky; g.fillRect(0, 0, W, hz + 2);
+  const sun = g.createRadialGradient(W * 0.15, hz, 0, W * 0.15, hz, W * 0.6);
+  sun.addColorStop(0, 'rgba(255,214,160,0.55)'); sun.addColorStop(0.3, 'rgba(255,190,130,0.15)'); sun.addColorStop(1, 'rgba(255,190,130,0)');
+  g.fillStyle = sun; g.fillRect(0, 0, W, hz + 2);
+  // 遠くの木立（かすんでいる）
+  for (const [col, hh, sd] of [['#3a5068', 16, 3], ['#24394a', 10, 7]]) {
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, hz + 1);
+    for (let x = 0; x <= W + 10 * K; x += 7 * K) g.lineTo(x, hz - (hh * (0.4 + 0.6 * hash01(Math.round(x / (7 * K)) + sd * 100)) + 3 * Math.sin(x * 0.03 / K + sd)) * K);
+    g.lineTo(W, hz + 1); g.closePath(); g.fill();
+  }
+  // 芝生（奥はかすみ、手前は濃い緑）
+  const gr = g.createLinearGradient(0, hz, 0, ah);
+  gr.addColorStop(0, '#4a6650'); gr.addColorStop(0.1, '#2a4f30'); gr.addColorStop(0.6, '#1b4424'); gr.addColorStop(1, '#0f2d17');
+  g.fillStyle = gr; g.fillRect(0, hz, W, ah - hz);
+  const lg = g.createRadialGradient(W * 0.15, hz, 0, W * 0.15, hz, W * 0.7);   // 左奥からの光
+  lg.addColorStop(0, 'rgba(255,220,160,0.18)'); lg.addColorStop(1, 'rgba(255,220,160,0)');
+  g.fillStyle = lg; g.fillRect(0, hz, W, ah - hz);
+  for (let i = 0; i < 700; i++) {   // 芝の葉（手前ほど大きい）
+    const f = Math.pow(hash01(i + 11), 0.7), y = hz + 3 + f * (ah - hz), x = hash01(i + 13) * W, len = (1.5 + 6 * f) * K * (0.6 + 0.6 * hash01(i + 17));
+    g.strokeStyle = hash01(i + 19) > 0.5 ? `rgba(134,197,120,${0.12 + 0.2 * f})` : `rgba(8,40,18,${0.2 + 0.3 * f})`;
+    g.lineWidth = (0.5 + f) * K; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (hash01(i + 23) - 0.5) * len * 0.6, y - len); g.stroke();
+  }
+  flowersBg = { key, c, hz }; return flowersBg;
+}
+
 function drawFlowers(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has, B = m.nBars;
   const top = 112 * K, front = ah - Math.max(30 * K, (ah - top) * 0.1);
@@ -5921,20 +6398,24 @@ function drawFlowers(st, now, ah) {
   const rowS = d => Math.pow(0.62, d - 1 + sh);
   const bloom = t => t < 0 ? 0 : 1 + 0.25 * Math.exp(-t / 0.12) * Math.sin(t * 28) - Math.exp(-t / 0.05);   // ポンと開いて、少しゆれる
 
-  // 地面
-  const gr = cx.createLinearGradient(0, top, 0, ah);
-  gr.addColorStop(0, 'rgba(20,83,45,0)'); gr.addColorStop(1, 'rgba(22,101,52,0.45)');
-  cx.fillStyle = gr; cx.fillRect(0, top, W, ah - top);
+  // 背景（空・木立・芝生）
+  const bg = flowersBackground(top, front, ah);
+  cx.drawImage(bg.c, 0, 0, W, ah);
+  const leaf = flowersLeaf();
 
   let barFlash = 0;
   for (let d = rows; d >= 0; d--) {
     const bi = barNow - d; if (has && bi < 0) continue; if (!has && d > 0) continue;
     const b = mod(bi < 0 ? 0 : bi, B), gs = m.bars[b], Nb = gs.reduce((a, v) => a + v, 0), g0 = m.barStartGroup[b];
     const y = d === 0 ? front : rowY(d), sc = d === 0 ? 1 : rowS(d), al = d === 0 ? 1 : clamp(1 - (d - 1 + sh) * 0.22, 0.15, 1);
-    if (d === 0 && has) { /* いまの列 */ }
-    const w = span * (0.6 + 0.4 * sc), x0 = (W - w) / 2, u = w / Nb;
-    cx.strokeStyle = hexA('#86efac', 0.25 * al); cx.lineWidth = 1.5 * K;
-    cx.beginPath(); cx.moveTo(x0, y); cx.lineTo(x0 + w, y); cx.stroke();
+        const w = span * (0.6 + 0.4 * sc), x0 = (W - w) / 2, u = w / Nb;
+    // 畑のうね（土）
+    const sh2 = 7 * K * sc;
+    const soil = cx.createLinearGradient(0, y - sh2, 0, y + sh2);
+    soil.addColorStop(0, hexA('#7a5634', 0.9 * al)); soil.addColorStop(0.5, hexA('#4a3020', 0.95 * al)); soil.addColorStop(1, hexA('#24160c', 0.6 * al));
+    cx.fillStyle = soil; cx.beginPath(); cx.ellipse(W / 2, y, w * 0.55, sh2, 0, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = hexA('#a07a52', 0.35 * al); cx.lineWidth = Math.max(0.8, 1.2 * K * sc);
+    cx.beginPath(); cx.ellipse(W / 2, y, w * 0.55, sh2, 0, Math.PI * 1.1, Math.PI * 1.9); cx.stroke();
     let acc = 0;
     gs.forEach((L, i) => {
       const gi = g0 + i, x = x0 + (acc + L / 2) * u; acc += L;
@@ -5947,40 +6428,80 @@ function drawFlowers(st, now, ah) {
         else if (gi === g) { tOpen = (kCur + st.frac) * dur; petals = kCur + 1; open = bloom(tOpen); }
         else { open = 0; petals = 0; bud = gi === g + 1 && kCur === m.groups[g] - 1 ? st.frac : 0; }
       } else if (!has) { open = 0; petals = 0; }
-      // くき
-      cx.strokeStyle = hexA('#4ade80', 0.8 * al); cx.lineWidth = Math.max(1.5, 3 * K * sc);
-      cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x - R * 0.2, y - stem * 0.5, x, y - stem); cx.stroke();
-      cx.fillStyle = hexA('#22c55e', 0.7 * al);
-      cx.beginPath(); cx.ellipse(x + R * 0.3, y - stem * 0.4, R * 0.35, R * 0.14, -0.5, 0, Math.PI * 2); cx.fill();
-      const hx = x, hy = y - stem;
+      const sway = Math.sin(now * 1.3 + x * 0.05) * R * 0.06;
+      const hx = x + sway, hy = y - stem;
+      // 地面の影（光は左上から → 右下へ）
+      softShadow(x + R * 0.35, y + 1 * K, R * (open > 0 ? 0.9 : 0.4), R * 0.18, 0.35 * al);
+      // くき（細くなっていく）
+      cx.lineCap = 'round';
+      cx.strokeStyle = hexA('#1f5e2a', al); cx.lineWidth = Math.max(1.5, 3.4 * K * sc);
+      cx.beginPath(); cx.moveTo(x, y); cx.quadraticCurveTo(x - R * 0.2, y - stem * 0.5, hx, hy); cx.stroke();
+      cx.strokeStyle = hexA('#7ccf6e', 0.7 * al); cx.lineWidth = Math.max(0.6, 1.1 * K * sc);
+      cx.beginPath(); cx.moveTo(x - 1 * K * sc, y); cx.quadraticCurveTo(x - R * 0.2 - 1 * K * sc, y - stem * 0.5, hx - 0.8 * K * sc, hy); cx.stroke();
+      // 葉（2枚）
+      cx.globalAlpha = al;
+      for (const [s, ly, ang] of [[1, 0.42, -0.55], [-1, 0.22, -0.35]]) {
+        cx.save(); cx.translate(x - R * 0.05 * s, y - stem * ly); cx.rotate(s > 0 ? ang : Math.PI - ang); cx.scale(1, s);
+        cx.drawImage(leaf, 0, -R * 0.2, R * 0.85, R * 0.4); cx.restore();
+      }
+      cx.globalAlpha = 1;
       if (open <= 0) {   // つぼみ（次に咲く花は、直前にふくらむ）
         const bs = R * (0.35 + 0.25 * bud);
-        cx.fillStyle = hexA(col, 0.55 * al); cx.beginPath(); cx.ellipse(hx, hy - bs * 0.3, bs * 0.6, bs, 0, 0, Math.PI * 2); cx.fill();
-        cx.fillStyle = hexA('#22c55e', 0.8 * al); cx.beginPath(); cx.ellipse(hx, hy, bs * 0.7, bs * 0.45, 0, 0, Math.PI); cx.fill();
+        const bgd = cx.createLinearGradient(hx - bs * 0.6, 0, hx + bs * 0.6, 0);
+        bgd.addColorStop(0, hexA(shade(col, 0.25), 0.9 * al)); bgd.addColorStop(1, hexA(shade(col, -0.45), 0.9 * al));
+        cx.fillStyle = bgd; cx.beginPath(); cx.ellipse(hx, hy - bs * 0.3, bs * 0.6, bs, 0, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = hexA('#2f8f3a', al);   // がく
+        for (const s of [-1, 1]) { cx.beginPath(); cx.moveTo(hx, hy + bs * 0.3); cx.quadraticCurveTo(hx + s * bs * 0.85, hy - bs * 0.1, hx + s * bs * 0.25, hy - bs * 0.75); cx.quadraticCurveTo(hx + s * bs * 0.3, hy - bs * 0.1, hx, hy + bs * 0.3); cx.fill(); }
+        cx.fillStyle = hexA('#2a7a35', al); cx.beginPath(); cx.ellipse(hx, hy + bs * 0.2, bs * 0.32, bs * 0.18, 0, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = hexA('#ffffff', 0.4 * al); cx.beginPath(); cx.ellipse(hx - bs * 0.25, hy - bs * 0.55, bs * 0.1, bs * 0.25, 0.3, 0, Math.PI * 2); cx.fill();
         return;
       }
-      // 花びら（2枚ずつ。刻みごとにふえる）
-      const n = L * 2;
-      for (let p = 0; p < petals * 2; p++) {
+      // 花の下のがく（緑）
+      cx.globalAlpha = al;
+      for (let k = 0; k < 5; k++) { cx.save(); cx.translate(hx, hy); cx.rotate(k * Math.PI * 0.4 + 0.3); cx.drawImage(leaf, 0, -R * 0.1, R * 0.5 * Math.max(0.5, Math.min(1, open)), R * 0.2); cx.restore(); }
+      // 花びら（2枚ずつ。刻みごとにふえる）：奥の花びらを先に、手前の花びらをあとに
+      const order = [];
+      for (let p = 0; p < petals * 2; p++) order.push(p);
+      order.sort((a2, b2) => Math.sin(-Math.PI / 2 + (a2 % 2 ? Math.PI : 0) + Math.floor(a2 / 2) * Math.PI / L) - Math.sin(-Math.PI / 2 + (b2 % 2 ? Math.PI : 0) + Math.floor(b2 / 2) * Math.PI / L));
+      const spr = flowersPetal(col, L);
+      for (const p of order) {
         const pair = Math.floor(p / 2), tp = d === 0 && has && gi === g ? (kCur - pair + st.frac) * dur : 9;
         const s = d === 0 && has && gi === g ? (pair === 0 ? open : bloom(tp)) : 1;
         if (s <= 0) continue;
         const a = -Math.PI / 2 + (p % 2 ? Math.PI : 0) + pair * Math.PI / L;
+        const len = R * 1.08 * s, wid = R * (L === 3 ? 0.6 : 0.68) * s;
         cx.save(); cx.translate(hx, hy); cx.rotate(a);
-        cx.fillStyle = hexA(col, (0.85) * al); cx.strokeStyle = hexA('#ffffff', 0.55 * al); cx.lineWidth = Math.max(1, 1.5 * K * sc);
-        cx.beginPath(); cx.ellipse(R * 0.55 * s, 0, R * 0.5 * s, R * (L === 3 ? 0.24 : 0.3) * s, 0, 0, Math.PI * 2); cx.fill(); cx.stroke();
+        cx.globalAlpha = al * 0.35; cx.fillStyle = '#000';   // 花びらの影
+        cx.beginPath(); cx.ellipse(len * 0.55 + R * 0.04, R * 0.05, len * 0.45, wid * 0.4, 0, 0, Math.PI * 2); cx.fill();
+        cx.globalAlpha = al; cx.drawImage(spr, R * 0.02 * s, -wid / 2, len, wid);
         cx.restore();
       }
-      const cr = R * 0.28 * Math.max(0.6, open);
-      if (d === 0 && has && gi === g && tOpen < 0.4) { cx.shadowColor = isBar ? LIME : col; cx.shadowBlur = 30 * K * (1 - tOpen / 0.4); }
-      cx.fillStyle = hexA(isBar ? LIME : '#fde047', al); cx.beginPath(); cx.arc(hx, hy, cr, 0, Math.PI * 2); cx.fill(); cx.shadowBlur = 0;
+      cx.globalAlpha = 1;
+      // 花の中心（めしべ・おしべ）
+      const cr = R * 0.28 * Math.max(0.6, open), ccol = isBar ? LIME : '#facc15';
+      const glowing = d === 0 && has && gi === g && tOpen < 0.4;
+      if (glowing) { cx.save(); cx.shadowColor = isBar ? LIME : col; cx.shadowBlur = 30 * K * (1 - tOpen / 0.4); cx.fillStyle = hexA(ccol, al); cx.beginPath(); cx.arc(hx, hy, cr, 0, Math.PI * 2); cx.fill(); cx.restore(); }
+      cx.globalAlpha = al; shadeSphere(hx, hy, cr, ccol, 'matte', 1, 0.9); cx.globalAlpha = 1;
+      if (R * sc > 10) {
+        cx.fillStyle = hexA(shade(ccol, -0.55), 0.7 * al);
+        for (let k = 0; k < 9; k++) { const a = k * 2.4, rr2 = cr * 0.55 * Math.sqrt((k + 0.5) / 9); cx.beginPath(); cx.arc(hx + Math.cos(a) * rr2, hy + Math.sin(a) * rr2, cr * 0.09, 0, Math.PI * 2); cx.fill(); }
+        cx.fillStyle = hexA('#fff7d6', 0.85 * al);
+        for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4 + 0.2; cx.beginPath(); cx.arc(hx + Math.cos(a) * cr * 1.05, hy + Math.sin(a) * cr * 1.05, cr * 0.1, 0, Math.PI * 2); cx.fill(); }
+      }
       if (d === 0 && has && gi === g && tOpen < 0.5) {   // 開いた瞬間の光の輪
         const q = tOpen / 0.5; cx.strokeStyle = hexA(isBar ? LIME : col, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
         cx.beginPath(); cx.arc(hx, hy, R * (0.8 + 1.2 * q), 0, Math.PI * 2); cx.stroke();
         if (isBar) barFlash = 1 - q;
       }
-      if (d === 0 && R > 14) txt(pw(L), x, y + 14 * K, Math.max(12, 13 * K), hexA(col, 0.9), 800);
+      if (d === 0 && R > 14) txt(pw(L), x, y + 14 * K, Math.max(12, 13 * K), hexA(shade(col, 0.3), 1), 800);
     });
+  }
+  // 手前の草（ゆれる）
+  cx.lineCap = 'round';
+  for (let i = 0; i < 26; i++) {
+    const x = hash01(i + 600) * W, h = (8 + 14 * hash01(i + 620)) * K, sw = Math.sin(now * 1.6 + i) * 2 * K;
+    cx.strokeStyle = i % 2 ? 'rgba(34,90,40,0.9)' : 'rgba(74,140,70,0.85)'; cx.lineWidth = (1.2 + hash01(i + 640)) * K;
+    cx.beginPath(); cx.moveTo(x, ah); cx.quadraticCurveTo(x + sw * 0.3, ah - h * 0.5, x + sw + (hash01(i + 660) - 0.5) * 6 * K, ah - h); cx.stroke();
   }
   if (barFlash > 0) txt('小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
@@ -5994,6 +6515,162 @@ function drawFlowers(st, now, ah) {
    ・水面の小さな点は刻みの位置。カエルの影が通ると、波紋が広がる
    ・小節の頭の葉にはハスの花が咲いている → 同じ並びの葉が、小節ごとにくり返される */
 /* @@BEGIN drawFrog */
+// カエル：背景（空と水・岸の草むら）のキャッシュ
+let frogBg = null, frogBank = null;
+function frogCanvas(w, h) {
+  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  c.width = Math.max(1, Math.ceil(w * d)); c.height = Math.max(1, Math.ceil(h * d));
+  const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { c, g };
+}
+function frogBackground(waterY, ah) {
+  const key = [W, ah, K, waterY].join();
+  if (frogBg && frogBg.key === key) return frogBg.c;
+  const { c, g } = frogCanvas(W, ah);
+  const sky = g.createLinearGradient(0, 0, 0, waterY);
+  sky.addColorStop(0, '#071423'); sky.addColorStop(0.6, '#173a4a'); sky.addColorStop(1, '#4f7d78');
+  g.fillStyle = sky; g.fillRect(0, 0, W, waterY);
+  const sun = g.createRadialGradient(W * 0.12, waterY * 0.55, 0, W * 0.12, waterY * 0.55, Math.max(W, waterY) * 0.6);
+  sun.addColorStop(0, 'rgba(255,236,190,0.2)'); sun.addColorStop(0.3, 'rgba(255,220,170,0.05)'); sun.addColorStop(1, 'rgba(255,220,170,0)');
+  g.fillStyle = sun; g.fillRect(0, 0, W, waterY);
+  const wg = g.createLinearGradient(0, waterY, 0, ah);
+  wg.addColorStop(0, '#4b7773'); wg.addColorStop(0.15, '#21505a'); wg.addColorStop(0.6, '#0f3540'); wg.addColorStop(1, '#061a20');
+  g.fillStyle = wg; g.fillRect(0, waterY, W, ah - waterY);
+  const sr = g.createRadialGradient(W * 0.12, waterY + (ah - waterY) * 0.3, 0, W * 0.12, waterY + (ah - waterY) * 0.3, W * 0.35);   // 太陽の映りこみ
+  sr.addColorStop(0, 'rgba(255,236,190,0.16)'); sr.addColorStop(1, 'rgba(255,236,190,0)');
+  g.save(); g.translate(0, waterY); g.scale(1, 0.35); g.translate(0, -waterY);
+  g.fillStyle = sr; g.fillRect(0, waterY, W, (ah - waterY) * 3); g.restore();
+  frogBg = { key, c }; return c;
+}
+// 岸の木立とガマの穂（横にくり返せる1枚の絵。水面の映りこみつき）
+function frogBankTile(waterY, ah) {
+  const key = [W, ah, K, waterY].join();
+  if (frogBank && frogBank.key === key) return frogBank;
+  const bt = Math.max(0, waterY - 70 * K), hh = ah - bt, wl = waterY - bt;
+  const a = frogCanvas(W, hh), g = a.g;
+  const per = (x, s) => Math.sin(2 * Math.PI * 3 * x / W + s) * 0.5 + Math.sin(2 * Math.PI * 7 * x / W + s * 2) * 0.3 + Math.sin(2 * Math.PI * 17 * x / W + s * 3) * 0.2;
+  for (const [col, base, amp, s] of [['#21434a', 0.62, 0.22, 1], ['#132c2f', 0.38, 0.16, 4]]) {   // 遠い木立（2層）
+    g.fillStyle = col; g.beginPath(); g.moveTo(0, wl);
+    for (let x = 0; x <= W; x += 4 * K) g.lineTo(x, wl - wl * (base + amp * per(x, s)));
+    g.lineTo(W, wl); g.closePath(); g.fill();
+  }
+  g.lineCap = 'round';
+  for (let i = 0; i < 26; i++) {   // ガマ・草
+    const x = hash01(i + 800) * W, h = (18 + 34 * hash01(i + 820)) * K, lean = (hash01(i + 840) - 0.5) * 8 * K;
+    for (const xx of [x - W, x, x + W]) {
+      g.strokeStyle = '#0c1f1c'; g.lineWidth = 1.4 * K;
+      g.beginPath(); g.moveTo(xx, wl); g.quadraticCurveTo(xx + lean * 0.3, wl - h * 0.6, xx + lean, wl - h); g.stroke();
+      if (hash01(i + 860) > 0.55) { g.fillStyle = '#2a1a10'; g.beginPath(); g.ellipse(xx + lean * 0.92, wl - h * 0.86, 1.8 * K, 5 * K, lean * 0.02, 0, Math.PI * 2); g.fill(); }
+      g.strokeStyle = '#163028'; g.lineWidth = 1 * K;   // 細い葉
+      g.beginPath(); g.moveTo(xx + 2 * K, wl); g.quadraticCurveTo(xx + 6 * K, wl - h * 0.4, xx + 10 * K + lean, wl - h * 0.7); g.stroke();
+    }
+  }
+  // 水面への映りこみ
+  const b = frogCanvas(W, hh); b.g.drawImage(a.c, 0, 0, W, hh);
+  g.save(); g.beginPath(); g.rect(0, wl, W, hh - wl); g.clip();
+  g.translate(0, wl * 2); g.scale(1, -1); g.globalAlpha = 0.45; g.drawImage(b.c, 0, 0, W, hh); g.restore();
+  const fade = g.createLinearGradient(0, wl, 0, Math.min(hh, wl * 2));   // 映りこみは下へいくほど消える
+  fade.addColorStop(0, 'rgba(20,60,66,0)'); fade.addColorStop(1, 'rgba(20,60,66,0.5)');
+  g.fillStyle = fade; g.fillRect(0, wl, W, Math.min(hh, wl * 2) - wl);
+  frogBank = { key, c: a.c, bt, hh }; return frogBank;
+}
+// ハスの花（層になった花びら）
+function frogLotus(fx, fy, fr) {
+  const petal = (a, len, wid, c1, c2) => {
+    cx.save(); cx.translate(fx, fy); cx.rotate(a);
+    const g = cx.createLinearGradient(0, 0, 0, -len); g.addColorStop(0, c1); g.addColorStop(1, c2);
+    cx.fillStyle = g; cx.beginPath(); cx.moveTo(0, 0); cx.quadraticCurveTo(-wid, -len * 0.5, 0, -len); cx.quadraticCurveTo(wid, -len * 0.5, 0, 0); cx.fill();
+    cx.strokeStyle = 'rgba(190,24,93,0.35)'; cx.lineWidth = 0.6 * K; cx.beginPath(); cx.moveTo(0, -len * 0.1); cx.lineTo(0, -len * 0.85); cx.stroke();
+    cx.restore();
+  };
+  for (const a of [-1.25, 1.25, -0.75, 0.75]) petal(a, fr * 1.15, fr * 0.42, '#f9a8d4', '#fdf2f8');
+  for (const a of [-0.35, 0.35, 0]) petal(a, fr * 1.3, fr * 0.45, '#f472b6', '#fff1f7');
+  cx.fillStyle = LIME; cx.beginPath(); cx.ellipse(fx, fy - fr * 0.25, fr * 0.22, fr * 0.12, 0, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(fx - fr * 0.07, fy - fr * 0.28, fr * 0.05, 0, Math.PI * 2); cx.fill();
+}
+// カエル本体（横向き。足もと(0,0)が原点）。air：空中、rot：体のかたむき、sac：のどのふくらみ(0〜1)
+function frogFigure(x, y, fs, sqX, sqY, air, rot, sac) {
+  const bw = fs * 0.62 * sqX, bh = fs * 0.5 * sqY;
+  cx.save(); cx.translate(x, y); cx.rotate(rot);
+  cx.lineCap = 'round'; cx.lineJoin = 'round';
+  const legCol = '#3f7a28', legDark = '#2a5419';
+  // 奥の後ろ足・前足（暗め）
+  if (air) {
+    cx.strokeStyle = legDark; cx.lineWidth = fs * 0.14;
+    cx.beginPath(); cx.moveTo(-bw * 0.6, -bh * 0.95); cx.lineTo(-bw * 1.45, -bh * 0.7); cx.lineTo(-bw * 2.15, -bh * 0.55); cx.stroke();
+    cx.lineWidth = fs * 0.08; cx.beginPath(); cx.moveTo(bw * 0.7, -bh * 0.85); cx.lineTo(bw * 1.15, -bh * 0.35); cx.stroke();
+  } else {
+    cx.fillStyle = legDark; cx.beginPath(); cx.ellipse(-bw * 0.35, -bh * 0.5, bw * 0.5, bh * 0.4, -0.25, 0, Math.PI * 2); cx.fill();
+  }
+  // 体
+  const body = () => {
+    cx.beginPath();
+    cx.moveTo(-bw * 0.95, -bh * 0.4);
+    cx.bezierCurveTo(-bw * 1.08, -bh * 1.45, -bw * 0.15, -bh * 2.0, bw * 0.55, -bh * 1.78);
+    cx.bezierCurveTo(bw * 0.98, -bh * 1.7, bw * 1.3, -bh * 1.5, bw * 1.4, -bh * 1.18);
+    cx.quadraticCurveTo(bw * 1.32, -bh * 0.82, bw * 0.9, -bh * 0.72);
+    cx.bezierCurveTo(bw * 0.6, -bh * 0.18, -bw * 0.3, -bh * 0.05, -bw * 0.95, -bh * 0.4);
+    cx.closePath();
+  };
+  body();
+  const bg = cx.createRadialGradient(-bw * 0.1, -bh * 1.75, bh * 0.1, 0, -bh, bw * 1.6);
+  bg.addColorStop(0, '#9bd162'); bg.addColorStop(0.45, '#5a9a34'); bg.addColorStop(1, '#2a5a1a');
+  cx.fillStyle = bg; cx.fill();
+  cx.save(); body(); cx.clip();
+  const belly = cx.createLinearGradient(0, -bh * 1.1, 0, 0);   // おなか（クリーム色）
+  belly.addColorStop(0, 'rgba(240,232,180,0)'); belly.addColorStop(0.55, 'rgba(232,224,170,0.7)'); belly.addColorStop(1, 'rgba(196,186,136,0.9)');
+  cx.fillStyle = belly; cx.beginPath(); cx.ellipse(bw * 0.3, -bh * 0.15, bw * 1.1, bh * 0.58, -0.15, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(30,60,15,0.55)';   // もよう
+  for (const [sx2, sy2, r] of [[-0.55, -1.25, 0.16], [-0.1, -1.55, 0.13], [0.25, -1.3, 0.1], [-0.75, -0.85, 0.12], [0.05, -1.05, 0.08]]) { cx.beginPath(); cx.ellipse(bw * sx2, bh * sy2, bw * r * 1.3, bh * r, 0.3, 0, Math.PI * 2); cx.fill(); }
+  cx.strokeStyle = 'rgba(220,240,170,0.45)'; cx.lineWidth = fs * 0.035;   // 背中のすじ
+  cx.beginPath(); cx.moveTo(-bw * 0.85, -bh * 1.05); cx.quadraticCurveTo(-bw * 0.2, -bh * 1.62, bw * 0.45, -bh * 1.52); cx.stroke();
+  cx.restore();
+  cx.strokeStyle = 'rgba(20,45,10,0.5)'; cx.lineWidth = fs * 0.025; body(); cx.stroke();
+  // 口と鼻
+  cx.strokeStyle = 'rgba(25,40,10,0.75)'; cx.lineWidth = fs * 0.03;
+  cx.beginPath(); cx.moveTo(bw * 1.36, -bh * 1.1); cx.quadraticCurveTo(bw * 1.0, -bh * 1.0, bw * 0.55, -bh * 1.18); cx.stroke();
+  cx.fillStyle = '#1a2e0c'; cx.beginPath(); cx.arc(bw * 1.25, -bh * 1.42, fs * 0.022, 0, Math.PI * 2); cx.fill();
+  // 鼓膜
+  cx.fillStyle = '#6b6a2a'; cx.beginPath(); cx.arc(bw * 0.3, -bh * 1.35, fs * 0.085, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = 'rgba(200,220,140,0.4)'; cx.lineWidth = fs * 0.015; cx.stroke();
+  // 目（ふくらんだ目と金色のひとみ）
+  const ex = bw * 0.72, ey = -bh * 1.78, er = fs * 0.16;
+  shadeSphere(ex, ey, er, '#5f9e38', 'matte');
+  const ig = cx.createRadialGradient(ex - er * 0.15, ey - er * 0.15, 0, ex, ey, er * 0.8);
+  ig.addColorStop(0, '#f7d774'); ig.addColorStop(0.7, '#b8860b'); ig.addColorStop(1, '#5a3d06');
+  cx.fillStyle = ig; cx.beginPath(); cx.arc(ex + er * 0.12, ey, er * 0.72, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = '#0b0b0b'; cx.beginPath(); cx.ellipse(ex + er * 0.18, ey, er * 0.42, er * 0.2, 0, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = 'rgba(255,255,255,0.95)'; cx.beginPath(); cx.arc(ex - er * 0.12, ey - er * 0.32, er * 0.17, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = 'rgba(40,70,20,0.6)'; cx.lineWidth = fs * 0.03; cx.beginPath(); cx.arc(ex, ey, er, Math.PI * 1.1, Math.PI * 1.9); cx.stroke();   // まぶた
+  // のどぶくろ（刻みで「ケロ」とふくらむ）
+  if (sac > 0) {
+    const sr = fs * 0.24 * sac, sx3 = bw * 1.0, sy3 = -bh * 0.62 + sr * 0.3;
+    const sg = cx.createRadialGradient(sx3 - sr * 0.3, sy3 - sr * 0.3, 0, sx3, sy3, sr);
+    sg.addColorStop(0, 'rgba(255,253,230,0.95)'); sg.addColorStop(0.7, 'rgba(240,230,170,0.75)'); sg.addColorStop(1, 'rgba(180,170,110,0.6)');
+    cx.fillStyle = sg; cx.beginPath(); cx.arc(sx3, sy3, sr, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(255,255,255,0.8)'; cx.beginPath(); cx.arc(sx3 - sr * 0.35, sy3 - sr * 0.35, sr * 0.2, 0, Math.PI * 2); cx.fill();
+  }
+  // 手前の足
+  if (air) {   // のびた後ろ足と、水かきのある足先
+    cx.strokeStyle = legCol; cx.lineWidth = fs * 0.2;
+    cx.beginPath(); cx.moveTo(-bw * 0.55, -bh * 0.75); cx.lineTo(-bw * 1.4, -bh * 0.45); cx.stroke();
+    cx.lineWidth = fs * 0.13; cx.beginPath(); cx.moveTo(-bw * 1.4, -bh * 0.45); cx.lineTo(-bw * 2.2, -bh * 0.25); cx.stroke();
+    cx.fillStyle = legCol; cx.beginPath(); cx.moveTo(-bw * 2.15, -bh * 0.3); cx.lineTo(-bw * 2.7, -bh * 0.55); cx.lineTo(-bw * 2.75, -bh * 0.1); cx.lineTo(-bw * 2.6, bh * 0.15); cx.closePath(); cx.fill();
+    cx.strokeStyle = '#4f8f33'; cx.lineWidth = fs * 0.09; cx.beginPath(); cx.moveTo(bw * 0.8, -bh * 0.8); cx.lineTo(bw * 1.3, -bh * 0.2); cx.stroke();
+  } else {     // たたんだ後ろ足と、前足
+    const tg = cx.createRadialGradient(-bw * 0.5, -bh * 0.95, 0, -bw * 0.4, -bh * 0.6, bw * 0.6);
+    tg.addColorStop(0, '#7fbf4a'); tg.addColorStop(1, '#2f6420');
+    cx.fillStyle = tg; cx.beginPath(); cx.ellipse(-bw * 0.4, -bh * 0.62, bw * 0.55, bh * 0.48, -0.35, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(30,60,15,0.5)'; cx.beginPath(); cx.ellipse(-bw * 0.5, -bh * 0.75, bw * 0.12, bh * 0.08, -0.3, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = legCol; cx.lineWidth = fs * 0.1;   // すね〜足先
+    cx.beginPath(); cx.moveTo(-bw * 0.85, -bh * 0.25); cx.quadraticCurveTo(-bw * 0.4, bh * 0.02, bw * 0.15, -bh * 0.02); cx.stroke();
+    cx.lineWidth = fs * 0.04; for (const t of [-0.12, 0, 0.12]) { cx.beginPath(); cx.moveTo(bw * 0.15, -bh * 0.02); cx.lineTo(bw * (0.38 + t * 0.5), bh * (0.02 + t * 0.3)); cx.stroke(); }
+    cx.strokeStyle = '#4f8f33'; cx.lineWidth = fs * 0.09;   // 前足
+    cx.beginPath(); cx.moveTo(bw * 0.78, -bh * 0.8); cx.quadraticCurveTo(bw * 0.95, -bh * 0.4, bw * 0.92, 0); cx.stroke();
+    cx.lineWidth = fs * 0.035; for (const t of [-1, 0, 1]) { cx.beginPath(); cx.moveTo(bw * 0.92, 0); cx.lineTo(bw * (0.92 + t * 0.12 + 0.05), bh * 0.04); cx.stroke(); }
+  }
+  cx.restore();
+}
+
 function drawFrog(st, now, ah) {
   const m = st.m, N = m.total, G = m.groups.length, dur = 60 / bpm, has = st.has;
   const top = 112 * K, waterY = ah - Math.max(52 * K, (ah - top) * 0.28);
@@ -6004,16 +6681,41 @@ function drawFrog(st, now, ah) {
   const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
   const info = j => { const i = mod(j, N), gi = m.subToGroup[i], Lg = m.groups[gi], k = i - m.starts[gi]; return { gi, Lg, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
 
-  // 水
-  const wg = cx.createLinearGradient(0, waterY, 0, ah);
-  wg.addColorStop(0, '#0e7490'); wg.addColorStop(1, '#083344');
-  cx.fillStyle = wg; cx.fillRect(0, waterY, W, ah - waterY);
-  cx.strokeStyle = 'rgba(165,243,252,0.35)'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.moveTo(0, waterY); cx.lineTo(W, waterY); cx.stroke();
+  // 空と水（キャッシュ）＋岸（カメラに合わせてゆっくり流れる）
+  cx.drawImage(frogBackground(waterY, ah), 0, 0, W, ah);
+  const bank = frogBankTile(waterY, ah), boff = -mod(cam * u * 0.25, W);
+  cx.drawImage(bank.c, boff, bank.bt, W, bank.hh); cx.drawImage(bank.c, boff + W, bank.bt, W, bank.hh);
+  cx.fillStyle = 'rgba(220,240,230,0.35)'; cx.fillRect(0, waterY - 0.5 * K, W, 1 * K);   // 水ぎわの光
+  // 水面のさざ波（光の筋）
+  for (let i = 0; i < 9; i++) {
+    const f = (i + 1) / 10, y = waterY + Math.pow(f, 1.4) * (ah - waterY) * 0.9, w = (30 + 50 * hash01(i + 70)) * K * (0.5 + f);
+    const x = mod(hash01(i + 90) * W - cam * u * (0.6 + f * 0.4) + Math.sin(now * 0.8 + i) * 10 * K, W + w) - w;
+    cx.fillStyle = `rgba(210,240,235,${0.06 + 0.04 * Math.sin(now * 1.5 + i * 2)})`; cx.fillRect(x, y, w, (0.6 + f) * K);
+  }
   const j0 = Math.floor(cam - ax / u) - 3, j1 = Math.ceil(cam + (W - ax) / u) + 3;
-  // 刻みの点と、通ったときの波紋
+
+  // カエル：頭の葉から次の葉へ、拍の長さをかけて跳ぶ
+  const hMax = waterY - top - 50 * K, hOf = Lg => Math.max(20, hMax * (Lg / 3) * (Lg / 3));
+  const crouch = 0.14;                                                       // 着地してから、ぐっとかがむ時間（まとまりのはじめ）
+  const p = has ? clamp(((kCur + st.frac) / L - crouch) / (1 - crouch), 0, 1) : 0;
+  const fx = sx(headSc + L * p), fyBase = waterY - 2 * K, fy = fyBase - 4 * hOf(L) * p * (1 - p);
+  const fs = Math.max(14, Math.min(u * 0.55, 34 * K));
+  const land = has ? Math.exp(-ageH / 0.08) : 0, air = p > 0 && p < 1;
+  const sqY = air ? 1.12 : 1 - 0.28 * land - (has && p === 0 ? 0.12 * Math.sin(Math.PI * clamp((kCur + st.frac) / L / crouch, 0, 1)) : 0), sqX = 1 / Math.sqrt(sqY);
+  const rot = air ? Math.atan2(-4 * hOf(L) * (1 - 2 * p), L * u) * 0.45 : 0;
+  const sac = has && kCur > 0 && ageS < 0.18 && !air ? 1 - ageS / 0.18 : 0;   // のどを鳴らす
+  // 水面に映るカエル（空中のときだけよく見える）
+  if (air) {
+    cx.save(); cx.beginPath(); cx.rect(0, waterY + 1, W, ah - waterY); cx.clip();
+    cx.translate(0, 2 * (waterY + 3 * K)); cx.scale(1, -1); cx.globalAlpha = 0.28;
+    frogFigure(fx, fy, fs, sqX, sqY, air, rot, 0); cx.restore();
+  }
+
+  // 刻みの点（浮き草）と、通ったときの波紋
   for (let j = Math.max(0, j0); j <= j1; j++) {
     const d = info(j), x = sx(j); if (d.head) continue;
-    cx.fillStyle = 'rgba(207,250,254,0.5)'; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, 3 * K, 1.5 * K, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(134,190,90,0.85)'; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, 3.2 * K, 1.4 * K, 0, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = 'rgba(230,255,200,0.7)'; cx.beginPath(); cx.ellipse(x - 1 * K, waterY + 5.6 * K, 1.2 * K, 0.5 * K, 0, 0, Math.PI * 2); cx.fill();
     if (has) { const age = (S - j) * dur; if (age >= 0 && age < 0.8) { const q = age / 0.8; cx.strokeStyle = hexA('#cffafe', 0.6 * (1 - q)); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 6 * K, (4 + 26 * q) * K, (1.5 + 6 * q) * K, 0, 0, Math.PI * 2); cx.stroke(); } }
   }
   // ハスの葉
@@ -6022,28 +6724,37 @@ function drawFrog(st, now, ah) {
     const d = info(j); if (!d.head) continue;
     const x = sx(j), col = COLORS[d.Lg], age = has ? (S - j) * dur : 9;
     const sink = age >= 0 && age < 0.6 ? 6 * K * Math.exp(-age / 0.15) * Math.cos(age * 20) : 0, pr = Math.min(u * 0.75, 40 * K);
-    cx.fillStyle = '#15803d'; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0.25, Math.PI * 2 - 0.05); cx.lineTo(x, waterY + 4 * K + sink); cx.closePath(); cx.fill();
-    cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 4 * K + sink, pr, pr * 0.3, 0, 0, Math.PI * 2); cx.stroke();
+    const py = waterY + 4 * K + sink, rot2 = (hash01(j * 3 + 1) - 0.5) * 0.6;
+    // 葉の影（水の中）と、色のふち（拍の色）
+    cx.fillStyle = 'rgba(2,20,24,0.45)'; cx.beginPath(); cx.ellipse(x + 3 * K, py + 3 * K, pr * 1.02, pr * 0.32, 0, 0, Math.PI * 2); cx.fill();
+    cx.save(); cx.shadowColor = col; cx.shadowBlur = 8 * K;
+    cx.strokeStyle = hexA(col, 0.9); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.ellipse(x, py + 1 * K, pr, pr * 0.3, 0, 0, Math.PI * 2); cx.stroke(); cx.restore();
+    // 葉（切れこみ・葉脈・ふちのそり返り）
+    cx.save(); cx.translate(x, py); cx.scale(1, 0.3);
+    const lg = cx.createRadialGradient(-pr * 0.3, -pr * 0.35, pr * 0.05, 0, 0, pr);
+    lg.addColorStop(0, '#6fbf4a'); lg.addColorStop(0.6, '#2f7d32'); lg.addColorStop(1, '#1a4f22');
+    const n0 = rot2 + 0.15, n1 = rot2 + Math.PI * 2 - 0.15;
+    cx.fillStyle = lg; cx.beginPath(); cx.moveTo(0, 0); cx.arc(0, 0, pr, n0, n1); cx.closePath(); cx.fill();
+    cx.strokeStyle = 'rgba(200,240,160,0.22)'; cx.lineWidth = 1.2 * K;
+    cx.beginPath(); for (let k = 1; k < 9; k++) { const a = n0 + (n1 - n0) * k / 9; cx.moveTo(0, 0); cx.lineTo(Math.cos(a) * pr * 0.92, Math.sin(a) * pr * 0.92); } cx.stroke();
+    cx.strokeStyle = 'rgba(190,240,150,0.5)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(0, 0, pr * 0.97, Math.PI * 1.05, Math.PI * 1.75); cx.stroke();
+    cx.strokeStyle = 'rgba(10,40,15,0.6)'; cx.lineWidth = 2.5 * K; cx.beginPath(); cx.arc(0, 0, pr * 0.98, Math.PI * 0.1, Math.PI * 0.9); cx.stroke();
+    cx.fillStyle = 'rgba(255,255,255,0.35)'; cx.beginPath(); cx.arc(-pr * 0.35, -pr * 0.3, pr * 0.05, 0, Math.PI * 2); cx.fill();   // 水玉
+    cx.restore();
     txt(pw(d.Lg), x, waterY + pr * 0.3 + 18 * K, Math.max(12, 13 * K), hexA(col, 0.95), 800);
-    if (d.bar) {   // ハスの花
-      const fx = x + pr * 0.55, fy = waterY + sink - 2 * K, fr = pr * 0.3;
-      for (let p = 0; p < 5; p++) { const a = -Math.PI / 2 + (p - 2) * 0.45; cx.fillStyle = '#f9a8d4'; cx.beginPath(); cx.ellipse(fx + Math.cos(a) * fr * 0.5, fy + Math.sin(a) * fr * 0.5, fr * 0.5, fr * 0.22, a, 0, Math.PI * 2); cx.fill(); }
-      cx.fillStyle = LIME; cx.beginPath(); cx.arc(fx, fy, fr * 0.2, 0, Math.PI * 2); cx.fill();
-    }
+    if (d.bar) frogLotus(x + pr * 0.55, waterY + sink - 2 * K, pr * 0.3);   // ハスの花
     if (has && age >= 0 && age < 0.6) {   // 着地の水しぶき
       const q = age / 0.6;
       cx.strokeStyle = hexA(d.bar ? LIME : '#cffafe', 1 - q); cx.lineWidth = 2.5 * K * (1 - q) + 0.5;
       cx.beginPath(); cx.ellipse(x, waterY + 6 * K, pr * (1 + q * 1.4), pr * 0.3 * (1 + q * 1.4), 0, 0, Math.PI * 2); cx.stroke();
-      for (let i = 0; i < 6; i++) { const a = Math.PI * (0.15 + 0.7 * i / 5), v = pr * (d.Lg === 3 ? 1.1 : 0.8); cx.fillStyle = hexA('#cffafe', 1 - q); cx.beginPath(); cx.arc(x - Math.cos(a) * v * q * 1.4, waterY - Math.sin(a) * v * 4 * q * (1 - q), 2.4 * K, 0, Math.PI * 2); cx.fill(); }
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI * (0.15 + 0.7 * i / 5), v = pr * (d.Lg === 3 ? 1.1 : 0.8), px = x - Math.cos(a) * v * q * 1.4, pyy = waterY - Math.sin(a) * v * 4 * q * (1 - q), r = 2.4 * K;
+        cx.fillStyle = hexA('#cffafe', 0.6 * (1 - q)); cx.beginPath(); cx.arc(px, pyy, r, 0, Math.PI * 2); cx.fill();
+        cx.fillStyle = hexA('#ffffff', 1 - q); cx.beginPath(); cx.arc(px - r * 0.3, pyy - r * 0.3, r * 0.4, 0, Math.PI * 2); cx.fill();
+      }
       if (d.bar) barFlash = 1 - q;
     }
   }
-  // カエル：頭の葉から次の葉へ、拍の長さをかけて跳ぶ
-  const hMax = waterY - top - 50 * K, hOf = Lg => Math.max(20, hMax * (Lg / 3) * (Lg / 3));
-  const crouch = 0.14;                                                       // 着地してから、ぐっとかがむ時間（まとまりのはじめ）
-  const p = has ? clamp(((kCur + st.frac) / L - crouch) / (1 - crouch), 0, 1) : 0;
-  const fx = sx(headSc + L * p), fyBase = waterY - 2 * K, fy = fyBase - 4 * hOf(L) * p * (1 - p);
-  const fs = Math.max(14, Math.min(u * 0.55, 34 * K));
   // 跳ぶ道
   if (has) {
     cx.setLineDash([3 * K, 6 * K]); cx.strokeStyle = hexA(COLORS[L], 0.55); cx.lineWidth = 2 * K; cx.beginPath();
@@ -6051,22 +6762,11 @@ function drawFrog(st, now, ah) {
     cx.stroke(); cx.setLineDash([]);
     for (let k = 1; k < L; k++) { const q = clamp((k / L - crouch) / (1 - crouch), 0, 1), x = sx(headSc + L * q), y = fyBase - 4 * hOf(L) * q * (1 - q), lit = kCur >= k; cx.fillStyle = lit ? '#ffffff' : 'rgba(226,232,240,0.5)'; cx.beginPath(); cx.arc(x, y - fs * 0.6, (lit ? 4.5 : 3) * K, 0, Math.PI * 2); cx.fill(); }
   }
-  // 影
-  cx.fillStyle = `rgba(0,0,0,${0.35 * (1 - 0.6 * (fyBase - fy) / Math.max(1, hMax))})`; cx.beginPath(); cx.ellipse(fx, waterY + 5 * K, fs * 0.6, fs * 0.15, 0, 0, Math.PI * 2); cx.fill();
+  // 影（高く跳ぶほどうすく、ぼやける）
+  const hq = clamp((fyBase - fy) / Math.max(1, hMax), 0, 1);
+  softShadow(fx + 4 * K, waterY + 5 * K, fs * (0.75 + 0.5 * hq), fs * 0.18 * (1 + hq), 0.55 * (1 - 0.6 * hq));
   // カエルの体（つぶれ・のび）
-  const land = has ? Math.exp(-ageH / 0.08) : 0, air = p > 0 && p < 1;
-  const sqY = air ? 1.12 : 1 - 0.28 * land - (has && p === 0 ? 0.12 * Math.sin(Math.PI * clamp((kCur + st.frac) / L / crouch, 0, 1)) : 0), sqX = 1 / Math.sqrt(sqY);
-  const bw = fs * 0.62 * sqX, bh = fs * 0.5 * sqY, by = fy - bh;
-  cx.fillStyle = '#4ade80'; cx.beginPath(); cx.ellipse(fx, by, bw, bh, 0, 0, Math.PI * 2); cx.fill();
-  cx.fillStyle = '#bbf7d0'; cx.beginPath(); cx.ellipse(fx + bw * 0.15, by + bh * 0.35, bw * 0.55, bh * 0.45, 0, 0, Math.PI * 2); cx.fill();
-  if (air) { cx.strokeStyle = '#22c55e'; cx.lineWidth = fs * 0.12; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(fx - bw * 0.6, by + bh * 0.4); cx.lineTo(fx - bw * 1.3, by + bh * 1.1); cx.stroke(); }
-  for (const s of [-1, 1]) {   // 目
-    const ex = fx + bw * 0.35 + s * bw * 0.32, ey = by - bh * 0.85;
-    cx.fillStyle = '#4ade80'; cx.beginPath(); cx.arc(ex, ey, fs * 0.17, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(ex, ey, fs * 0.12, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#0f172a'; cx.beginPath(); cx.arc(ex + fs * 0.03, ey, fs * 0.06, 0, Math.PI * 2); cx.fill();
-  }
-  if (has && kCur > 0 && ageS < 0.18 && !air) { cx.fillStyle = hexA('#fef9c3', 0.9); cx.beginPath(); cx.arc(fx + bw * 0.6, by + bh * 0.5, fs * 0.18 * (1 - ageS / 0.18), 0, Math.PI * 2); cx.fill(); }   // のどを鳴らす
+  frogFigure(fx, fy, fs, sqX, sqY, air, rot, sac);
   if (barFlash > 0) txt('小節の頭！ ハスの花の葉にもどってきた', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
