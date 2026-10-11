@@ -759,7 +759,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -14px) scale(.9); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
   .tab.locked { opacity: .55; } .tab.locked .em { filter: grayscale(1); }
   .mic-meter { flex: 1; max-width: 220px; height: 10px; border-radius: 99px; background: #1e293b; overflow: hidden; } .mic-meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22d3ee, #a3e635, #fb7185); transition: width .05s; }
-  .ens-badge { background: #166534; border-color: #4ade80; animation: ensPulse 2s infinite; } @keyframes ensPulse { 50% { box-shadow: 0 0 0 4px rgba(74,222,128,.25); } }
+  .ens-badge[hidden] { display: none; } .ens-badge { background: #166534; border-color: #4ade80; animation: ensPulse 2s infinite; } @keyframes ensPulse { 50% { box-shadow: 0 0 0 4px rgba(74,222,128,.25); } }
 </style>
 </head>
 <body>
