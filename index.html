@@ -2925,6 +2925,67 @@ function rollCache(key, w, h, paint) {
   return e.c;
 }
 /* @@BEGIN drawRoll */
+/* 🎮 タップ演出の共通部品（多角形・円軌道・ひも振り子・メトロノーム3種で使う）
+   rollPlay(key)：いまのタップの反応（種類・経過秒）と、コンボでにぎやかになる度合い fest（0〜3、なめらかに上下する） */
+const rollPlayLv = {};
+function rollPlay(key) {
+  const on = !!SET.tapOn, age = on ? playAge() : 99, k = on && age < 3 ? playFx.kind : null, combo = on ? playFx.combo || 0 : 0;
+  const tgt = on && playing && age < 6 ? (combo >= 16 ? 3 : combo >= 8 ? 2 : combo >= 4 ? 1 : 0) : 0;
+  const t = performance.now(), s = rollPlayLv[key] || (rollPlayLv[key] = { v: 0, t });
+  const dt = clamp((t - s.t) / 1000, 0, 0.1); s.t = t;
+  s.v += (tgt - s.v) * (1 - Math.exp(-dt * (tgt > s.v ? 2.6 : 1.4)));
+  if (Math.abs(tgt - s.v) < 0.004) s.v = tgt;
+  const f = s.v;
+  return { on, k, age, combo, head: !!playFx.head, fest: f, f1: clamp(f, 0, 1), f2: clamp(f - 1, 0, 1), f3: clamp(f - 2, 0, 1), dir: k === 'e' ? -1 : k === 'l' ? 1 : 0,
+    tint: k === 'p' ? '#fde047' : k === 'e' ? '#60a5fa' : k === 'l' ? '#f87171' : '#cbd5e1', t: t / 1000 };
+}
+const rollPlayRnd = i => { const v = Math.sin(i * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+const rollPlayWob = (age, f = 30, d = 7) => Math.exp(-age * d) * Math.sin(age * f);
+// きらっと光る星（4本の光）
+function rollPlayStar(x, y, r, a, col = '#fff3b0') {
+  if (a <= 0.01 || r <= 0.3) return;
+  cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = Math.min(1, a); cx.fillStyle = col;
+  cx.beginPath(); cx.moveTo(x, y - r); cx.quadraticCurveTo(x, y, x + r, y); cx.quadraticCurveTo(x, y, x, y + r); cx.quadraticCurveTo(x, y, x - r, y); cx.quadraticCurveTo(x, y, x, y - r); cx.fill();
+  cx.globalAlpha = Math.min(1, a) * 0.35; cx.beginPath(); cx.arc(x, y, r * 0.42, 0, Math.PI * 2); cx.fill();
+  cx.globalAlpha = Math.min(1, a); cx.fillStyle = '#ffffff'; cx.beginPath(); cx.arc(x, y, r * 0.16, 0, Math.PI * 2); cx.fill(); cx.restore();
+}
+// 星がはじけて、少し落ちながら消える（age 秒め）
+function rollPlayBurst(x, y, age, n, spd, col, seed = 1, grav = 1, dur = 0.9, size = 1) {
+  if (age < 0 || age > dur) return; const q = age / dur;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (rollPlayRnd(seed + i) - 0.5) * Math.PI * 2, v = spd * (0.4 + 0.6 * rollPlayRnd(seed + i * 3.7)) * K, e = 1 - Math.exp(-age * 5);
+    const px = x + Math.cos(a) * v * e / 5, py = y + Math.sin(a) * v * e / 5 + grav * 120 * K * age * age;
+    rollPlayStar(px, py, (2.5 + 4 * rollPlayRnd(seed + i * 1.3)) * K * size * (1 - q * 0.55), (1 - q) * (0.65 + 0.35 * Math.sin(age * 38 + i * 2)), col);
+  }
+}
+// 紙ふぶき（amt 0〜1 で量が変わる。数は最大36）
+function rollPlayConfetti(x0, y0, w, h, amt, t, seed = 7) {
+  const n = Math.round(36 * clamp(amt, 0, 1)); if (!n) return;
+  const cols = ['#fde047', '#f472b6', '#60a5fa', '#4ade80', '#fb923c', '#c084fc'];
+  for (let i = 0; i < n; i++) {
+    const sp = 0.16 + 0.16 * rollPlayRnd(seed + i), ph = (t * sp + rollPlayRnd(seed + i * 2.1)) % 1;
+    const x = x0 + w * rollPlayRnd(seed + i * 5.3) + Math.sin(t * 1.7 + i) * 14 * K, y = y0 + h * ph, s = (2.6 + 2 * rollPlayRnd(i + 3)) * K;
+    cx.save(); cx.translate(x, y); cx.rotate(t * 2.4 + i); cx.scale(1, Math.abs(Math.sin(t * 4.3 + i)) + 0.15);
+    cx.globalAlpha = 0.9 * Math.min(1, amt * 1.3) * Math.min(1, (1 - ph) * 6, ph * 12); cx.fillStyle = cols[i % 6]; cx.fillRect(-s, -s * 0.5, s * 2, s); cx.restore();
+  }
+}
+// またたく小さな光（n個まで）
+function rollPlayTwinkle(x0, y0, w, h, n, t, amt, col = '#fff3b0', seed = 3) {
+  if (amt <= 0.01) return;
+  for (let i = 0; i < n; i++) {
+    const tw = Math.sin(t * (1.6 + rollPlayRnd(seed + i) * 2.2) + i * 1.9), a = amt * Math.max(0, tw) ** 2;
+    if (a > 0.02) rollPlayStar(x0 + w * rollPlayRnd(seed + i * 4.1), y0 + h * rollPlayRnd(seed + i * 6.7), (2.5 + 3 * rollPlayRnd(seed + i * 9.2)) * K, a, col);
+  }
+}
+// 音の輪（上向きの弧が広がる）
+function rollPlayRings(x, y, age, dur, r0, col, n = 3, spread = 60) {
+  if (age < 0 || age > dur) return;
+  for (let i = 0; i < n; i++) {
+    const q = clamp((age - i * 0.07) / dur, 0, 1); if (q <= 0 || q >= 1) continue;
+    cx.strokeStyle = hexA(col, (1 - q) * 0.8); cx.lineWidth = (2.6 - q * 1.6) * K;
+    cx.beginPath(); cx.arc(x, y, r0 + q * spread * K, -Math.PI * 0.82, -Math.PI * 0.18); cx.stroke();
+  }
+}
 function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
   const top = 112 * K, gMax = ah - Math.max(22 * K, ah * 0.07);
@@ -2968,6 +3029,27 @@ function drawRoll(st, now, ah) {
     c.save(); c.translate(0, groundY); c.scale(1, 0.3); c.translate(0, -groundY); c.fillStyle = g; c.fillRect(0, groundY - W, W, W * 2); c.restore();
   });
   cx.drawImage(bg, 0, 0, W, ah);
+  const PL = rollPlay('A'), pk = PL.k, pag = PL.age, tt = PL.t;
+  // かべのランプ（カメラより少しゆっくり流れる → 奥行き）。コンボで明るく、あたたかくなる
+  {
+    const gapL = Math.max(170 * K, Rpx * 3.4), off = mod(-camU * u * 0.6, gapL), ly = Math.max(top - 8 * K, wallY * 0.42), lum = 0.5 + 0.5 * PL.f1;
+    for (let x = off - gapL; x < W + gapL; x += gapL) {
+      const g = cx.createRadialGradient(x, ly, 0, x, ly + 20 * K, 120 * K); g.addColorStop(0, `rgba(255,214,150,${0.2 * lum})`); g.addColorStop(1, 'rgba(255,214,150,0)');
+      cx.fillStyle = g; cx.fillRect(x - 120 * K, ly - 100 * K, 240 * K, 240 * K);
+      cx.fillStyle = metalGrad(x - 5 * K, 0, x + 5 * K, 0, 'brass'); cx.fillRect(x - 1.5 * K, ly - 2 * K, 3 * K, 12 * K); cx.fillRect(x - 7 * K, ly + 9 * K, 14 * K, 3 * K);
+      cx.fillStyle = `rgba(255,236,200,${0.7 + 0.3 * PL.f1})`; cx.beginPath(); cx.moveTo(x - 9 * K, ly - 2 * K); cx.lineTo(x + 9 * K, ly - 2 * K); cx.lineTo(x + 6 * K, ly - 14 * K); cx.lineTo(x - 6 * K, ly - 14 * K); cx.closePath(); cx.fill();
+    }
+    // コンボ（8〜）：かべに三角の旗（ガーランド）
+    if (PL.f2 > 0.01) {
+      const fl = 26 * K, fy = Math.max(top - 20 * K, ly - 40 * K), offF = mod(-camU * u * 0.6, fl * 6), pal = ['#f472b6', '#facc15', '#4ade80', '#60a5fa', '#fb923c'];
+      cx.strokeStyle = `rgba(226,232,240,${0.5 * PL.f2})`; cx.lineWidth = 1 * K; cx.beginPath();
+      for (let x = offF - fl * 6; x < W + fl * 6; x += fl * 6) { cx.moveTo(x, fy); cx.quadraticCurveTo(x + fl * 3, fy + 16 * K, x + fl * 6, fy); } cx.stroke();
+      for (let x = offF - fl * 6, i = 0; x < W + fl * 6; x += fl, i++) {
+        const v = (i % 6) / 6, y0 = fy + 16 * K * 2 * v * (1 - v) * 2 * 0.5 * 2, sw = Math.sin(tt * 3 + i) * 2 * K;
+        cx.fillStyle = hexA(pal[i % 5], 0.85 * PL.f2); cx.beginPath(); cx.moveTo(x + 2 * K, y0); cx.lineTo(x + fl - 2 * K, y0 + 0.5 * K); cx.lineTo(x + fl / 2 + sw, y0 + fl * 0.8); cx.closePath(); cx.fill();
+      }
+    }
+  }
   // 板の短い継ぎ目：カメラといっしょに流れる
   {
     const rows = rollRows(wallY, ah), plank = 3.2 * Rpx, sl = ex / ey;
@@ -3064,6 +3146,11 @@ function drawRoll(st, now, ah) {
   const px0 = toS(X(S));
   const dur = U[j].dur, gpos = t * dur;
   const LX = -0.6, LY = -0.8;   // 光の向き（左上から）
+  // タップの反応：ぴったり → ぴょんと小さくはねて金色に光る、はやい／おそい → ぐらっとよろける（はやい＝うしろ・青、おそい＝前・赤）、たたきすぎ → ことっ
+  const gold = pk === 'p' && pag < 0.8 ? 1 - pag / 0.8 : 0;
+  const hop = pk === 'p' && pag < 0.32 ? Math.sin(pag / 0.32 * Math.PI) * Math.min(14 * K, Rpx * 0.12) : pk === 'x' && pag < 0.2 ? Math.sin(pag / 0.2 * Math.PI) * 2.5 * K : 0;
+  const rock = (pk === 'e' || pk === 'l') && pag < 0.7 ? (PL.dir * 0.08 * Math.exp(-pag * 5) * Math.sin(Math.min(1, pag * 9) * Math.PI / 2) + rollPlayWob(pag, 24, 6) * 0.04) : 0;
+  cx.save(); if (hop) cx.translate(0, -hop); if (rock) { cx.translate(px0, groundY); cx.rotate(rock); cx.translate(-px0, -groundY); }
   for (const sh of SH) {
     const ox = px0 + sh;
     if (ox + 2.2 * Rpx < 0 || ox - 2.2 * Rpx > W) continue;
@@ -3159,6 +3246,27 @@ function drawRoll(st, now, ah) {
     const nx = V[(j + 1) % N];
     cx.strokeStyle = hexA(LIME, 0.35 + 0.6 * t); cx.lineWidth = 2 * K;
     cx.beginPath(); cx.arc(nx[0], nx[1], 12 * K, 0, Math.PI * 2); cx.stroke();
+    if (gold > 0) {   // 金色のふち
+      cx.save(); cx.globalCompositeOperation = 'lighter'; cx.shadowColor = '#fbbf24'; cx.shadowBlur = 20 * K * gold;
+      cx.strokeStyle = `rgba(255,220,120,${0.85 * gold})`; cx.lineWidth = 3 * K; cx.lineJoin = 'round';
+      cx.beginPath(); V.forEach((q, i) => i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1])); cx.closePath(); cx.stroke(); cx.restore();
+    }
+    if (rock) { cx.beginPath(); V.forEach((q, i) => i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1])); cx.closePath(); cx.fillStyle = hexA(PL.tint, 0.18 * (1 - pag / 0.7)); cx.fill(); }
+  }
+  cx.restore();
+  if (gold > 0) { rollPlayBurst(px0, groundY - 4 * K, pag, PL.head ? 16 : 11, 440, '#ffe9a8', 13 + Math.floor(playFx.t) % 91, 0.7, 0.8); rollPlayStar(px0, groundY - 2 * K, 26 * K * gold, gold, '#fff8dc'); }
+  if ((pk === 'e' || pk === 'l') && pag < 0.6) {   // ゆかのほこり（にぶい色）
+    const q = pag / 0.6; for (let i = 0; i < 5; i++) { const sx = (i - 2) / 2; cx.fillStyle = hexA(PL.tint, 0.22 * (1 - q)); cx.beginPath(); cx.arc(px0 + sx * (12 + q * 40) * K - PL.dir * q * 14 * K, groundY - (3 + q * 10 + (i % 2) * 5) * K, (4 + q * 7) * K, 0, Math.PI * 2); cx.fill(); }
+  }
+  if (PL.f3 > 0.01) {   // コンボ（16〜）：色のついた舞台の光と、紙ふぶき
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    ['244,114,182', '96,165,250', '250,204,21'].forEach((c3, i) => {
+      const sx = W * (0.15 + 0.35 * i), ex = W * 0.5 + Math.sin(tt * (0.7 + i * 0.25) + i * 2) * W * 0.4, g = cx.createLinearGradient(sx, 0, ex, groundY);
+      g.addColorStop(0, `rgba(${c3},${0.2 * PL.f3})`); g.addColorStop(1, `rgba(${c3},0.02)`); cx.fillStyle = g;
+      cx.beginPath(); cx.moveTo(sx - 5 * K, 0); cx.lineTo(sx + 5 * K, 0); cx.lineTo(ex + 50 * K, groundY); cx.lineTo(ex - 50 * K, groundY); cx.closePath(); cx.fill();
+    });
+    cx.restore();
+    rollPlayConfetti(0, -10 * K, W, groundY, PL.f3, tt, 29);
   }
 }
 /* @@END drawRoll */
@@ -3504,7 +3612,7 @@ function orbitCache(key, w, h, paint) {
 function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
-  const R = Math.max(40, Math.min(W * 0.4, (ah - top) / 2 - 26 * K));
+  const R = Math.max(40, Math.min(W * 0.4, (ah - top) / 2 - 32 * K));
   const Ri = R + 16 * K, Ro = R + 25 * K;   // 文字盤のふち（内がわ・外がわ）
   const A0 = -Math.PI / 2, ang = (v, tt = T) => A0 + 2 * Math.PI * v / tt;
   // 背景と、時計の本体（金属のふち・文字盤）はキャッシュ
@@ -3534,6 +3642,12 @@ function drawOrbit(st, now, ah) {
     c.strokeStyle = 'rgba(255,255,255,0.08)'; c.lineWidth = 1; c.beginPath(); c.arc(cxC, cyC, R + 6.5 * K, Math.PI * 0.1, Math.PI * 0.9); c.stroke();
   });
   cx.drawImage(bg, 0, 0, W, ah);
+  const P = rollPlay('C'), pk = P.k, pag = P.age, tt = P.t;
+  // コンボ（16〜）：時計のまわりが金色にかがやく
+  if (P.f3 > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter'; const g0 = cx.createRadialGradient(cxC, cyC, Ro * 0.9, cxC, cyC, Ro * 1.6);
+    g0.addColorStop(0, `rgba(255,200,90,${0.3 * P.f3 * (0.8 + 0.2 * Math.sin(tt * 3))})`); g0.addColorStop(1, 'rgba(255,200,90,0)'); cx.fillStyle = g0; cx.beginPath(); cx.arc(cxC, cyC, Ro * 1.6, 0, Math.PI * 2); cx.fill(); cx.restore();
+  }
   txt(`光の球が1周 ＝ ${m.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 
   // セクター：色ガラス（ふちに近いほど色がこい）と、溝の中のLED
@@ -3587,19 +3701,48 @@ function drawOrbit(st, now, ah) {
     cx.strokeStyle = hexA(LIME, 0.5 * fade); cx.lineWidth = 2 * K;
     cx.beginPath(); cx.arc(cxC, cyC, R + 18 * K + age * 60 * K, an - 0.25, an + 0.25); cx.stroke();
   }
-  // ポインターの光の尾（溝の中を光が流れる）
+  // ポインターの光の尾（溝の中を光が流れる）。コンボ（8〜）で長い虹色の尾になる
   const pa = ang(st.pos), col = COLORS[m.groups[st.g]];
   if (st.has) {
-    const d = (2 * Math.PI / T) * 0.9 / 20;
+    const d = (2 * Math.PI / T) * 0.9 / 20 * (1 + 1.5 * P.f2), rb = ['#f472b6', '#facc15', '#4ade80', '#22d3ee', '#a78bfa'];
     cx.lineCap = 'round';
     for (let i = 0; i < 20; i++) {
-      cx.strokeStyle = hexA(i < 4 ? '#ffffff' : shade(col, 0.6), (1 - i / 20) * 0.7); cx.lineWidth = (6 - i * 0.22) * K;
+      const base = i < 4 ? '#ffffff' : shade(col, 0.6);
+      cx.strokeStyle = hexA(P.f2 > 0.5 && i >= 4 ? rb[Math.floor(i / 3) % 5] : base, (1 - i / 20) * 0.7); cx.lineWidth = (6 - i * 0.22) * K;
       cx.beginPath(); cx.arc(cxC, cyC, R, pa - (i + 1) * d, pa - i * d); cx.stroke();
     }
     cx.lineCap = 'butt';
   }
+  // コンボ（4〜）：ふちの外の小さなランプが、光の球を追いかけて灯る
+  if (P.f1 > 0.01) {
+    const n = Math.max(24, T * 4), rr2 = (Ro + Ri) / 2 + 1.5 * K;
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const a = A0 + 2 * Math.PI * i / n, back = ((pa - a) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI), lit = Math.max(0, 1 - back / (Math.PI * 0.9)) ** 1.5 * P.f1, tw = 0.15 * P.f1;
+      const al = Math.max(lit, tw), lx = cxC + Math.cos(a) * rr2, ly = cyC + Math.sin(a) * rr2;
+      cx.fillStyle = `rgba(255,226,140,${0.3 * al})`; cx.beginPath(); cx.arc(lx, ly, 4 * K, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = `rgba(255,248,220,${al})`; cx.beginPath(); cx.arc(lx, ly, 1.5 * K, 0, Math.PI * 2); cx.fill();
+    }
+    cx.restore();
+  }
+  // タップの反応：はやい／おそい → 光の球がふるえる、ぴったり → 金色にはじける
+  const jit = (pk === 'e' || pk === 'l') && pag < 0.6 ? rollPlayWob(pag, 40, 6) * 6 * K : 0, gold = pk === 'p' && pag < 0.9 ? 1 - pag / 0.9 : 0;
   // 光の球（ガラス玉の中に光）
-  const ox = cxC + Math.cos(pa) * R, oy = cyC + Math.sin(pa) * R, orb = 10 * K;
+  const ox = cxC + Math.cos(pa) * (R + jit), oy = cyC + Math.sin(pa) * (R + jit), orb = 10 * K * (1 + 0.35 * gold * gold);
+  // 光の球の近くの目盛りが照らされる
+  if (st.has) for (let s2 = 0; s2 < T; s2++) {
+    const a = ang(s2), dd = Math.abs(Math.atan2(Math.sin(a - pa), Math.cos(a - pa))); if (dd > 0.5) continue;
+    const q = 1 - dd / 0.5, ca = Math.cos(a), sa = Math.sin(a); cx.strokeStyle = hexA(shade(col, 0.6), 0.7 * q); cx.lineWidth = 2 * K;
+    cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 13 * K), cyC + sa * (R + 13 * K)); cx.stroke();
+  }
+  // 金属のふちに映る光（球といっしょに回る）
+  if (st.has) { cx.strokeStyle = hexA(shade(col, 0.7), 0.35); cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(cxC, cyC, Ro - 3 * K, pa - 0.18, pa + 0.18); cx.stroke(); }
+  if (gold > 0) {
+    cx.save(); cx.globalCompositeOperation = 'lighter'; const R1 = orb * 9 * (0.6 + 0.4 * gold), g1 = cx.createRadialGradient(ox, oy, 0, ox, oy, R1);
+    g1.addColorStop(0, `rgba(255,224,120,${0.8 * gold})`); g1.addColorStop(1, 'rgba(255,200,80,0)'); cx.fillStyle = g1; cx.beginPath(); cx.arc(ox, oy, R1, 0, Math.PI * 2); cx.fill(); cx.restore();
+    const q = 1 - gold; cx.strokeStyle = `rgba(255,214,110,${gold})`; cx.lineWidth = 3 * K * gold + 0.5; cx.beginPath(); cx.arc(ox, oy, orb * (1.6 + q * 5), 0, Math.PI * 2); cx.stroke();
+  }
+  if (jit) { cx.strokeStyle = hexA(P.tint, 0.6 * (1 - pag / 0.6)); cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(ox, oy, orb * (1.7 + pag * 3), 0, Math.PI * 2); cx.stroke(); }
   let g = cx.createRadialGradient(ox, oy, orb * 0.5, ox, oy, orb * 4); g.addColorStop(0, hexA(col, st.has ? 0.6 : 0.3)); g.addColorStop(1, hexA(col, 0));
   cx.fillStyle = g; cx.beginPath(); cx.arc(ox, oy, orb * 4, 0, Math.PI * 2); cx.fill();
   softShadow(ox + 3 * K, oy + 4 * K, orb * 1.2, orb * 1.2, 0.45);
@@ -3607,11 +3750,13 @@ function drawOrbit(st, now, ah) {
   cx.fillStyle = g; cx.beginPath(); cx.arc(ox, oy, orb, 0, Math.PI * 2); cx.fill();
   cx.fillStyle = 'rgba(255,255,255,0.85)'; cx.beginPath(); cx.ellipse(ox - orb * 0.35, oy - orb * 0.42, orb * 0.32, orb * 0.2, -0.6, 0, Math.PI * 2); cx.fill();
   cx.strokeStyle = metalGrad(ox - orb * 1.5, oy - orb * 1.5, ox + orb * 1.5, oy + orb * 1.5, 'chrome'); cx.lineWidth = 2.5 * K; cx.beginPath(); cx.arc(ox, oy, orb * 1.45, 0, Math.PI * 2); cx.stroke();
+  if (gold > 0) { rollPlayBurst(ox, oy, pag, P.head ? 14 : 10, 420, '#fff0a8', 9 + Math.floor(playFx.t) % 79, 0.3, 0.9); rollPlayStar(ox, oy, orb * 2.4 * gold, gold, '#ffffff'); }
+  if (P.f3 > 0.01) { cx.save(); cx.beginPath(); cx.arc(cxC, cyC, Ri, 0, Math.PI * 2); cx.clip(); rollPlayTwinkle(cxC - Ri, cyC - Ri, Ri * 2, Ri * 2, 14, tt, P.f3, '#ffe9a8', 31); cx.restore(); }
   // ガラスのふた（ななめの光と、ふちの反射）
   cx.beginPath(); cx.arc(cxC, cyC, Ri, 0, Math.PI * 2); glassShine(cxC - Ri, cyC - Ri, Ri * 2, Ri * 2, 0.14);
   cx.strokeStyle = 'rgba(255,255,255,0.22)'; cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(cxC, cyC, Ri - 5 * K, Math.PI * 1.05, Math.PI * 1.45); cx.stroke();
-  // 中心ハブ（金属のふち・黒いガラス）
-  const hub = R * 0.24;
+  // 中心ハブ（金属のふち・黒いガラス）。たたきすぎ → ぽこっと小さくふくらむ
+  const hub = R * 0.24 * (1 + (pk === 'x' && pag < 0.3 ? 0.06 * Math.sin(pag / 0.3 * Math.PI) : 0) + (gold > 0 ? 0.05 * Math.sin(Math.min(1, pag * 4) * Math.PI) : 0));
   softShadow(cxC + 3 * K, cyC + 5 * K, hub * 1.1, hub * 1.1, 0.5);
   cx.fillStyle = metalGrad(cxC - hub, cyC - hub, cxC + hub, cyC + hub, 'chrome'); cx.beginPath(); cx.arc(cxC, cyC, hub, 0, Math.PI * 2); cx.fill();
   g = cx.createRadialGradient(cxC - hub * 0.3, cyC - hub * 0.35, 0, cxC, cyC, hub * 0.88); g.addColorStop(0, '#1e2638'); g.addColorStop(1, '#05080f');
@@ -7731,7 +7876,8 @@ function drawPendulum(st, now, ah) {
   const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0, gp = has ? clamp(st.gp, 0, 1) : 0;
   const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
   // いま振れている振り子の角度（外向き）。もう一方は鐘にくっついて止まっている
-  const angOf = Lp => (has && Lp === L) ? amp * Math.sin(Math.PI * gp) : 0;
+  const nudge = has && ageH < 0.5 ? 0.025 * Math.exp(-ageH * 8) * Math.abs(Math.sin(ageH * 26)) : 0;   // 当たった勢いで、止まっている方も小さくゆれる
+  const angOf = Lp => (has && Lp === L) ? amp * Math.sin(Math.PI * gp) : nudge;
   const bobPos = (Lp, a) => { const p = pend[Lp]; return [p.px + p.side * Math.sin(a) * p.len, p.py + Math.cos(a) * p.len]; };
   const beamY = Math.min(pend[3].py, pend[2].py), beamH = 16 * K, floorY = ah - 12 * K, sdx = 9 * K, sdy = 7 * K;   // sdx, sdy：かべに落ちる影のずれ（光は左上から）
 
@@ -7771,6 +7917,32 @@ function drawPendulum(st, now, ah) {
     function metalGradC(cc, x0, y0, x1, y1) { const q = cc.createLinearGradient(x0, y0, x1, y1); q.addColorStop(0, '#5b6270'); q.addColorStop(0.32, '#e8ebf0'); q.addColorStop(0.6, '#9aa1ad'); q.addColorStop(1, '#3f4652'); return q; }
   });
   cx.drawImage(bg, 0, 0, W, ah);
+  const P = rollPlay('R'), pk = P.k, pag = P.age, tt = P.t;
+  // 光の中をただようほこり（左上の窓の光）
+  for (let i = 0; i < 14; i++) {
+    const ph = (tt * (0.015 + 0.02 * rollPlayRnd(i * 1.3)) + rollPlayRnd(i * 2.7)) % 1, y = beamY + (floorY - beamY) * (1 - ph);
+    const x = W * (0.05 + 0.4 * rollPlayRnd(i * 4.9)) + Math.sin(tt * 0.6 + i * 2) * 12 * K, a = 0.35 * (0.5 + 0.5 * Math.sin(tt * (1 + rollPlayRnd(i)) + i)) * Math.min(1, ph * 6, (1 - ph) * 6);
+    cx.fillStyle = `rgba(255,232,190,${a})`; cx.beginPath(); cx.arc(x, y, (0.8 + rollPlayRnd(i * 8.1)) * K, 0, Math.PI * 2); cx.fill();
+  }
+  // コンボ（4〜）：はりの上のランプがあたたかく灯る
+  if (P.f1 > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter'; const R0 = Math.max(W, ah) * 0.55, g0 = cx.createRadialGradient(cxC, beamY, 0, cxC, beamY, R0);
+    g0.addColorStop(0, `rgba(255,190,90,${0.2 * P.f1})`); g0.addColorStop(1, 'rgba(255,190,90,0)'); cx.fillStyle = g0; cx.fillRect(0, 0, W, ah); cx.restore();
+  }
+  // コンボ（8〜）：はりから豆電球のひもが下がって、またたく
+  if (P.f2 > 0.01) {
+    const x0 = cxC - W * 0.44, x1 = cxC + W * 0.44, n = Math.max(8, Math.round((x1 - x0) / (34 * K))), sag = 22 * K, yb = beamY + 4 * K;
+    const pal = ['#fde047', '#f472b6', '#4ade80', '#60a5fa', '#fb923c'];
+    cx.strokeStyle = `rgba(40,30,20,${0.8 * P.f2})`; cx.lineWidth = 1.2 * K; cx.beginPath();
+    for (let i = 0; i <= 40; i++) { const u = i / 40, x = x0 + (x1 - x0) * u, y = yb + sag * Math.abs(Math.sin(u * Math.PI * 3)); i ? cx.lineTo(x, y) : cx.moveTo(x, y); } cx.stroke();
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n, x = x0 + (x1 - x0) * u, y = yb + sag * Math.abs(Math.sin(u * Math.PI * 3)) + 4 * K, c2 = pal[i % 5], a = P.f2 * (0.55 + 0.45 * Math.sin(tt * 3 + i * 1.7));
+      cx.fillStyle = hexA(c2, 0.28 * a); cx.beginPath(); cx.arc(x, y, 8 * K, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = hexA(shade(c2, 0.5), a); cx.beginPath(); cx.ellipse(x, y, 2.4 * K, 3.4 * K, 0, 0, Math.PI * 2); cx.fill();
+    }
+    cx.restore();
+  }
 
   // 弧（振れる道）と刻みの点：かべに描いた目じるし
   for (const Lp of [2, 3]) {
@@ -7789,12 +7961,22 @@ function drawPendulum(st, now, ah) {
   // 鐘（真ちゅう）
   const bar = has && m.barStartGroup.includes(g), hit = has && ageH < 0.5 ? 1 - ageH / 0.5 : 0;
   const shake = hit * Math.sin(ageH * 70) * 3 * K, bx = cxC + shake, lipY = bobY + bellR * 0.6;
+  // タップの反応：ぴったり → 鐘が金色に鳴りひびく、はやい／おそい → 鐘がぐらっとゆれる（はやい＝左・青、おそい＝右・赤）、たたきすぎ → ことっ
+  const gold = pk === 'p' && pag < 1.1 ? 1 - pag / 1.1 : 0, dull = (pk === 'e' || pk === 'l') && pag < 0.8 ? 1 - pag / 0.8 : 0;
+  const sway = gold > 0 ? rollPlayWob(pag, 24, 4) * 0.12 : dull > 0 ? (P.dir * 0.1 * Math.exp(-pag * 6) * Math.sin(Math.min(1, pag * 10) * Math.PI / 2) + rollPlayWob(pag, 20, 6) * 0.06) : 0;
+  const bump = pk === 'x' && pag < 0.3 ? -2.5 * K * Math.abs(Math.sin(pag * 20)) * Math.exp(-pag * 9) : 0;
   const bellPath = (ox, oy) => { cx.beginPath(); cx.moveTo(ox - bellR * 0.35, oy - bellR * 1.3); cx.quadraticCurveTo(ox - bellR, oy - bellR * 1.1, ox - bellR, oy + bellR * 0.6); cx.lineTo(ox + bellR, oy + bellR * 0.6); cx.quadraticCurveTo(ox + bellR, oy - bellR * 1.1, ox + bellR * 0.35, oy - bellR * 1.3); cx.closePath(); };
   // 鐘の台（金属の柱と台座）
   softShadow(cxC + 4 * K, floorY + 2 * K, bellR * 1.3, 4 * K, 0.5);
   cx.fillStyle = metalGrad(cxC - 2.5 * K, 0, cxC + 2.5 * K, 0, 'steel'); cx.fillRect(cxC - 2.5 * K, lipY, 5 * K, floorY - lipY);
   cx.fillStyle = metalGrad(cxC - bellR * 0.8, 0, cxC + bellR * 0.8, 0, 'steel'); cx.beginPath(); cx.ellipse(cxC, floorY, bellR * 0.8, 3 * K, 0, 0, Math.PI * 2); cx.fill();
   bellPath(bx + sdx, bobY + sdy); cx.fillStyle = 'rgba(0,0,0,0.28)'; cx.fill();   // かべの影
+  if (gold > 0) {   // ぴったり：金色の大きな光
+    cx.save(); cx.globalCompositeOperation = 'lighter'; const R1 = bellR * (5 + 2 * (1 - gold)), gg0 = cx.createRadialGradient(cxC, bobY - bellR * 0.4, 0, cxC, bobY - bellR * 0.4, R1);
+    gg0.addColorStop(0, `rgba(255,220,110,${0.75 * gold})`); gg0.addColorStop(0.3, `rgba(255,190,70,${0.3 * gold})`); gg0.addColorStop(1, 'rgba(255,190,70,0)'); cx.fillStyle = gg0; cx.fillRect(cxC - R1, bobY - bellR * 0.4 - R1, R1 * 2, R1 * 2); cx.restore();
+  }
+  const pivB = bobY - bellR * 1.42;
+  cx.save(); if (sway) { cx.translate(cxC, pivB); cx.rotate(sway); cx.translate(-cxC, -pivB); } if (bump) cx.translate(0, bump);
   if (hit) {   // 鳴った光
     const gc = bar ? LIME : '#fde68a', gg = cx.createRadialGradient(bx, bobY - bellR * 0.3, 0, bx, bobY - bellR * 0.3, bellR * 4);
     gg.addColorStop(0, hexA(gc, 0.55 * hit)); gg.addColorStop(1, hexA(gc, 0)); cx.fillStyle = gg; cx.beginPath(); cx.arc(bx, bobY - bellR * 0.3, bellR * 4, 0, Math.PI * 2); cx.fill();
@@ -7809,6 +7991,17 @@ function drawPendulum(st, now, ah) {
   cx.fillStyle = metalGrad(bx - bellR * 1.08, 0, bx + bellR * 1.08, 0, 'brass'); cx.beginPath(); cx.ellipse(bx, lipY, bellR * 1.08, bellR * 0.2, 0, 0, Math.PI * 2); cx.fill();   // ふち
   cx.fillStyle = '#3a2706'; cx.beginPath(); cx.ellipse(bx, lipY + bellR * 0.02, bellR * 0.85, bellR * 0.11, 0, 0, Math.PI * 2); cx.fill();   // 口の中
   cx.strokeStyle = metalGrad(bx - bellR * 0.3, 0, bx + bellR * 0.3, 0, 'brass'); cx.lineWidth = 2.2 * K; cx.beginPath(); cx.arc(bx, bobY - bellR * 1.42, bellR * 0.2, Math.PI * 0.85, Math.PI * 2.15); cx.stroke();   // 上の輪
+  if (gold > 0) { bellPath(bx, bobY); cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = `rgba(255,214,110,${0.45 * gold})`; cx.fill(); cx.restore(); }
+  if (dull > 0) { bellPath(bx, bobY); cx.fillStyle = hexA(P.tint, 0.3 * dull); cx.fill(); }
+  cx.restore();
+  if (gold > 0) {
+    rollPlayRings(cxC, bobY - bellR * 0.3, pag, 1.0, bellR * 1.5, '#fcd34d', 4, 110);
+    rollPlayBurst(cxC, bobY - bellR * 0.8, pag, P.head ? 16 : 12, 460, '#ffe9a8', 7 + Math.floor(playFx.t) % 83, 0.5, 1.1);
+    rollPlayStar(cxC - bellR * 0.45, bobY - bellR * 0.65, bellR * (0.5 + 0.7 * gold), gold, '#fff8dc');
+  }
+  if (dull > 0) {   // にぶい「ごつん」のけむり
+    const q = 1 - dull; for (let i = 0; i < 4; i++) { const a = -Math.PI / 2 + (i / 3 - 0.5) * 2.4; cx.fillStyle = hexA(P.tint, 0.22 * dull); cx.beginPath(); cx.arc(cxC + Math.cos(a) * bellR * (1.2 + q * 1.4), bobY - bellR * 0.3 + Math.sin(a) * bellR * (1 + q * 1.2), bellR * (0.2 + q * 0.35), 0, Math.PI * 2); cx.fill(); }
+  }
   if (hit) for (let i = 0; i < 3; i++) {   // 音の輪
     cx.strokeStyle = hexA(bar ? LIME : '#fde68a', hit * (1 - i * 0.3)); cx.lineWidth = 2 * K;
     cx.beginPath(); cx.arc(cxC, bobY - bellR * 0.3, bellR * (1.4 + i * 0.6) + (1 - hit) * 40 * K, -Math.PI * 0.85, -Math.PI * 0.15); cx.stroke();
@@ -7839,6 +8032,7 @@ function drawPendulum(st, now, ah) {
     const q = bobPos(Lp, a);
     if (act && kCur > 0 && ageS < 0.2) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], br + (4 + 20 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
   }
+  if (P.f3 > 0.01) { rollPlayConfetti(0, -10 * K, W, floorY, P.f3, tt, 23); rollPlayTwinkle(0, beamY + 30 * K, W, floorY - beamY - 60 * K, 10, tt, P.f3, '#ffe9a8', 9); }
   if (bar && hit > 0) txt('小節の頭！ 同じ順番で、もう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, hit * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
@@ -9505,6 +9699,20 @@ function drawMetroBall(st, now, ah) {
     c.fillStyle = g; c.fillRect(0, 0, W, tableY);
     g = c.createRadialGradient(W * 0.28, 0, 0, W * 0.28, 0, Math.max(W, ah) * 0.85); g.addColorStop(0, 'rgba(190,210,255,0.10)'); g.addColorStop(1, 'rgba(190,210,255,0)');
     c.fillStyle = g; c.fillRect(0, 0, W, tableY);
+    // 吸音パネルのかべ（布ばりの板が並ぶ。ふちに小さな影と光）
+    { const cols = Math.max(3, Math.round(W / (150 * K))), pw = W / cols, ph = Math.min(pw * 1.1, tableY / 2.2), gp = 6 * K;
+      for (let yy = tableY - ph; yy > -ph; yy -= ph) for (let i = 0; i < cols; i++) {
+        const x0 = i * pw + gp / 2, y0 = yy + gp / 2, w = pw - gp, h = ph - gp;
+        c.fillStyle = 'rgba(0,0,0,0.28)'; metroBallRR(c, x0 + 1.5 * K, y0 + 2 * K, w, h, 5 * K); c.fill();
+        const pg = c.createLinearGradient(x0, y0, x0, y0 + h); pg.addColorStop(0, 'rgba(255,255,255,0.045)'); pg.addColorStop(1, 'rgba(255,255,255,0.0)');
+        c.fillStyle = '#161d2c'; metroBallRR(c, x0, y0, w, h, 5 * K); c.fill(); c.fillStyle = pg; c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.06)'; c.lineWidth = 1; c.beginPath(); c.moveTo(x0 + 5 * K, y0 + 0.5); c.lineTo(x0 + w - 5 * K, y0 + 0.5); c.stroke();
+      }
+      g = c.createLinearGradient(0, 0, 0, tableY); g.addColorStop(0, 'rgba(8,11,18,0.55)'); g.addColorStop(0.6, 'rgba(8,11,18,0.1)'); g.addColorStop(1, 'rgba(8,11,18,0.35)'); c.fillStyle = g; c.fillRect(0, 0, W, tableY);
+    }
+    // 天井からのスポットライト（コンソールに落ちる光の円すい）
+    c.save(); c.shadowColor = 'rgba(200,220,255,0.10)'; c.shadowBlur = 40 * K; c.shadowOffsetX = W * 3; c.fillStyle = '#000';
+    c.beginPath(); c.moveTo(W * 0.42 - W * 3, -10); c.lineTo(W * 0.58 - W * 3, -10); c.lineTo(W * 0.96 - W * 3, cBot); c.lineTo(W * 0.04 - W * 3, cBot); c.closePath(); c.fill(); c.restore();
     // 机（こげ茶の木・つや）
     g = c.createLinearGradient(0, tableY, 0, ah); g.addColorStop(0, '#2a1a10'); g.addColorStop(0.5, '#3a2416'); g.addColorStop(1, '#22140b');
     c.fillStyle = g; c.fillRect(0, tableY, W, ah - tableY);
@@ -9535,20 +9743,67 @@ function drawMetroBall(st, now, ah) {
     c.fillStyle = 'rgba(148,163,184,0.5)'; c.font = `700 ${Math.max(8, 9 * K)}px ${FONT}`; c.textAlign = 'right'; c.textBaseline = 'middle';
     c.fillText('RHYTHM  BALL', xf1 - 12 * K, (cBot + cFace) / 2);
     c.fillStyle = '#22c55e'; c.beginPath(); c.arc(xf0 + 14 * K, (cBot + cFace) / 2, 2.2 * K, 0, Math.PI * 2); c.fill();
+    // 前の面の小さなLEDのならび（コンボで光る）：消えているときの穴
+    for (let i = 0; i < metroBallStripN(W); i++) { const lx = xf0 + 34 * K + i * 11 * K; c.fillStyle = 'rgba(0,0,0,0.6)'; c.beginPath(); c.arc(lx, (cBot + cFace) / 2, 2.2 * K, 0, Math.PI * 2); c.fill(); c.fillStyle = 'rgba(255,255,255,0.08)'; c.beginPath(); c.arc(lx, (cBot + cFace) / 2 + 0.6 * K, 2 * K, 0, Math.PI); c.fill(); }
   });
   cx.drawImage(bg, 0, 0, W, ah);
   // 電源ランプ（ふわっと光る）
   cx.fillStyle = hexA('#22c55e', playing ? 0.35 : 0.1); cx.beginPath(); cx.arc(W * 0.02 + 14 * K, (cBot + cFace) / 2, 5 * K, 0, Math.PI * 2); cx.fill();
+  const P = rollPlay('MB'), k = P.k, ag = P.age, tt = P.t, numY = top + (ah - top) * 0.26;
+  // 数字のうしろのかべが、拍の色でふわっと明るくなる
+  if (b.g >= 0 && !b.muted) {
+    const q = Math.max(0, 1 - b.age / 0.5), col = metCol(m, b.g, accOf(m)[b.g]), R0 = Math.min((ah - top) * 0.45, 220 * K);
+    if (q > 0) { const g = cx.createRadialGradient(W / 2, numY, 0, W / 2, numY, R0); g.addColorStop(0, hexA(col, 0.16 * q)); g.addColorStop(1, hexA(col, 0)); cx.fillStyle = g; cx.fillRect(W / 2 - R0, numY - R0, R0 * 2, R0 * 2); }
+  }
+  // コンボ（8〜）：かべをなでるスポットライト
+  if (P.f2 > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 2; i++) {
+      const sx0 = W * (i ? 0.85 : 0.15), sw = Math.sin(tt * (0.9 + i * 0.3) + i * 2) * 0.5, ex = sx0 + Math.sin(sw) * tableY * 1.2 - (i ? 0.25 : -0.25) * W, wdt = 40 * K;
+      const g = cx.createLinearGradient(sx0, 0, ex, tableY); const col = i ? '255,120,200' : '120,200,255';
+      g.addColorStop(0, `rgba(${col},${0.22 * P.f2})`); g.addColorStop(1, `rgba(${col},0)`);
+      cx.fillStyle = g; cx.beginPath(); cx.moveTo(sx0 - 6 * K, 0); cx.lineTo(sx0 + 6 * K, 0); cx.lineTo(ex + wdt, tableY); cx.lineTo(ex - wdt, tableY); cx.closePath(); cx.fill();
+    }
+    cx.restore();
+  }
+  // コンボ（4〜）：前の面のLEDが虹色に流れる
+  if (P.f1 > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const n = metroBallStripN(W), ly = (cBot + cFace) / 2;
+    for (let i = 0; i < n; i++) {
+      const lx = W * 0.02 + 34 * K + i * 11 * K, a = P.f1 * (0.35 + 0.65 * Math.max(0, Math.sin(tt * 6 - i * 0.55)));
+      const col = ['#f472b6', '#facc15', '#4ade80', '#22d3ee', '#a78bfa'][i % 5];
+      cx.fillStyle = hexA(col, a * 0.35); cx.beginPath(); cx.arc(lx, ly, 5 * K, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = hexA(col, a); cx.beginPath(); cx.arc(lx, ly, 2 * K, 0, Math.PI * 2); cx.fill();
+    }
+    cx.restore();
+  }
   const pos = metroBallDotRow(m, y, W * 0.08, W * 0.92, b, r, 0.62);
-  // 大きな数字（うしろから光る）
-  const numY = top + (ah - top) * 0.26;
+  // ぴったり：ボタンからボタンへ、光の波がかけぬける
+  if (k === 'p' && ag < 0.7 && b.g >= 0) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    pos.forEach((p, i) => {
+      const d = Math.abs(i - b.g), q = (ag - d * 0.06) / 0.35; if (q <= 0 || q >= 1) return;
+      const a = Math.sin(q * Math.PI), rg = r * 2.6, g = cx.createRadialGradient(p.x, y, 0, p.x, y, rg);
+      g.addColorStop(0, `rgba(255,236,150,${0.7 * a})`); g.addColorStop(1, 'rgba(255,220,120,0)'); cx.fillStyle = g;
+      cx.save(); cx.translate(p.x, y); cx.scale(1, 0.62); cx.translate(-p.x, -y); cx.beginPath(); cx.arc(p.x, y, rg, 0, Math.PI * 2); cx.fill(); cx.restore();
+    });
+    cx.restore();
+  }
   if (b.g >= 0) {
     const a = pos[b.g], nb = pos[(b.g + 1) % pos.length], u = clamp(b.age / b.len, 0, 1);
     const hgt = Math.min(y - r * 1.2 - (top + (ah - top) * 0.5), (60 + 120 * b.len) * K);
     const br = r * 0.8, contact = y - r * 0.15, path = uu => [a.x + (nb.x - a.x) * uu, contact - br - hgt * 4 * uu * (1 - uu)];
-    const [x, yc0] = path(u), sq = u < 0.08 ? 1 - u / 0.08 : 0, hn = clamp((contact - br - yc0) / Math.max(1, hgt), 0, 1);
+    let [x, yc0] = path(u); const sq = u < 0.08 ? 1 - u / 0.08 : 0, hn = clamp((contact - br - yc0) / Math.max(1, hgt), 0, 1);
     const stretch = sq > 0 ? 0 : 0.07 * Math.abs(1 - 2 * u) * Math.min(1, hgt / (80 * K));   // 速いところは少し縦にのびる
-    const sx = 1 + sq * 0.28 - stretch * 0.5, sy = 1 - sq * 0.28 + stretch, yc = sq > 0 ? contact - br * sy : yc0;
+    let sx = 1 + sq * 0.28 - stretch * 0.5, sy = 1 - sq * 0.28 + stretch;
+    // タップの反応：はやい／おそい → ぷるぷるゆれて、少しよろける（はやい＝うしろへ）。たたきすぎ → ぽよんと小さくはずむ
+    if ((k === 'e' || k === 'l') && ag < 0.6) { const w = rollPlayWob(ag, 34, 6); sx += w * 0.16; sy -= w * 0.16; x += P.dir * 7 * K * Math.exp(-ag * 6) * Math.sin(Math.min(1, ag * 12) * Math.PI / 2); }
+    if (k === 'x' && ag < 0.35) { const w = rollPlayWob(ag, 40, 10); sx += w * 0.07; sy -= w * 0.07; }
+    if (k === 'p' && ag < 0.5) { const w = rollPlayWob(ag, 30, 7); sx -= w * 0.1; sy += w * 0.1; }
+    const yc = sq > 0 ? contact - br * sy : yc0;
+    // 着地の波紋（コンソールのつやのある面）
+    if (b.age < 0.35 && !b.muted) { const q = b.age / 0.35; cx.strokeStyle = `rgba(255,236,150,${0.45 * (1 - q)})`; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(a.x, contact, br * (0.9 + q * 2.2), br * (0.9 + q * 2.2) * 0.3, 0, 0, Math.PI * 2); cx.stroke(); }
     // 床（コンソールのつやのある面）への映りこみ
     cx.save(); cx.beginPath(); cx.rect(0, cTop, W, cBot - cTop); cx.clip();
     cx.globalAlpha = 0.2 * (1 - hn * 0.75); cx.fillStyle = '#facc15'; cx.beginPath(); cx.ellipse(x, contact + (contact - yc) * 0.45, br * sx * 0.95, br * sy * 0.45, 0, 0, Math.PI * 2); cx.fill(); cx.restore();
@@ -9559,115 +9814,387 @@ function drawMetroBall(st, now, ah) {
       const p = path(Math.max(0, u - i * 0.03)); cx.fillStyle = hexA('#fde047', 0.09 * (4 - i) / 3);
       cx.beginPath(); cx.ellipse(p[0], p[1], br * sx, br * sy, 0, 0, Math.PI * 2); cx.fill();
     }
-    shadeSphere(x, yc, br, '#facc15', 'gloss', sx, sy);
+    const gold = k === 'p' && ag < 0.9 ? 1 - ag / 0.9 : 0;
+    if (gold > 0) {   // ぴったり：ボールが金色にかがやく
+      const g = cx.createRadialGradient(x, yc, br * 0.5, x, yc, br * 3.2); g.addColorStop(0, `rgba(255,220,100,${0.55 * gold})`); g.addColorStop(1, 'rgba(255,220,100,0)');
+      cx.fillStyle = g; cx.beginPath(); cx.arc(x, yc, br * 3.2, 0, Math.PI * 2); cx.fill();
+    }
+    shadeSphere(x, yc, br, gold > 0 ? '#fcd34d' : '#facc15', 'gloss', sx, sy);
+    // ボタンの光がボールの下に映る（照り返し）
+    if (b.age < 0.3 && !b.muted) {
+      const col = metCol(m, b.g, accOf(m)[b.g]), q = (1 - b.age / 0.3) * (1 - hn);
+      cx.save(); cx.translate(x, yc); cx.scale(sx, sy); cx.beginPath(); cx.arc(0, 0, br, 0, Math.PI * 2); cx.clip();
+      const g = cx.createRadialGradient(0, br * 1.1, 0, 0, br * 1.1, br * 1.3); g.addColorStop(0, hexA(col, 0.65 * q)); g.addColorStop(1, hexA(col, 0)); cx.fillStyle = g; cx.fillRect(-br, -br, br * 2, br * 2); cx.restore();
+    }
+    if ((k === 'e' || k === 'l') && ag < 0.6) {   // にぶい色のけむり
+      const q = ag / 0.6; for (let i = 0; i < 3; i++) { cx.fillStyle = hexA(P.tint, 0.25 * (1 - q)); cx.beginPath(); cx.arc(x - P.dir * (br * 0.8 + q * br * 1.4) + (i - 1) * br * 0.5, contact - br * (0.2 + q * 0.6) - i % 2 * br * 0.3, br * (0.25 + q * 0.35), 0, Math.PI * 2); cx.fill(); }
+    }
+    if (gold > 0) { rollPlayBurst(x, yc, ag, P.head ? 14 : 10, 380, '#fff0a8', 5 + Math.floor(playFx.t) % 89, 0.6, 0.9); rollPlayStar(x - br * 0.35, yc - br * 0.4, br * 0.9 * gold, gold, '#ffffff'); }
     cx.save(); cx.shadowColor = hexA(metCol(m, b.g, accOf(m)[b.g]), 0.55); cx.shadowBlur = 26 * K;
     metBigNum(b, W / 2, numY, Math.min((ah - top) * 0.34, 150 * K)); cx.restore();
   } else txt(playing ? '' : '▶ スタートで鳴らす', W / 2, numY, Math.max(16, 18 * K), '#64748b', 800);
+  if (P.f3 > 0.01) rollPlayConfetti(0, -20 * K, W, cTop + 20 * K, P.f3, tt, 13);   // コンボ（16〜）：紙ふぶき
 }
+const metroBallStripN = w => Math.max(0, Math.min(14, Math.floor((w * 0.55) / (11 * K))));
 /* @@END drawMetroBall */
 function metroBallRR(c, x, y, w, h, r) {   // rr と同じ角丸の四角（別のキャンバス用）
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
 }
 /* @@BEGIN drawMetroPend */
-/* 振り子メトロノーム：木のケース・目盛り板・金属の棒・真ちゅうのおもり（おもりの位置＝いまのテンポ） */
+/* 振り子メトロノーム：書斎の机の上。窓の光（夜はランプ）・つやのある木のケース・ガラスのふたの目盛り板・金属の棒・真ちゅうのおもり（おもりの位置＝いまのテンポ）。
+   右には呼び鈴（チン！）。タップがぴったりだと、鈴が鳴って金色にきらめく */
 const MAELZEL = [40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 63, 66, 69, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 126, 132, 138, 144, 152, 160, 168, 176, 184, 192, 200, 208];
 const MAELZEL_TERMS = [[44, 'Largo'], [63, 'Larghetto'], [72, 'Adagio'], [88, 'Andante'], [112, 'Moderato'], [138, 'Allegro'], [176, 'Presto'], [200, 'Prestiss.']];
 let pendGhost = [];
-function drawMetroPend(st, now, ah) {
-  const b = metBeatInfo(st, now), m = b.m, top = 64 * K, cxp = W / 2;
-  const baseY = ah - 54 * K;
-  let Hb = baseY - top - 8 * K; Hb = Math.min(Hb, W * 1.55);
-  const Wb = Hb * 0.5, Wt = Hb * 0.11, plH = Hb * 0.055, capH = Hb * 0.06;
-  const y0 = baseY - plH, y1 = baseY - Hb + capH;   // ケースの下と上
-  const xAt = (y, half) => half * (Wt / 2 + (Wb / 2 - Wt / 2) * (y - y1) / (y0 - y1));   // その高さでのケースの半分の幅
-  // 机の影
-  let g = cx.createRadialGradient(cxp, baseY + 4 * K, 4, cxp, baseY + 4 * K, Wb * 0.9);
-  g.addColorStop(0, 'rgba(0,0,0,0.45)'); g.addColorStop(1, 'rgba(0,0,0,0)');
-  cx.fillStyle = g; cx.beginPath(); cx.ellipse(cxp, baseY + 4 * K, Wb * 0.9, Wb * 0.13, 0, 0, Math.PI * 2); cx.fill();
-  // 台座
-  const wood = (x0, x1, c0, c1, c2) => { const gg = cx.createLinearGradient(x0, 0, x1, 0); gg.addColorStop(0, c0); gg.addColorStop(0.45, c1); gg.addColorStop(1, c2); return gg; };
-  cx.fillStyle = wood(cxp - Wb * 0.56, cxp + Wb * 0.56, '#7a3f22', '#5a2b14', '#2e1508');
-  rr(cxp - Wb * 0.56, y0, Wb * 1.12, plH, 4 * K); cx.fill();
-  cx.fillStyle = 'rgba(255,214,170,0.22)'; cx.fillRect(cxp - Wb * 0.55, y0, Wb * 1.1, 1.5 * K);
-  // ケース（台形）
-  const caseP = () => { cx.beginPath(); cx.moveTo(cxp - Wb / 2, y0); cx.lineTo(cxp + Wb / 2, y0); cx.lineTo(cxp + Wt / 2, y1); cx.lineTo(cxp - Wt / 2, y1); cx.closePath(); };
-  caseP(); cx.fillStyle = wood(cxp - Wb / 2, cxp + Wb / 2, '#9a5330', '#6e3519', '#341709'); cx.fill();
-  cx.save(); caseP(); cx.clip();   // 木目
-  for (let i = 0; i < 22; i++) {
-    const x = cxp - Wb / 2 + (i + 0.5) * Wb / 22, a = 0.05 + 0.05 * ((i * 37) % 5) / 5;
-    cx.strokeStyle = `rgba(30,10,2,${a})`; cx.lineWidth = (1 + (i % 3)) * K * 0.7; cx.beginPath();
-    for (let y = y1; y <= y0; y += 6 * K) { const xx = x + (cxp - x) * (y0 - y) / (y0 - y1) * 0.78 + Math.sin(y * 0.031 + i * 1.7) * 2.2 * K; y === y1 ? cx.moveTo(xx, y) : cx.lineTo(xx, y); }
-    cx.stroke();
+const metroPendCv = {};
+function metroPendCache(name, key, x, y, w, h, paint) {   // 動かない部分は、大きさが変わったときだけ描き直す
+  let e = metroPendCv[name];
+  if (!e || e.key !== key) {
+    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
+    const g = c.getContext('2d'); g.scale(d, d); g.translate(-x, -y); paint(g);
+    e = metroPendCv[name] = { key, c, x, y, w, h };
   }
-  cx.restore();
-  cx.strokeStyle = 'rgba(255,214,170,0.35)'; cx.lineWidth = 2 * K; cx.beginPath(); cx.moveTo(cxp - Wb / 2 + 1, y0); cx.lineTo(cxp - Wt / 2 + 1, y1); cx.stroke();   // 光の当たる角
-  cx.strokeStyle = 'rgba(0,0,0,0.45)'; cx.beginPath(); cx.moveTo(cxp + Wb / 2 - 1, y0); cx.lineTo(cxp + Wt / 2 - 1, y1); cx.stroke();
-  // てっぺんの飾り
-  cx.fillStyle = wood(cxp - Wt * 0.6, cxp + Wt * 0.6, '#a65d36', '#6e3519', '#341709');
-  cx.beginPath(); cx.moveTo(cxp - Wt * 0.62, y1); cx.lineTo(cxp + Wt * 0.62, y1); cx.lineTo(cxp, y1 - capH); cx.closePath(); cx.fill();
-  cx.fillStyle = '#2a1206'; cx.fillRect(cxp - Wt * 0.64, y1 - 2 * K, Wt * 1.28, 3 * K);
-  // 前のくぼみ（目盛り板が入る所）
-  const pivY = y0 - Hb * 0.2, pTop = y1 + Hb * 0.04, inset = 0.62;
-  const panelP = () => { cx.beginPath(); cx.moveTo(cxp - xAt(pivY, inset), pivY); cx.lineTo(cxp + xAt(pivY, inset), pivY); cx.lineTo(cxp + xAt(pTop, inset), pTop); cx.lineTo(cxp - xAt(pTop, inset), pTop); cx.closePath(); };
-  panelP(); g = cx.createLinearGradient(cxp - Wb / 3, 0, cxp + Wb / 3, 0); g.addColorStop(0, '#2b1308'); g.addColorStop(0.5, '#3d1c0c'); g.addColorStop(1, '#1d0b04'); cx.fillStyle = g; cx.fill();
-  cx.strokeStyle = 'rgba(0,0,0,0.6)'; cx.lineWidth = 2 * K; cx.stroke();
-  // 目盛り板（象牙色）
-  const sTop = pTop + Hb * 0.025, sBot = pivY - Hb * 0.06, plateHalf = y => xAt(y, 0.5);
-  cx.beginPath(); cx.moveTo(cxp - plateHalf(sBot), sBot + 4 * K); cx.lineTo(cxp + plateHalf(sBot), sBot + 4 * K); cx.lineTo(cxp + plateHalf(sTop), sTop - 4 * K); cx.lineTo(cxp - plateHalf(sTop), sTop - 4 * K); cx.closePath();
-  g = cx.createLinearGradient(cxp - Wb / 4, 0, cxp + Wb / 4, 0); g.addColorStop(0, '#d8c9a3'); g.addColorStop(0.4, '#f3ead3'); g.addColorStop(1, '#c8b68b'); cx.fillStyle = g; cx.fill();
-  const lg = Math.log(208) - Math.log(40), dTop = pivY - sTop, dBot = pivY - sBot;
-  const distOf = t => dBot + (dTop - dBot) * (Math.log(208) - Math.log(clamp(t, 40, 208))) / lg;   // おそいほど上
-  const fs = clamp(Hb * 0.017, 7, 13 * K);
+  return e;
+}
+const metroPendDraw = e => cx.drawImage(e.c, e.x, e.y, e.w, e.h);
+const metroPendLG = (c, x0, y0, x1, y1, stops) => { const q = c.createLinearGradient(x0, y0, x1, y1); stops.forEach(s => q.addColorStop(s[0], s[1])); return q; };
+// 部屋：かべ・窓の光（夜はランプの光）・机・楽譜・メトロノームの落とす影
+function metroPendPaintRoom(c, G, lightT) {
+  const { cxp, Wb, baseY, deskTop, plH, Hb } = G, ah = G.ah;
+  // かべ
+  c.fillStyle = metroPendLG(c, 0, 0, 0, deskTop, lightT ? [[0, '#efe5d6'], [1, '#dccbb4']] : [[0, '#241a14'], [1, '#17100b']]); c.fillRect(0, 0, W, deskTop);
+  // かべ紙のうすい縦じま
+  for (let x = (W / 2) % (22 * K), i = 0; x < W; x += 22 * K, i++) { c.fillStyle = lightT ? `rgba(140,100,60,${i % 2 ? 0.035 : 0.018})` : `rgba(255,220,180,${i % 2 ? 0.018 : 0.008})`; c.fillRect(x, 0, 11 * K, deskTop); }
+  // 窓から入る光の帯（夜は、ランプのあたたかい光だまり）
+  const shaft = [[W * 0.0, -10], [W * 0.3, -10], [W * 0.58, deskTop], [W * 0.18, deskTop]];
+  c.save(); c.shadowColor = lightT ? 'rgba(255,248,226,0.75)' : 'rgba(255,214,160,0.10)'; c.shadowBlur = 40 * K; c.shadowOffsetX = W * 3;
+  c.beginPath(); shaft.forEach((p, i) => i ? c.lineTo(p[0] - W * 3, p[1]) : c.moveTo(p[0] - W * 3, p[1])); c.closePath(); c.fillStyle = '#000'; c.fill(); c.restore();
+  if (!lightT) {
+    let g = c.createRadialGradient(W * 0.86, deskTop * 0.15, 0, W * 0.86, deskTop * 0.15, Math.max(W, ah) * 0.75);
+    g.addColorStop(0, 'rgba(255,190,110,0.26)'); g.addColorStop(0.4, 'rgba(255,170,90,0.08)'); g.addColorStop(1, 'rgba(255,170,90,0)'); c.fillStyle = g; c.fillRect(0, 0, W, ah);
+  }
+  // 机の奥のふちが、かべに落とす影
+  c.fillStyle = metroPendLG(c, 0, deskTop - 26 * K, 0, deskTop, [[0, 'rgba(40,22,8,0)'], [1, lightT ? 'rgba(70,40,15,0.22)' : 'rgba(0,0,0,0.5)']]); c.fillRect(0, deskTop - 26 * K, W, 26 * K);
+  // 机（つやのある木）
+  c.fillStyle = metroPendLG(c, 0, deskTop, 0, ah, lightT ? [[0, '#a8734a'], [0.08, '#c08a5a'], [0.5, '#a06b3e'], [1, '#7a4c28']] : [[0, '#3a2414'], [0.08, '#57351d'], [0.5, '#432714'], [1, '#26150a']]);
+  c.fillRect(0, deskTop, W, ah - deskTop);
+  c.save(); c.beginPath(); c.rect(0, deskTop, W, ah - deskTop); c.clip();
+  for (let i = 0; i < 34; i++) {   // 木目（手前ほど間が広い）
+    const yy = deskTop + (ah - deskTop) * Math.pow((i + 0.5) / 34, 1.35), a = (lightT ? 0.07 : 0.16) + 0.08 * rollPlayRnd(i * 3.3);
+    c.strokeStyle = `rgba(50,22,5,${a})`; c.lineWidth = (0.5 + 1.4 * rollPlayRnd(i * 1.7)) * K;
+    c.beginPath(); for (let xx = -10; xx <= W + 10; xx += 9 * K) { const yv = yy + Math.sin(xx * 0.009 + i * 1.9) * 2 * K * (0.5 + i / 34) + Math.sin(xx * 0.037 + i) * 0.6 * K; xx < 0 ? c.moveTo(xx, yv) : c.lineTo(xx, yv); } c.stroke();
+  }
+  for (let i = 0; i < 160; i++) {   // 導管の小さなすじ
+    const x = rollPlayRnd(i * 2.3) * W, y = deskTop + (ah - deskTop) * rollPlayRnd(i * 5.1); c.fillStyle = `rgba(40,16,4,${0.08 + 0.1 * rollPlayRnd(i)})`; c.fillRect(x, y, (3 + 6 * rollPlayRnd(i * 7)) * K, 0.8 * K);
+  }
+  // 机に映る窓の光（ニスのつや）
+  c.save(); c.shadowColor = lightT ? 'rgba(255,246,222,0.42)' : 'rgba(255,200,140,0.07)'; c.shadowBlur = 30 * K; c.shadowOffsetX = W * 3;
+  c.beginPath(); c.moveTo(W * 0.2 - W * 3, deskTop + 3 * K); c.lineTo(W * 0.6 - W * 3, deskTop + 3 * K); c.lineTo(W * 0.95 - W * 3, ah); c.lineTo(W * 0.35 - W * 3, ah); c.closePath(); c.fillStyle = '#000'; c.fill(); c.restore();
+  if (!lightT) { const g = c.createRadialGradient(W * 0.8, deskTop, 0, W * 0.8, deskTop, W * 0.7); g.addColorStop(0, 'rgba(255,190,120,0.16)'); g.addColorStop(1, 'rgba(255,190,120,0)'); c.fillStyle = g; c.fillRect(0, deskTop, W, ah - deskTop); }
+  c.restore();
+  c.fillStyle = lightT ? 'rgba(255,236,205,0.7)' : 'rgba(255,210,160,0.22)'; c.fillRect(0, deskTop, W, 1.2 * K);   // 奥のふちのつや
+  // 楽譜（机の左に置いてある）
+  const room = cxp - Wb * 0.62 - 12 * K, sw = Math.min(room * 0.8, Hb * 0.34, 170 * K);
+  if (sw > 46 * K) {
+    const sx = cxp - Wb * 0.62 - sw * 0.56 - 4 * K, sy = deskTop + (baseY - deskTop) * 0.55;
+    c.save(); c.translate(sx, sy); c.scale(1, 0.34); c.rotate(-0.16);
+    const sh = sw * 1.3;
+    c.shadowColor = 'rgba(30,12,2,0.45)'; c.shadowBlur = 8 * K; c.shadowOffsetY = 6 * K;
+    c.fillStyle = lightT ? '#f8f2e4' : '#cdbf9f'; c.fillRect(-sw / 2, -sh / 2, sw, sh); c.shadowColor = 'rgba(0,0,0,0)';
+    c.fillStyle = lightT ? '#efe6d2' : '#bfb090'; c.fillRect(-sw / 2 + sw * 0.08, -sh / 2 - 4 * K, sw * 0.9, sh * 0.98);   // 下の1枚
+    c.fillStyle = lightT ? '#fbf7ec' : '#d6c9aa'; c.fillRect(-sw / 2, -sh / 2, sw, sh);
+    c.strokeStyle = 'rgba(60,40,20,0.55)'; c.lineWidth = 1.6 * K;
+    for (let s = 0; s < 5; s++) { const y0 = -sh / 2 + sh * (0.14 + s * 0.17); for (let l = 0; l < 5; l++) { c.beginPath(); c.moveTo(-sw * 0.42, y0 + l * sh * 0.022); c.lineTo(sw * 0.42, y0 + l * sh * 0.022); c.stroke(); }
+      c.fillStyle = 'rgba(40,25,10,0.8)'; for (let n = 0; n < 6; n++) { c.beginPath(); c.ellipse(-sw * 0.3 + n * sw * 0.12, y0 + sh * 0.022 * ((n * 3 + s) % 5), sw * 0.022, sh * 0.012, -0.4, 0, Math.PI * 2); c.fill(); } }
+    c.restore();
+  }
+  // メトロノームが机に落とす影（光は左上から → 右うしろへのびる）と、接地の暗がり
+  const p1 = Wb * 1.16;
+  c.save(); c.shadowColor = lightT ? 'rgba(60,30,10,0.38)' : 'rgba(0,0,0,0.55)'; c.shadowBlur = 22 * K; c.shadowOffsetX = W * 3;
+  c.beginPath(); c.moveTo(cxp - p1 * 0.48 - W * 3, baseY); c.lineTo(cxp + p1 * 0.5 - W * 3, baseY); c.lineTo(cxp + p1 * 0.5 + Hb * 0.34 - W * 3, deskTop + 4 * K); c.lineTo(cxp + p1 * 0.1 + Hb * 0.3 - W * 3, deskTop + 2 * K); c.closePath(); c.fillStyle = '#000'; c.fill(); c.restore();
+  const g = c.createRadialGradient(cxp, baseY, 0, cxp, baseY, p1 * 0.62); g.addColorStop(0, 'rgba(20,8,0,0.55)'); g.addColorStop(0.7, 'rgba(20,8,0,0.25)'); g.addColorStop(1, 'rgba(20,8,0,0)');
+  c.save(); c.translate(cxp, baseY); c.scale(1, 0.12); c.translate(-cxp, -baseY); c.fillStyle = g; c.beginPath(); c.arc(cxp, baseY, p1 * 0.62, 0, Math.PI * 2); c.fill(); c.restore();
+  // 部屋のすみを少し暗く
+  const v = c.createRadialGradient(W / 2, ah * 0.5, Math.min(W, ah) * 0.35, W / 2, ah * 0.5, Math.max(W, ah) * 0.85); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, lightT ? 'rgba(60,35,15,0.22)' : 'rgba(0,0,0,0.5)');
+  c.fillStyle = v; c.fillRect(0, 0, W, ah);
+}
+// メトロノームの本体（動かない部分）：台座・木のケース・目盛り板・下のふた・銘板
+function metroPendPaintBody(c, G) {
+  const { cxp, Wb, Wt, Hb, plH, capH, y0, y1, baseY, xAt, pivY, pTop, sTop, sBot, distOf, fs, dTop, dBot } = G;
+  const p1 = Wb * 1.16, p2 = Wb * 1.07, t1 = plH * 0.5;
+  // 台座（2段のモールディング）
+  c.fillStyle = metroPendLG(c, cxp - p1 / 2, 0, cxp + p1 / 2, 0, [[0, '#7c3f1f'], [0.25, '#8f4b26'], [0.55, '#60301a'], [1, '#2a1206']]);
+  metroBallRR(c, cxp - p1 / 2, baseY - t1, p1, t1, 2.5 * K); c.fill();
+  c.fillStyle = metroPendLG(c, 0, baseY - t1, 0, baseY, [[0, 'rgba(255,220,180,0.28)'], [0.25, 'rgba(255,220,180,0)'], [0.75, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.45)']]); metroBallRR(c, cxp - p1 / 2, baseY - t1, p1, t1, 2.5 * K); c.fill();
+  c.fillStyle = metroPendLG(c, cxp - p2 / 2, 0, cxp + p2 / 2, 0, [[0, '#a45b33'], [0.3, '#8a4625'], [0.6, '#66321a'], [1, '#2e1408']]);
+  metroBallRR(c, cxp - p2 / 2, y0, p2, plH - t1 + 1, 2 * K); c.fill();
+  c.fillStyle = 'rgba(255,224,186,0.45)'; c.fillRect(cxp - p2 / 2 + 2 * K, y0, p2 - 4 * K, 1.2 * K);
+  c.fillStyle = 'rgba(255,224,186,0.3)'; c.fillRect(cxp - p1 / 2 + 2 * K, baseY - t1, p1 - 4 * K, 1 * K);
+  c.fillStyle = 'rgba(0,0,0,0.35)'; c.fillRect(cxp - p2 / 2, baseY - t1 - 1 * K, p2, 1 * K);
+  // ケース（台形）
+  const caseP = () => { c.beginPath(); c.moveTo(cxp - Wb / 2, y0); c.lineTo(cxp + Wb / 2, y0); c.lineTo(cxp + Wt / 2, y1); c.lineTo(cxp - Wt / 2, y1); c.closePath(); };
+  caseP(); c.fillStyle = metroPendLG(c, cxp - Wb / 2, 0, cxp + Wb / 2, 0, [[0, '#b0653b'], [0.16, '#94502b'], [0.45, '#73391b'], [0.78, '#4f230e'], [1, '#2a1105']]); c.fill();
+  c.save(); caseP(); c.clip();
+  const lerpX = (u, y) => { const f = (y - y1) / (y0 - y1); return cxp + (u - 0.5) * (Wt + (Wb - Wt) * f); };
+  for (let i = 0; i < 54; i++) {   // まっすぐな柾目（ケースの細りにそって）
+    const u = (i + rollPlayRnd(i * 1.1)) / 54, a = 0.04 + 0.12 * rollPlayRnd(i * 2.9), lt = rollPlayRnd(i * 4.4) > 0.82;
+    c.strokeStyle = lt ? `rgba(255,190,140,${a * 0.5})` : `rgba(45,15,3,${a})`; c.lineWidth = (0.4 + 1.8 * rollPlayRnd(i * 3.3)) * K;
+    c.beginPath(); for (let y = y1 - 2; y <= y0 + 6 * K; y += 7 * K) { const x = lerpX(u, y) + Math.sin(y * 0.022 + i * 1.7) * 1.6 * K + Math.sin(y * 0.071 + i) * 0.5 * K; y < y1 ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke();
+  }
+  for (let j = 0; j < 9; j++) {   // 板目の山形の模様（下の方）
+    const w = Wb * (0.1 + j * 0.045), h = Hb * (0.1 + j * 0.05), ox = cxp + Wb * 0.06;
+    c.strokeStyle = `rgba(55,20,4,${0.1 + 0.06 * (j % 2)})`; c.lineWidth = (0.8 + (j % 3) * 0.5) * K;
+    c.beginPath(); c.moveTo(ox - w, y0 + 2); c.bezierCurveTo(ox - w * 0.9, y0 - h * 0.7, ox - w * 0.25, y0 - h, ox, y0 - h); c.bezierCurveTo(ox + w * 0.25, y0 - h, ox + w * 0.9, y0 - h * 0.7, ox + w, y0 + 2); c.stroke();
+  }
+  for (let i = 0; i < 220; i++) {   // 導管
+    const u = rollPlayRnd(i * 7.7), y = y1 + (y0 - y1) * rollPlayRnd(i * 3.1); c.fillStyle = `rgba(30,10,2,${0.1 + 0.12 * rollPlayRnd(i * 1.9)})`; c.fillRect(lerpX(u, y), y, 0.8 * K, (2 + 4 * rollPlayRnd(i)) * K);
+  }
+  // ニスのつや：左の角に近い所に縦の光、右は暗く
+  c.fillStyle = metroPendLG(c, cxp - Wb / 2, 0, cxp + Wb / 2, 0, [[0, 'rgba(255,230,200,0.05)'], [0.09, 'rgba(255,230,200,0.26)'], [0.17, 'rgba(255,230,200,0.05)'], [0.5, 'rgba(255,230,200,0)'], [0.9, 'rgba(0,0,0,0.12)'], [1, 'rgba(0,0,0,0.3)']]);
+  c.fillRect(cxp - Wb / 2, y1, Wb, y0 - y1);
+  c.fillStyle = metroPendLG(c, 0, y1, 0, y0, [[0, 'rgba(255,235,210,0.12)'], [0.3, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.18)']]); c.fillRect(cxp - Wb / 2, y1, Wb, y0 - y1);
+  c.restore();
+  c.strokeStyle = 'rgba(255,224,186,0.55)'; c.lineWidth = 1.6 * K; c.beginPath(); c.moveTo(cxp - Wb / 2 + 1, y0); c.lineTo(cxp - Wt / 2 + 1, y1); c.stroke();   // 光の当たる角
+  c.strokeStyle = 'rgba(0,0,0,0.5)'; c.lineWidth = 2 * K; c.beginPath(); c.moveTo(cxp + Wb / 2 - 1, y0); c.lineTo(cxp + Wt / 2 - 1, y1); c.stroke();
+  // てっぺん：細い帯と、ピラミッドの屋根、真ちゅうの玉
+  c.fillStyle = metroPendLG(c, cxp - Wt * 0.7, 0, cxp + Wt * 0.7, 0, [[0, '#8a4625'], [0.4, '#5a2b14'], [1, '#22100a']]); metroBallRR(c, cxp - Wt * 0.68, y1 - 3.5 * K, Wt * 1.36, 4.5 * K, 1.5 * K); c.fill();
+  c.fillStyle = 'rgba(255,224,186,0.45)'; c.fillRect(cxp - Wt * 0.66, y1 - 3.5 * K, Wt * 1.32, 1 * K);
+  const ct = y1 - 3.5 * K;
+  c.beginPath(); c.moveTo(cxp - Wt * 0.6, ct); c.lineTo(cxp, ct - capH); c.lineTo(cxp, ct); c.closePath(); c.fillStyle = metroPendLG(c, cxp - Wt * 0.6, ct, cxp, ct - capH, [[0, '#a85e36'], [1, '#c8804f']]); c.fill();
+  c.beginPath(); c.moveTo(cxp + Wt * 0.6, ct); c.lineTo(cxp, ct - capH); c.lineTo(cxp, ct); c.closePath(); c.fillStyle = metroPendLG(c, cxp, ct, cxp + Wt * 0.6, ct, [[0, '#5a2b14'], [1, '#2a1206']]); c.fill();
+  const kr = Math.max(2, Wt * 0.11), kg = c.createRadialGradient(cxp - kr * 0.35, ct - capH - kr * 0.4, 0, cxp, ct - capH, kr); kg.addColorStop(0, '#fff6d0'); kg.addColorStop(0.5, '#d0a24a'); kg.addColorStop(1, '#6a4a12');
+  c.fillStyle = kg; c.beginPath(); c.arc(cxp, ct - capH - kr * 0.6, kr, 0, Math.PI * 2); c.fill();
+  // 前のくぼみ（目盛り板が入る所）：内側に影
+  const inset = 0.62;
+  const panelP = () => { c.beginPath(); c.moveTo(cxp - xAt(pivY, inset), pivY); c.lineTo(cxp + xAt(pivY, inset), pivY); c.lineTo(cxp + xAt(pTop, inset), pTop); c.lineTo(cxp - xAt(pTop, inset), pTop); c.closePath(); };
+  panelP(); c.fillStyle = metroPendLG(c, cxp - Wb / 3, 0, cxp + Wb / 3, 0, [[0, '#2a1207'], [0.5, '#3a1b0b'], [1, '#170802']]); c.fill();
+  c.save(); panelP(); c.clip(); c.shadowColor = 'rgba(0,0,0,0.85)'; c.shadowBlur = 10 * K; c.shadowOffsetX = 3 * K; c.shadowOffsetY = 4 * K; c.lineWidth = 8 * K; c.strokeStyle = '#000'; panelP(); c.stroke(); c.restore();
+  c.strokeStyle = 'rgba(255,214,170,0.35)'; c.lineWidth = 1.2 * K; c.beginPath(); c.moveTo(cxp + xAt(pTop, inset), pTop); c.lineTo(cxp + xAt(pivY, inset), pivY); c.stroke();   // 右の内角に光
+  // 目盛り板（象牙色の紙、うっすら古びた色むら）
+  const plateHalf = y => xAt(y, 0.5), plateP = () => { c.beginPath(); c.moveTo(cxp - plateHalf(sBot), sBot + 4 * K); c.lineTo(cxp + plateHalf(sBot), sBot + 4 * K); c.lineTo(cxp + plateHalf(sTop), sTop - 4 * K); c.lineTo(cxp - plateHalf(sTop), sTop - 4 * K); c.closePath(); };
+  c.save(); c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = 5 * K; c.shadowOffsetY = 2 * K; plateP(); c.fillStyle = metroPendLG(c, cxp - Wb / 4, 0, cxp + Wb / 4, 0, [[0, '#d6c59c'], [0.4, '#f4ebd2'], [1, '#c4b085']]); c.fill(); c.restore();
+  c.save(); plateP(); c.clip();
+  const vg = c.createRadialGradient(cxp, (sTop + sBot) / 2, 0, cxp, (sTop + sBot) / 2, (sBot - sTop) * 0.6); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(110,70,20,0.18)'); c.fillStyle = vg; c.fillRect(cxp - Wb / 2, sTop - 5 * K, Wb, sBot - sTop + 10 * K);
+  c.fillStyle = 'rgba(140,40,30,0.5)'; c.fillRect(cxp - plateHalf(sBot) * 0.035, sTop - 4 * K, plateHalf(sBot) * 0.07, sBot - sTop + 8 * K);   // まん中の赤い線
+  c.restore();
+  c.font = `800 ${fs}px ${FONT}`; c.textBaseline = 'middle';
   let lastY = 1e9;
   MAELZEL.forEach(t => {
-    const y = pivY - distOf(t), hw = plateHalf(y), major = t % 10 === 0 || t === 63 || t === 69 || t === 76;
-    cx.strokeStyle = 'rgba(60,30,10,0.7)'; cx.lineWidth = (major ? 1.4 : 0.8) * K;
-    cx.beginPath(); cx.moveTo(cxp - hw * 0.94, y); cx.lineTo(cxp - hw * (major ? 0.62 : 0.74), y); cx.moveTo(cxp + hw * 0.94, y); cx.lineTo(cxp + hw * (major ? 0.8 : 0.86), y); cx.stroke();
-    if (Math.abs(lastY - y) > fs * 1.15) { txt(String(t), cxp - hw * 0.1, y, fs, '#4a2a12', 800, 'right'); lastY = y; }
+    const y = G.pivY - distOf(t), hw = plateHalf(y), major = t % 10 === 0 || t === 63 || t === 69 || t === 76;
+    c.strokeStyle = 'rgba(60,30,10,0.75)'; c.lineWidth = (major ? 1.4 : 0.8) * K;
+    c.beginPath(); c.moveTo(cxp - hw * 0.94, y); c.lineTo(cxp - hw * (major ? 0.62 : 0.74), y); c.moveTo(cxp + hw * 0.94, y); c.lineTo(cxp + hw * (major ? 0.8 : 0.86), y); c.stroke();
+    if (Math.abs(lastY - y) > fs * 1.15) { c.textAlign = 'right'; c.fillStyle = '#4a2a12'; c.fillText(String(t), cxp - hw * 0.1, y); lastY = y; }
   });
-  MAELZEL_TERMS.forEach(([t, nm]) => { const y = pivY - distOf(t), hw = plateHalf(y); if (dTop - dBot > fs * 26) { cx.font = `700 ${fs * 0.8}px ${FONT}`; const f2 = Math.min(fs * 0.8, fs * 0.8 * hw * 0.66 / cx.measureText(nm).width); txt(nm, cxp + hw * 0.1, y, f2, '#7a4a22', 700, 'left'); } });
-  // 下のふた（振り子の支点をかくす）と、小さな銘板
-  cx.beginPath(); cx.moveTo(cxp - xAt(y0, 0.86), y0); cx.lineTo(cxp + xAt(y0, 0.86), y0); cx.lineTo(cxp + xAt(pivY, 0.66), pivY + 6 * K); cx.lineTo(cxp - xAt(pivY, 0.66), pivY + 6 * K); cx.closePath();
-  cx.fillStyle = wood(cxp - Wb / 2, cxp + Wb / 2, '#8c4a29', '#62301a', '#2c1307'); cx.fill();
-  cx.strokeStyle = 'rgba(255,214,170,0.25)'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.moveTo(cxp - xAt(pivY, 0.66), pivY + 6 * K); cx.lineTo(cxp + xAt(pivY, 0.66), pivY + 6 * K); cx.stroke();
+  if (dTop - dBot > fs * 26) MAELZEL_TERMS.forEach(([t, nm]) => {
+    const y = G.pivY - distOf(t), hw = plateHalf(y); c.font = `italic 700 ${fs * 0.8}px ${FONT}`; const f2 = Math.min(fs * 0.8, fs * 0.8 * hw * 0.66 / c.measureText(nm).width);
+    c.font = `italic 700 ${f2}px ${FONT}`; c.textAlign = 'left'; c.fillStyle = '#7a4a22'; c.fillText(nm, cxp + hw * 0.1, y);
+  });
+  // 下のふた（振り子の支点をかくす）
+  const lidP = () => { c.beginPath(); c.moveTo(cxp - xAt(y0, 0.86), y0); c.lineTo(cxp + xAt(y0, 0.86), y0); c.lineTo(cxp + xAt(pivY, 0.66), pivY + 6 * K); c.lineTo(cxp - xAt(pivY, 0.66), pivY + 6 * K); c.closePath(); };
+  c.save(); c.shadowColor = 'rgba(0,0,0,0.55)'; c.shadowBlur = 8 * K; c.shadowOffsetY = -2 * K; lidP(); c.fillStyle = metroPendLG(c, cxp - Wb / 2, 0, cxp + Wb / 2, 0, [[0, '#9c552f'], [0.2, '#86441f'], [0.55, '#62301a'], [1, '#2a1206']]); c.fill(); c.restore();
+  c.save(); lidP(); c.clip();
+  for (let i = 0; i < 16; i++) { const yy = pivY + 6 * K + (y0 - pivY) * (i + 0.5) / 16; c.strokeStyle = `rgba(45,15,3,${0.07 + 0.08 * rollPlayRnd(i * 5.5)})`; c.lineWidth = (0.6 + rollPlayRnd(i) * 1.2) * K; c.beginPath(); for (let x = cxp - Wb / 2; x <= cxp + Wb / 2; x += 8 * K) { const yv = yy + Math.sin(x * 0.03 + i * 2.3) * 1.2 * K; x === cxp - Wb / 2 ? c.moveTo(x, yv) : c.lineTo(x, yv); } c.stroke(); }
+  c.fillStyle = metroPendLG(c, cxp - Wb / 2, 0, cxp + Wb / 2, 0, [[0.05, 'rgba(255,230,200,0.2)'], [0.2, 'rgba(255,230,200,0)'], [1, 'rgba(0,0,0,0.25)']]); c.fillRect(cxp - Wb / 2, pivY, Wb, y0 - pivY);
+  c.restore();
+  c.strokeStyle = 'rgba(255,220,180,0.45)'; c.lineWidth = 1.5 * K; c.beginPath(); c.moveTo(cxp - xAt(pivY, 0.66), pivY + 6 * K); c.lineTo(cxp + xAt(pivY, 0.66), pivY + 6 * K); c.stroke();
+  // 銘板（真ちゅう、刻んだ文字）
   const bY = (pivY + y0) / 2 + 4 * K, bW = Math.min(xAt(bY, 0.5), 60 * K), bH = Math.min((y0 - pivY) * 0.3, 16 * K);
-  g = cx.createLinearGradient(0, bY - bH, 0, bY + bH); g.addColorStop(0, '#f8e6a8'); g.addColorStop(0.5, '#c9a04a'); g.addColorStop(1, '#8a6420');
-  cx.fillStyle = g; cx.beginPath(); cx.ellipse(cxp, bY, bW, bH, 0, 0, Math.PI * 2); cx.fill();
-  txt('METRONOME', cxp, bY + 0.5, Math.min(bH * 0.75, bW * 0.22), '#5b3d0e', 800);
+  c.save(); c.shadowColor = 'rgba(0,0,0,0.5)'; c.shadowBlur = 3 * K; c.shadowOffsetY = 1.5 * K;
+  c.fillStyle = metroPendLG(c, 0, bY - bH, 0, bY + bH, [[0, '#fbedb8'], [0.45, '#d2aa52'], [0.55, '#b88c34'], [1, '#7a5718']]); c.beginPath(); c.ellipse(cxp, bY, bW, bH, 0, 0, Math.PI * 2); c.fill(); c.restore();
+  c.strokeStyle = 'rgba(90,60,15,0.6)'; c.lineWidth = 0.8 * K; c.beginPath(); c.ellipse(cxp, bY, bW * 0.9, bH * 0.78, 0, 0, Math.PI * 2); c.stroke();
+  const tf = Math.min(bH * 0.75, bW * 0.22); c.font = `800 ${tf}px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = 'rgba(255,245,210,0.6)'; c.fillText('METRONOME', cxp, bY + 1.3); c.fillStyle = '#5b3d0e'; c.fillText('METRONOME', cxp, bY + 0.3);
+  // 支点の受け（金属の板）
+  c.fillStyle = metroPendLG(c, cxp - 10 * K, 0, cxp + 10 * K, 0, [[0, '#4b5260'], [0.4, '#e5e9ef'], [1, '#3a404c']]); metroBallRR(c, cxp - 9 * K, pivY - 9 * K, 18 * K, 15 * K, 3 * K); c.fill();
+}
+function drawMetroPend(st, now, ah) {
+  const b = metBeatInfo(st, now), m = b.m, top = 64 * K, cxp = W / 2, lightT = !!canvasLight;
+  const baseY = ah - 58 * K;
+  let Hb = baseY - top - 8 * K; Hb = Math.max(60, Math.min(Hb, W * 1.5));
+  const Wb = Hb * 0.5, Wt = Hb * 0.11, plH = Hb * 0.055, capH = Hb * 0.06;
+  const y0 = baseY - plH, y1 = baseY - Hb + capH + 3.5 * K;   // ケースの下と上
+  const xAt = (y, half) => half * (Wt / 2 + (Wb / 2 - Wt / 2) * (y - y1) / (y0 - y1));   // その高さでのケースの半分の幅
+  const pivY = y0 - Hb * 0.2, pTop = y1 + Hb * 0.04, sTop = pTop + Hb * 0.025, sBot = pivY - Hb * 0.06;
+  const lg = Math.log(208) - Math.log(40), dTop = pivY - sTop, dBot = pivY - sBot;
+  const distOf = t => dBot + (dTop - dBot) * (Math.log(208) - Math.log(clamp(t, 40, 208))) / lg;   // おそいほど上
+  const fs = clamp(Hb * 0.017, 7, 13 * K), deskTop = baseY - Math.max(26 * K, Hb * 0.1);
+  const G = { cxp, Wb, Wt, Hb, plH, capH, y0, y1, baseY, xAt, pivY, pTop, sTop, sBot, distOf, fs, dTop, dBot, deskTop, ah };
+  const key = [W, ah, K, Hb, lightT].join('|'), tt = performance.now() / 1000, P = rollPlay('MP');
+  // 部屋
+  const room = metroPendCache('room', key, 0, 0, W, ah, c => metroPendPaintRoom(c, G, lightT));
+  metroPendDraw(room);
+  const bx0 = cxp - Wb * 0.62, bw0 = Wb * 1.24, by0 = y1 - capH - 10 * K;
+  const body = metroPendCache('body', key, bx0, by0, bw0, baseY - by0 + 1, c => metroPendPaintBody(c, G));
+  const refl = metroPendCache('refl', key, bx0, baseY, bw0, ah - baseY, c => {   // つやのある机に映る姿（下へいくほど消える）
+    c.save(); c.translate(0, baseY * 2); c.scale(1, -1); c.drawImage(body.c, body.x, body.y, body.w, body.h); c.restore();
+    c.globalCompositeOperation = 'destination-in'; c.fillStyle = metroPendLG(c, 0, baseY, 0, ah, [[0, 'rgba(0,0,0,0.42)'], [0.5, 'rgba(0,0,0,0.08)'], [1, 'rgba(0,0,0,0)']]); c.fillRect(bx0, baseY, bw0, ah - baseY);
+  });
+  // 光の中のほこり（ゆっくり漂う。コンボでは金色にきらめく）
+  {
+    const n = 16 + Math.round(14 * P.f1);
+    for (let i = 0; i < n; i++) {
+      const ph = (tt * (0.012 + 0.02 * rollPlayRnd(i * 1.3)) + rollPlayRnd(i * 2.7)) % 1, y = deskTop * (1 - ph), f = y / deskTop;
+      const xl = W * 0.0 + W * 0.18 * f, xr = W * 0.3 + W * 0.28 * f, x = xl + (xr - xl) * rollPlayRnd(i * 4.9) + Math.sin(tt * 0.5 + i * 2) * 10 * K;
+      const tw = 0.5 + 0.5 * Math.sin(tt * (1 + rollPlayRnd(i) * 2) + i), a = (lightT ? 0.55 : 0.4) * tw * Math.min(1, ph * 8, (1 - ph) * 8);
+      if (i < 16 && P.f1 < 0.05) { cx.fillStyle = lightT ? `rgba(255,255,250,${a})` : `rgba(255,226,180,${a * 0.8})`; cx.beginPath(); cx.arc(x, y, (0.8 + rollPlayRnd(i * 8.1) * 1.1) * K, 0, Math.PI * 2); cx.fill(); }
+      else rollPlayStar(x, y, (1.6 + 2.4 * rollPlayRnd(i * 8.1)) * K, a * (i < 16 ? 1 : P.f1), '#ffe9a8');
+    }
+  }
+  // コンボ：部屋があたたかい金色の光につつまれる
+  if (P.fest > 0.01) {
+    cx.save(); cx.globalCompositeOperation = lightT ? 'source-over' : 'lighter';
+    const g = cx.createRadialGradient(cxp, (y1 + baseY) / 2, Hb * 0.1, cxp, (y1 + baseY) / 2, Math.max(W, ah) * 0.7);
+    g.addColorStop(0, `rgba(255,200,90,${(lightT ? 0.14 : 0.16) * Math.min(1, P.fest / 1.5)})`); g.addColorStop(1, 'rgba(255,200,90,0)'); cx.fillStyle = g; cx.fillRect(0, 0, W, ah); cx.restore();
+  }
   // 振り子の角度：拍の頭で、いちばん端（ここで「カチ」）
   let ang = 0;
   if (b.g >= 0) { const u = clamp(b.age / b.len, 0, 1), side = (st.step % 2 === 0) ? 1 : -1; ang = side * 0.42 * Math.cos(Math.PI * u); }
+  // タップの反応：はやい／おそい → 本体がかたむいてぐらっ（はやい＝左・青、おそい＝右・赤）、たたきすぎ → ことっと小さくはねる
+  const k = P.k, ag = P.age;
+  let tilt = 0, bump = 0, pivX = cxp;
+  if ((k === 'e' || k === 'l') && ag < 0.8) { tilt = P.dir * 0.03 * Math.abs(Math.sin(ag * 17)) * Math.exp(-ag * 5.5); pivX = cxp + P.dir * Wb * 0.58; ang += 0.06 * rollPlayWob(ag, 26, 5); }
+  if (k === 'x' && ag < 0.35) bump = -2.5 * K * Math.abs(Math.sin(ag * 18)) * Math.exp(-ag * 9);
+  const tf = (fn) => { cx.save(); if (tilt) { cx.translate(pivX, baseY); cx.rotate(tilt); cx.translate(-pivX, -baseY); } if (bump) cx.translate(0, bump); fn(); cx.restore(); };
+  // 机に映る姿
+  cx.save(); if (tilt) { cx.translate(pivX, baseY); cx.rotate(-tilt); cx.translate(-pivX, -baseY); } metroPendDraw(refl); cx.restore();
   const Lr = dTop + Hb * 0.04, tShow = Math.round(bpm / (metF(m) || 1)), dW = distOf(tShow);
-  // 残像（動きのぶれ）
+  const ww = clamp(Wt * 1.25, 22 * K, 44 * K), wh = ww * 1.05;
   pendGhost.push(ang); if (pendGhost.length > 4) pendGhost.shift();
+  const perfect = k === 'p' && ag < 1.1 ? 1 - ag / 1.1 : 0;
+  // 棒とおもり。hl：光の当たり方（ふれる向きで、つやの位置が動く）
   const rod = (a, alpha, shadow) => {
     cx.save(); cx.translate(cxp + (shadow ? 5 * K : 0), pivY + (shadow ? 3 * K : 0)); cx.rotate(a);
-    if (shadow) { cx.strokeStyle = `rgba(0,0,0,${0.28 * alpha})`; cx.lineWidth = 5 * K; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(0, -Lr); cx.stroke(); cx.fillStyle = `rgba(0,0,0,${0.25 * alpha})`; cx.fillRect(-14 * K, -dW - 12 * K, 28 * K, 26 * K); cx.restore(); return; }
-    const sg = cx.createLinearGradient(-3 * K, 0, 3 * K, 0); sg.addColorStop(0, `rgba(120,125,135,${alpha})`); sg.addColorStop(0.45, `rgba(245,247,250,${alpha})`); sg.addColorStop(1, `rgba(90,95,105,${alpha})`);
-    cx.fillStyle = sg; cx.fillRect(-2.6 * K, -Lr, 5.2 * K, Lr);
-    cx.fillStyle = `rgba(200,205,212,${alpha})`; cx.beginPath(); cx.arc(0, -Lr, 3.6 * K, 0, Math.PI * 2); cx.fill();   // 先の玉
-    // おもり（真ちゅう）
-    const ww = clamp(Wt * 1.25, 22 * K, 44 * K), wh = ww * 1.05, wy = -dW;
-    const bg = cx.createLinearGradient(-ww / 2, 0, ww / 2, 0); bg.addColorStop(0, `rgba(122,86,24,${alpha})`); bg.addColorStop(0.3, `rgba(250,226,150,${alpha})`); bg.addColorStop(0.55, `rgba(214,170,74,${alpha})`); bg.addColorStop(1, `rgba(110,76,20,${alpha})`);
-    cx.fillStyle = bg; cx.beginPath(); cx.moveTo(-ww * 0.32, wy - wh * 0.5); cx.lineTo(ww * 0.32, wy - wh * 0.5); cx.lineTo(ww * 0.5, wy + wh * 0.5); cx.lineTo(-ww * 0.5, wy + wh * 0.5); cx.closePath(); cx.fill();
+    if (shadow) {
+      for (let s = 0; s < 2; s++) { cx.strokeStyle = `rgba(30,12,2,${0.16 * alpha})`; cx.lineWidth = (5 + s * 4) * K; cx.beginPath(); cx.moveTo(0, 0); cx.lineTo(0, -Lr); cx.stroke(); }
+      cx.fillStyle = `rgba(30,12,2,${0.25 * alpha})`; rr(-ww * 0.55, -dW - wh * 0.55, ww * 1.1, wh * 1.15, 4 * K); cx.fill(); cx.restore(); return;
+    }
+    const hl = clamp(0.38 - a * 0.9, 0.12, 0.75);
+    const sg = cx.createLinearGradient(-3 * K, 0, 3 * K, 0); sg.addColorStop(0, `rgba(100,105,115,${alpha})`); sg.addColorStop(clamp(hl, 0.1, 0.8), `rgba(255,255,255,${alpha})`); sg.addColorStop(1, `rgba(70,75,85,${alpha})`);
+    cx.fillStyle = sg; cx.fillRect(-2.4 * K, -Lr, 4.8 * K, Lr);
+    cx.fillStyle = `rgba(220,224,230,${alpha})`; cx.beginPath(); cx.arc(0, -Lr, 3.6 * K, 0, Math.PI * 2); cx.fill();   // 先の玉
+    const wy = -dW;
+    const bg = cx.createLinearGradient(-ww / 2, 0, ww / 2, 0);
+    bg.addColorStop(0, `rgba(110,74,18,${alpha})`); bg.addColorStop(Math.max(0.01, hl - 0.16), `rgba(205,160,64,${alpha})`); bg.addColorStop(hl, `rgba(255,240,180,${alpha})`);
+    bg.addColorStop(Math.min(0.99, hl + 0.14), `rgba(222,178,82,${alpha})`); bg.addColorStop(1, `rgba(96,64,14,${alpha})`);
+    cx.fillStyle = bg; cx.beginPath(); cx.moveTo(-ww * 0.3, wy - wh * 0.5); cx.lineTo(ww * 0.3, wy - wh * 0.5); cx.quadraticCurveTo(ww * 0.36, wy - wh * 0.5, ww * 0.38, wy - wh * 0.38); cx.lineTo(ww * 0.5, wy + wh * 0.42);
+    cx.quadraticCurveTo(ww * 0.5, wy + wh * 0.5, ww * 0.42, wy + wh * 0.5); cx.lineTo(-ww * 0.42, wy + wh * 0.5); cx.quadraticCurveTo(-ww * 0.5, wy + wh * 0.5, -ww * 0.5, wy + wh * 0.42); cx.lineTo(-ww * 0.38, wy - wh * 0.38); cx.quadraticCurveTo(-ww * 0.36, wy - wh * 0.5, -ww * 0.3, wy - wh * 0.5); cx.closePath(); cx.fill();
     if (alpha > 0.9) {
-      cx.strokeStyle = 'rgba(70,45,10,0.7)'; cx.lineWidth = 1 * K; cx.stroke();
-      cx.strokeStyle = '#3b2306'; cx.lineWidth = 1.6 * K; cx.beginPath(); cx.moveTo(-ww * 0.5, wy); cx.lineTo(ww * 0.5, wy); cx.stroke();   // 目盛りを読む線
-      cx.fillStyle = 'rgba(255,255,255,0.35)'; cx.fillRect(-ww * 0.2, wy - wh * 0.45, ww * 0.08, wh * 0.85);   // 光の筋
+      cx.strokeStyle = 'rgba(70,45,10,0.75)'; cx.lineWidth = 1 * K; cx.stroke();
+      // 上の面（明るい）と下の面（暗い）
+      cx.fillStyle = 'rgba(255,246,210,0.55)'; cx.fillRect(-ww * 0.3, wy - wh * 0.5, ww * 0.6, 1.5 * K);
+      cx.fillStyle = 'rgba(60,35,5,0.45)'; cx.fillRect(-ww * 0.42, wy + wh * 0.5 - 2 * K, ww * 0.84, 2 * K);
+      cx.strokeStyle = '#3b2306'; cx.lineWidth = 1.6 * K; cx.beginPath(); cx.moveTo(-ww * 0.45, wy); cx.lineTo(ww * 0.45, wy); cx.stroke();   // 目盛りを読む線
+      cx.strokeStyle = 'rgba(255,240,190,0.5)'; cx.lineWidth = 0.8 * K; cx.beginPath(); cx.moveTo(-ww * 0.45, wy + 1.4 * K); cx.lineTo(ww * 0.45, wy + 1.4 * K); cx.stroke();
+      // ねじ（おもりを止める）
+      const sx = ww * 0.47, sr = Math.max(2, ww * 0.09);
+      cx.fillStyle = metalGrad(sx - sr, wy - sr, sx + sr, wy + sr, 'brass'); cx.beginPath(); cx.arc(sx + sr * 0.6, wy - wh * 0.18, sr, 0, Math.PI * 2); cx.fill();
+      if (perfect > 0) { cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = `rgba(255,214,110,${0.5 * perfect})`; cx.fill(); cx.restore(); }
     }
     cx.restore();
   };
-  cx.save(); panelP(); cx.clip(); rod(ang, 1, true); cx.restore();
-  pendGhost.slice(0, -1).forEach((a, i) => { if (Math.abs(a - ang) > 0.01) rod(a, 0.12 + 0.06 * i, false); });
-  rod(ang, 1, false);
-  // 支点のねじ
-  g = cx.createRadialGradient(cxp - 2 * K, pivY - 2 * K, 1, cxp, pivY, 7 * K); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#6b7280');
-  cx.fillStyle = g; cx.beginPath(); cx.arc(cxp, pivY, 6 * K, 0, Math.PI * 2); cx.fill();
-  // 「カチ」の光（先の玉のまわり）
-  const q = b.g >= 0 && !b.muted ? Math.max(0, 1 - b.age / 0.16) : 0;
-  if (q > 0) { const tx = cxp + Math.sin(ang) * Lr, ty = pivY - Math.cos(ang) * Lr; cx.fillStyle = hexA(metCol(m, b.g, accOf(m)[b.g]), 0.75 * q); cx.beginPath(); cx.arc(tx, ty, (8 + 10 * q) * K, 0, Math.PI * 2); cx.fill(); }
-  metDotRow(m, ah - 18 * K, W * 0.2, W * 0.8, b, clamp(ah * 0.02, 6, 12 * K));
+  tf(() => {
+    metroPendDraw(body);
+    // ガラスのふた（目盛り板の前）：うすい反射と、おもりの映りこみ
+    const plateP = () => { cx.beginPath(); cx.moveTo(cxp - xAt(sBot, 0.52), sBot + 5 * K); cx.lineTo(cxp + xAt(sBot, 0.52), sBot + 5 * K); cx.lineTo(cxp + xAt(sTop, 0.52), sTop - 5 * K); cx.lineTo(cxp - xAt(sTop, 0.52), sTop - 5 * K); cx.closePath(); };
+    cx.save(); plateP(); cx.clip();
+    rod(ang, 1, true);   // 棒の影（目盛り板の上）
+    const wx = cxp + Math.sin(ang) * dW, wyy = pivY - Math.cos(ang) * dW;
+    cx.save(); cx.globalCompositeOperation = lightT ? 'source-over' : 'lighter';
+    let g = cx.createRadialGradient(cxp - (wx - cxp) * 0.5, wyy + wh * 0.2, 0, cxp - (wx - cxp) * 0.5, wyy + wh * 0.2, ww * 1.4);
+    g.addColorStop(0, 'rgba(255,215,130,0.18)'); g.addColorStop(1, 'rgba(255,215,130,0)'); cx.fillStyle = g; cx.fillRect(cxp - Wb / 2, sTop - 6 * K, Wb, sBot - sTop + 12 * K); cx.restore();
+    // ななめの反射（窓の光）：ふり子にあわせて少しゆれる
+    const sh = Math.sin(ang) * Wb * 0.04, gw = Wb * 0.3, gx = cxp - Wb * 0.18 + sh;
+    g = cx.createLinearGradient(gx - gw / 2, 0, gx + gw / 2, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.35, 'rgba(255,255,255,0.22)'); g.addColorStop(0.5, 'rgba(255,255,255,0.08)'); g.addColorStop(0.62, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    cx.fillStyle = g; cx.beginPath(); cx.moveTo(gx - gw / 2 + Wb * 0.12, sTop - 6 * K); cx.lineTo(gx + gw / 2 + Wb * 0.12, sTop - 6 * K); cx.lineTo(gx + gw / 2 - Wb * 0.12, sBot + 6 * K); cx.lineTo(gx - gw / 2 - Wb * 0.12, sBot + 6 * K); cx.closePath(); cx.fill();
+    if (perfect > 0) {   // ぴったり：金色の光がガラスの上を走る
+      const q = clamp(ag / 0.55, 0, 1), yy = sBot + 10 * K - (sBot - sTop + 20 * K) * q, band = (sBot - sTop) * 0.22;
+      g = cx.createLinearGradient(0, yy - band, 0, yy + band); g.addColorStop(0, 'rgba(255,224,130,0)'); g.addColorStop(0.5, `rgba(255,236,170,${0.55 * (1 - q * 0.6)})`); g.addColorStop(1, 'rgba(255,224,130,0)');
+      cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = g; cx.fillRect(cxp - Wb / 2, yy - band, Wb, band * 2); cx.restore();
+    }
+    cx.restore();
+    plateP(); cx.strokeStyle = 'rgba(255,255,255,0.32)'; cx.lineWidth = 1 * K; cx.stroke();   // ガラスのふち
+    cx.strokeStyle = 'rgba(255,255,255,0.5)'; cx.lineWidth = 1.2 * K; cx.beginPath(); cx.moveTo(cxp - xAt(sBot, 0.52) + 2 * K, sBot + 3 * K); cx.lineTo(cxp - xAt(sTop, 0.52) + 2 * K, sTop - 3 * K); cx.stroke();
+    // 残像（動きのぶれ）と、棒・おもり
+    pendGhost.slice(0, -1).forEach((a, i) => { if (Math.abs(a - ang) > 0.01) rod(a, 0.1 + 0.06 * i, false); });
+    rod(ang, 1, false);
+    // 真ちゅうのきらめき：光の向きにおもりがむいた瞬間だけ、星のように光る
+    const wx2 = cxp + Math.sin(ang) * (dW + wh * 0.3) - Math.cos(ang) * ww * 0.25, wy2 = pivY - Math.cos(ang) * (dW + wh * 0.3) - Math.sin(ang) * ww * 0.25;
+    const glint = Math.exp(-(((ang + 0.16) / 0.07) ** 2));
+    if (glint > 0.03) rollPlayStar(wx2, wy2, (6 + 8 * glint) * K, glint * 0.9, '#fff4cc');
+    // 支点のねじ
+    const pg = cx.createRadialGradient(cxp - 2 * K, pivY - 2 * K, 1, cxp, pivY, 7 * K); pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.5, '#b8bec8'); pg.addColorStop(1, '#4b5260');
+    cx.fillStyle = pg; cx.beginPath(); cx.arc(cxp, pivY, 5.5 * K, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = 'rgba(40,45,55,0.7)'; cx.lineWidth = 1.2 * K; cx.beginPath(); cx.moveTo(cxp - 3.5 * K, pivY - 1 * K); cx.lineTo(cxp + 3.5 * K, pivY + 1 * K); cx.stroke();
+    // 「カチ」の光（先の玉のまわり）
+    const q = b.g >= 0 && !b.muted ? Math.max(0, 1 - b.age / 0.18) : 0;
+    if (q > 0) {
+      const tx = cxp + Math.sin(ang) * Lr, ty = pivY - Math.cos(ang) * Lr, col = metCol(m, b.g, accOf(m)[b.g]);
+      const gg = cx.createRadialGradient(tx, ty, 0, tx, ty, (12 + 14 * q) * K); gg.addColorStop(0, hexA('#ffffff', 0.9 * q)); gg.addColorStop(0.3, hexA(col, 0.7 * q)); gg.addColorStop(1, hexA(col, 0));
+      cx.fillStyle = gg; cx.beginPath(); cx.arc(tx, ty, (12 + 14 * q) * K, 0, Math.PI * 2); cx.fill();
+    }
+    // コンボ（16〜）：ケースのふちが金色にかがやく
+    if (P.f3 > 0.01) {
+      cx.save(); cx.globalCompositeOperation = 'lighter'; cx.shadowColor = 'rgba(255,200,90,0.9)'; cx.shadowBlur = 16 * K * P.f3;
+      cx.strokeStyle = `rgba(255,214,120,${0.5 * P.f3 * (0.75 + 0.25 * Math.sin(tt * 3))})`; cx.lineWidth = 1.6 * K;
+      cx.beginPath(); cx.moveTo(cxp - Wb / 2, y0); cx.lineTo(cxp - Wt / 2, y1); cx.lineTo(cxp + Wt / 2, y1); cx.lineTo(cxp + Wb / 2, y0); cx.stroke(); cx.restore();
+    }
+  });
+  // 呼び鈴（机の右）：ぴったり → チン！と金色にきらめく、はやい／おそい → こつん（にぶい色のけむり）
+  const bellR = clamp(Hb * 0.07, 11, 26 * K), bx = Math.min(cxp + Wb * 0.6 + bellR * 2.1, W - bellR * 1.8), by = baseY + bellR * 0.35;
+  {
+    const ring = k === 'p' && ag < 1.2 ? ag : -1, dull = (k === 'e' || k === 'l') && ag < 0.7 ? ag : -1;
+    const pressA = ring >= 0 ? ring : dull, press = pressA >= 0 && pressA < 0.16 ? Math.sin(pressA / 0.16 * Math.PI) : 0;
+    const shake = ring >= 0 ? rollPlayWob(ring, 55, 6) * 1.6 * K : dull >= 0 ? rollPlayWob(dull, 30, 9) * 1.2 * K : 0;
+    const bb = by, br = bellR, domeY = bb - br * 0.28, dx = bx + shake;
+    softShadow(bx + br * 0.35, bb + br * 0.12, br * 1.5, br * 0.32, lightT ? 0.35 : 0.55);
+    // 台（黒いうるし）
+    let g = cx.createLinearGradient(bx - br * 1.15, 0, bx + br * 1.15, 0); g.addColorStop(0, '#3a3f48'); g.addColorStop(0.3, '#1b1e24'); g.addColorStop(1, '#07080a');
+    cx.fillStyle = g; cx.beginPath(); cx.ellipse(bx, bb, br * 1.15, br * 0.3, 0, 0, Math.PI); cx.lineTo(bx - br * 1.15, bb - br * 0.16); cx.ellipse(bx, bb - br * 0.16, br * 1.15, br * 0.3, 0, Math.PI, 0, true); cx.closePath(); cx.fill();
+    cx.fillStyle = '#23262d'; cx.beginPath(); cx.ellipse(bx, bb - br * 0.16, br * 1.15, br * 0.3, 0, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = 'rgba(255,255,255,0.25)'; cx.lineWidth = 1 * K; cx.beginPath(); cx.ellipse(bx, bb - br * 0.16, br * 1.12, br * 0.28, 0, Math.PI * 1.05, Math.PI * 1.6); cx.stroke();
+    // 鳴った光
+    const glow = ring >= 0 ? Math.max(0, 1 - ring / 1.0) * (P.head ? 1 : 0.8) : 0;
+    if (glow > 0) {
+      cx.save(); cx.globalCompositeOperation = 'lighter'; g = cx.createRadialGradient(dx, domeY - br * 0.4, 0, dx, domeY - br * 0.4, br * 5.5);
+      g.addColorStop(0, `rgba(255,224,120,${0.7 * glow})`); g.addColorStop(0.35, `rgba(255,190,70,${0.25 * glow})`); g.addColorStop(1, 'rgba(255,190,70,0)'); cx.fillStyle = g; cx.fillRect(dx - br * 5.5, domeY - br * 6, br * 11, br * 11); cx.restore();
+    }
+    // ドーム（みがいた真ちゅう）
+    cx.beginPath(); cx.ellipse(dx, domeY, br, br * 0.92, 0, Math.PI, 0); cx.ellipse(dx, domeY, br, br * 0.2, 0, 0, Math.PI); cx.closePath();
+    g = cx.createRadialGradient(dx - br * 0.4, domeY - br * 0.6, br * 0.05, dx, domeY - br * 0.2, br * 1.15);
+    g.addColorStop(0, '#fffbe6'); g.addColorStop(0.18, '#f6dc8c'); g.addColorStop(0.55, '#c6973c'); g.addColorStop(0.85, '#6e4b12'); g.addColorStop(1, '#a37a2c'); cx.fillStyle = g; cx.fill();
+    if (dull >= 0) { cx.fillStyle = hexA(P.tint, 0.3 * Math.max(0, 1 - dull / 0.6)); cx.fill(); }
+    // 部屋の窓が映る
+    cx.fillStyle = 'rgba(255,255,255,0.55)'; cx.beginPath(); cx.ellipse(dx - br * 0.45, domeY - br * 0.5, br * 0.16, br * 0.1, -0.7, 0, Math.PI * 2); cx.fill();
+    cx.strokeStyle = 'rgba(255,250,220,0.5)'; cx.lineWidth = 1.2 * K; cx.beginPath(); cx.ellipse(dx, domeY, br * 0.8, br * 0.72, 0, Math.PI * 1.15, Math.PI * 1.4); cx.stroke();
+    // 押しボタン
+    const ph = br * 0.42 * (1 - press * 0.55), py = domeY - br * 0.92;
+    cx.fillStyle = metalGrad(dx - 1.5 * K, 0, dx + 1.5 * K, 0, 'chrome'); cx.fillRect(dx - 1.3 * K, py - ph, 2.6 * K, ph);
+    shadeSphere(dx, py - ph, br * 0.2, '#d8b260', 'metal');
+    if (glow > 0) {
+      rollPlayRings(dx, domeY - br * 0.5, ring, 0.9, br * 1.2, '#fcd34d', 3, 60 * (P.head ? 1.2 : 0.9));
+      rollPlayBurst(dx, domeY - br * 0.9, ring, P.head ? 16 : 11, 420, '#ffe7a0', 11 + Math.floor(playFx.t) % 97, 0.35, 1.1);
+      rollPlayStar(dx - br * 0.4, domeY - br * 0.55, br * (0.4 + 0.6 * glow), glow, '#fff6d8');
+    }
+    if (dull >= 0) {   // にぶい「こつん」：小さなけむり
+      const q = dull / 0.7;
+      for (let i = 0; i < 4; i++) { const a = (i / 3 - 0.5) * 2.2 - Math.PI / 2 + P.dir * 0.5; cx.fillStyle = hexA(P.tint, 0.22 * (1 - q)); cx.beginPath(); cx.arc(dx + Math.cos(a) * br * (0.9 + q * 1.4), domeY - br * 0.5 + Math.sin(a) * br * (0.6 + q * 1.1), br * (0.18 + q * 0.3), 0, Math.PI * 2); cx.fill(); }
+      txt(k === 'e' ? '‹' : '›', dx + P.dir * br * (1.4 + q * 0.6), domeY - br * 0.6, br * 0.9, hexA(P.tint, 0.8 * (1 - q)), 900);
+    }
+    // コンボ（16〜）：鈴から音符がふわふわ
+    if (P.f3 > 0.01) for (let i = 0; i < 5; i++) {
+      const ph = (tt * 0.32 + i / 5) % 1, x = bx + Math.sin(tt * 1.3 + i * 2.1) * br * 1.2 + (i - 2) * br * 0.3, y = domeY - br * 1.3 - ph * Math.min(Hb * 0.55, 200 * K);
+      txt(i % 2 ? '♪' : '♫', x, y, br * (0.8 + 0.3 * (i % 3)), `rgba(255,214,110,${0.85 * P.f3 * Math.min(1, ph * 5, (1 - ph) * 3)})`, 800);
+    }
+  }
+  // コンボ（8〜）：メトロノームのまわりに金色の光がまたたく
+  if (P.f2 > 0.01) rollPlayTwinkle(cxp - Wb * 1.1, y1 - capH, Wb * 2.2, Hb * 0.85, 12, tt, P.f2, '#ffe6a0', 21);
+  // 拍の点（机にうめこんだランプ）と大きな数字
+  const dr = clamp(ah * 0.02, 6, 12 * K), dY = ah - Math.max(26 * K, dr * 3.4);
+  cx.save(); cx.shadowColor = 'rgba(30,12,2,0.35)'; cx.shadowBlur = 6 * K; cx.shadowOffsetY = 2 * K;
+  cx.fillStyle = lightT ? 'rgba(252,246,232,0.82)' : 'rgba(12,8,5,0.55)'; rr(W * 0.2 - dr * 2.6, dY - dr * 1.8, W * 0.6 + dr * 5.2, dr * 4.2, dr * 1.8); cx.fill(); cx.restore();
+  metDotRow(m, dY, W * 0.2, W * 0.8, b, dr);
   metBigNum(b, W * 0.12, top + 50 * K, Math.min(ah * 0.18, 90 * K));
 }
 /* @@END drawMetroPend */
@@ -9712,6 +10239,16 @@ function drawMetroFlash(st, now, ah) {
     c.restore();
   });
   cx.drawImage(bg, 0, 0, W, ah);
+  const P = rollPlay('MF'), k = P.k, ag = P.age, tt = P.t;
+  // コンボ（16〜）：かべ全体が虹色にゆっくり色づく
+  if (P.f3 > 0.01) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    [['244,114,182', 0.1], ['34,211,238', 0.6], ['250,204,21', 0.95]].forEach(([c3, fx], i) => {
+      const gx = W * fx + Math.sin(tt * 0.7 + i * 2) * W * 0.1, gy = ah * (0.2 + 0.6 * ((i * 0.37) % 1)), R0 = Math.max(W, ah) * 0.45, g = cx.createRadialGradient(gx, gy, 0, gx, gy, R0);
+      g.addColorStop(0, `rgba(${c3},${0.14 * P.f3})`); g.addColorStop(1, `rgba(${c3},0)`); cx.fillStyle = g; cx.fillRect(0, 0, W, ah);
+    });
+    cx.restore();
+  }
   let q = 0, col = '#ffffff', lvf = 0;
   if (b.g >= 0 && !b.muted) {
     const lv = accOf(m)[b.g]; q = Math.max(0, 1 - b.age / 0.2); col = metCol(m, b.g, lv); lvf = lv === 1 ? 0.45 : lv === 2 ? 0.75 : lv ? 1 : 0;
@@ -9731,19 +10268,74 @@ function drawMetroFlash(st, now, ah) {
     cx.save(); cx.shadowColor = col; cx.shadowBlur = 26 * K * f; cx.strokeStyle = hexA(shade(col, 0.5), f); cx.lineWidth = 2.5 * K;
     rr(px + 1.5 * K, py + 1.5 * K, pw - 3 * K, ph - 3 * K, rad); cx.stroke(); cx.restore();
   }
+  // コンボ（4〜）：ガラスの奥で、LEDがあちこちでまたたく
+  if (P.f1 > 0.01) {
+    const cols = Math.max(1, Math.floor(pw / cell)), rows = Math.max(1, Math.floor(ph / cell)), pal = ['#f472b6', '#facc15', '#4ade80', '#22d3ee', '#a78bfa', '#fb923c'];
+    cx.save(); rr(px, py, pw, ph, rad); cx.clip(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 40; i++) {
+      const sp = 0.5 + rollPlayRnd(i * 3.1), ph2 = (tt * sp + rollPlayRnd(i * 7.3)) % 1, a = P.f1 * Math.sin(ph2 * Math.PI) ** 2;
+      if (a < 0.03) continue;
+      const cxi = Math.floor(rollPlayRnd(i * 1.7 + Math.floor(tt * sp + rollPlayRnd(i * 7.3)) * 0.37) * cols), cyi = Math.floor(rollPlayRnd(i * 5.9 + Math.floor(tt * sp + rollPlayRnd(i * 7.3)) * 0.61) * rows);
+      const lx = px + cell / 2 + cxi * cell, ly = py + cell / 2 + cyi * cell, c2 = pal[i % 6];
+      cx.fillStyle = hexA(c2, 0.3 * a); cx.beginPath(); cx.arc(lx, ly, cell * 0.9, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = hexA(c2, a); cx.beginPath(); cx.arc(lx, ly, cell * 0.32, 0, Math.PI * 2); cx.fill();
+    }
+    cx.restore();
+  }
+  // ぴったり：金色の光の輪が、LEDの上を広がっていく
+  const gold = k === 'p' && ag < 0.8 ? ag / 0.8 : -1;
+  if (gold >= 0) {
+    const Rm = Math.hypot(pw, ph) * 0.55, r0 = Rm * gold, w0 = Math.max(cell * 2.5, Rm * 0.16);
+    cx.save(); rr(px, py, pw, ph, rad); cx.clip();
+    cx.beginPath(); cx.arc(W / 2, pcy, r0 + w0, 0, Math.PI * 2); cx.arc(W / 2, pcy, Math.max(0, r0 - w0), 0, Math.PI * 2, true); cx.clip();
+    const g = cx.createRadialGradient(W / 2, pcy, Math.max(0, r0 - w0), W / 2, pcy, r0 + w0);
+    g.addColorStop(0, 'rgba(255,200,60,0)'); g.addColorStop(0.5, `rgba(255,214,90,${0.75 * (1 - gold)})`); g.addColorStop(1, 'rgba(255,200,60,0)');
+    cx.fillStyle = g; cx.fillRect(px, py, pw, ph); cx.globalAlpha = 1 - gold; cx.globalCompositeOperation = 'lighter'; cx.drawImage(dots, 0, 0, W, ah); cx.restore();
+    // ふちの金色の光
+    cx.save(); cx.shadowColor = '#fbbf24'; cx.shadowBlur = 30 * K * (1 - gold); cx.strokeStyle = `rgba(255,222,120,${1 - gold})`; cx.lineWidth = 3 * K;
+    rr(px + 1.5 * K, py + 1.5 * K, pw - 3 * K, ph - 3 * K, rad); cx.stroke(); cx.restore();
+  }
+  // たたきすぎ：LEDがうすくちらっと
+  if (k === 'x' && ag < 0.25) { cx.save(); rr(px, py, pw, ph, rad); cx.clip(); cx.globalAlpha = 0.18 * (1 - ag / 0.25); cx.drawImage(dots, 0, 0, W, ah); cx.restore(); }
+  // はやい／おそい：パネルの片がわ（はやい＝左・青、おそい＝右・赤）がにぶく光り、数字がよろける
+  let nx = W / 2;
+  if ((k === 'e' || k === 'l') && ag < 0.7) {
+    const q = 1 - ag / 0.7, ex = P.dir < 0 ? px : px + pw, ew = pw * 0.35;
+    nx += rollPlayWob(ag, 32, 6) * 10 * K;
+    cx.save(); rr(px, py, pw, ph, rad); cx.clip();
+    const g = cx.createLinearGradient(ex, 0, ex - P.dir * ew, 0); g.addColorStop(0, hexA(P.tint, 0.6 * q)); g.addColorStop(1, hexA(P.tint, 0));
+    cx.fillStyle = g; cx.fillRect(P.dir < 0 ? px : px + pw - ew, py, ew, ph); cx.restore();
+  }
   // 数字（光ると白く熱くなる）
   if (b.g >= 0) {
+    const nPop = gold >= 0 ? 1 + 0.1 * Math.sin(Math.min(1, gold * 3) * Math.PI) : 1;
     cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 14 * K; cx.shadowOffsetY = 3 * K;
-    metBigNum(b, W / 2, pcy, numSize); cx.restore();
+    metBigNum(b, nx, pcy, numSize * nPop); cx.restore();
     if (f > 0) {
       const pop = 1 + 0.18 * Math.max(0, 1 - b.age / 0.12);
-      cx.save(); cx.globalAlpha = 0.75 * f; cx.shadowColor = '#ffffff'; cx.shadowBlur = 20 * K * f; txt(String(b.num), W / 2, pcy, numSize * pop, '#ffffff', 900); cx.restore();
+      cx.save(); cx.globalAlpha = 0.75 * f; cx.shadowColor = '#ffffff'; cx.shadowBlur = 20 * K * f; txt(String(b.num), nx, pcy, numSize * pop * nPop, '#ffffff', 900); cx.restore();
     }
+    if (gold >= 0 && gold < 0.6) { const a = 1 - gold / 0.6; cx.save(); cx.globalAlpha = 0.5 * a; cx.shadowColor = '#fbbf24'; cx.shadowBlur = 30 * K; txt(String(b.num), nx, pcy, numSize * nPop, '#fde68a', 900); cx.restore(); }
   } else txt(playing ? '' : '▶ スタートで鳴らす', W / 2, pcy, Math.max(16, 18 * K), '#64748b', 800);
   // ガラスのつや
   rr(px, py, pw, ph, rad); glassShine(px, py, pw, ph, 0.16);
   cx.save(); rr(px, py, pw, ph, rad); cx.clip(); cx.fillStyle = 'rgba(255,255,255,0.05)';
   cx.beginPath(); cx.moveTo(px, py); cx.lineTo(px + pw * 0.55, py); cx.lineTo(px + pw * 0.25, py + ph); cx.lineTo(px, py + ph); cx.closePath(); cx.fill(); cx.restore();
+  // コンボ（8〜）：ふちのまわりを光が追いかける
+  if (P.f2 > 0.01) {
+    const per = 2 * (pw + ph) + hb * 8, n = 18, o = hb / 2;
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++) {
+      let d = ((i / n + tt * 0.12) % 1) * per; const L1 = pw + hb, L2 = ph + hb; let lx, ly;
+      if (d < L1) { lx = px - o + d; ly = py - o; } else if ((d -= L1) < L2) { lx = px + pw + o; ly = py - o + d; } else if ((d -= L2) < L1) { lx = px + pw + o - d; ly = py + ph + o; } else { d -= L1; lx = px - o; ly = py + ph + o - Math.min(d, L2); }
+      const c2 = ['#f472b6', '#facc15', '#22d3ee'][i % 3], a = P.f2 * (0.55 + 0.45 * Math.sin(tt * 8 + i));
+      cx.fillStyle = hexA(c2, 0.3 * a); cx.beginPath(); cx.arc(lx, ly, hb * 0.42, 0, Math.PI * 2); cx.fill();
+      cx.fillStyle = hexA('#ffffff', 0.8 * a); cx.beginPath(); cx.arc(lx, ly, Math.max(1.2, hb * 0.13), 0, Math.PI * 2); cx.fill();
+    }
+    cx.restore();
+  }
+  if (gold >= 0) { rollPlayBurst(W / 2 - numSize * 0.32, pcy - numSize * 0.3, ag, 8, 380, '#fff0a8', 3 + Math.floor(playFx.t) % 71, 0.4, 0.8, 1.2); rollPlayBurst(W / 2 + numSize * 0.32, pcy - numSize * 0.3, ag, 8, 380, '#fff0a8', 40 + Math.floor(playFx.t) % 71, 0.4, 0.8, 1.2); }
+  if (P.f3 > 0.01) rollPlayConfetti(0, -20 * K, W, ah * 0.9, P.f3, tt, 17);
   // 下の金属のレールと、拍のランプ
   const x0 = W * 0.12, x1 = W * 0.88, rh = dr * 1.6;
   cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 10 * K; cx.shadowOffsetY = 4 * K;
