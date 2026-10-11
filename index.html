@@ -1241,7 +1241,7 @@ function neutralTxt(t) {
 const MODE_MLINE = { Z1: '拍の頭でエンジン点火。小節の頭でブースター切りはなし', Z2: '拍の頭でオーロラが光る。小節の頭で流れ星', A: '角が床に「コトッ」とつく瞬間に音。とがった角＝拍の頭', B: '大きいボールは拍ごとに跳ぶ。着地の瞬間＝拍の頭', C: '光の球が1周＝1小節。色の境目を通る瞬間＝拍の頭',
   D: '指揮の図形。打点で跳ね返る瞬間＝拍の頭', E: '刻みでぴょん、拍の頭で次の段へ', G: '車両の継ぎ目がレールの継ぎ目を通るとガタン！＝拍の頭。1両＝1拍',
   H: '外側の大きな点＝拍の頭、内側の点＝刻み。小節ごとに模様が育つ', I: '大きな花火＝拍の頭、小さな火花＝刻み', J: '刻み→拍→小節の3つの歯車。かみ合うときだけ次の歯車が回る',
-  K: '刻みは小刻みに、拍の頭でぐっと踏み込む', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える',
+  K: '刻みは小刻みに、拍の頭でぐっと踏み込む', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節で1段、どんどん積み上がる',
   N: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', O: '1拍＝1回の投げ。手に落ちる瞬間＝拍の頭', P: 'しずくが水面に落ちる瞬間に音。大きな波紋＝拍の頭',
   Q: 'サクランボが乗った瞬間にゼリーがぷるん＝拍の頭', R: '振り子が鐘に当たる瞬間＝拍の頭', S: '大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）',
   T: '拍の頭で花が開き、刻みごとに花びらがふえる', U: 'ハスの葉に着地する瞬間＝拍の頭' };
@@ -1456,8 +1456,8 @@ MODE_INFO.U = { g: 'g3', em: '🐸', name: 'カエル', line: 'ハスの葉に�
   detail: ['ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝刻み1つ）。', 'カエルは拍の頭で葉に着地して「ケロッ」。トマトは遠く、高く跳ぶ。', '水面の小さな点は刻みの位置。カエルの影が通ると波紋が広がる。', '小節の頭の葉には、ハスの花が咲いている。'] };
 MODE_INFO.L = { g: 'g3', em: '🎢', name: 'からくり', line: '玉が仕掛けを刻み1つごとに1つずつ鳴らして進む。大きな仕掛け＝拍の頭', short: '大きな仕掛け＝拍の頭',
   detail: ['左上から右下へ、玉が仕掛けを刻み1つごとに1つずつ鳴らしながら進む（1小節ぶんの装置）。', 'パン＝ばね台（頭）→ドミノ。トマト＝卓上ベル（頭）→鉄琴の板2枚。刻みの数だけ「当たって鳴る」場所がある。', '小節の最後で玉がゴールに入り、旗が立つ。玉は上の管を通ってもどり、次の小節の最初の仕掛けにちょうど落ちる。', '「リズムを作る」で並べたカードの順番が、そのまま仕掛けの並びになる。交互パターンでは2小節目の色と仕掛け（太鼓・おりん）が変わる。'] };
-MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節そろうと列が消える', short: '着地の瞬間にタップ！',
-  detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節ぶんのブロックが全部決まると、列が光って消える（＋300点）。×がある列は消えずに残る。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
+MODE_INFO.M = { g: 'g3', em: '🧱', name: 'ブロック積み', line: 'ブロックが着地する瞬間にタップ！ 1小節で1段、夜の街の上へどんどん積み上がる', short: '着地の瞬間にタップ！',
+  detail: ['上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面をタップ（または J・Enter キー）。', '判定は「ぴったり／早い／遅い」。叩きそびれたブロックには×がつく。', '1小節＝1段。段は消えずに積み上がり、視点もいっしょに上がる（ビルの屋上をこえて、雲の上・星の世界へ）。1段ぜんぶ決まると「そろった！」（＋300点）。', '左上の「見るだけ」で自動にもできる。判定には映像と音のズレ補正の値も使う。'] };
 MODE_INFO.MB = { g: 'g0', em: '🟡', name: 'ボール', line: 'ボールが点から点へ跳び、着地した瞬間が次の拍。点をタップで拍の強さを変えられる', short: '着地＝次の拍。点をタップで強さ',
   detail: ['点1つ＝拍1つ。点の間かくは拍の長さ（変拍子では長い拍と短い拍で間かくがちがう）。', 'ボールは、いまの拍の点から次の拍の点へ跳び、着地した瞬間に次の拍が鳴る。次の拍がいつ来るか、前もって見える。', '点の大きさ＝拍の強さ。点をタップすると「強 → 中 → 弱 → 鳴らさない」と変わる。', 'まん中の大きな数字は、いま何拍目か。'] };
 MODE_INFO.MP = { g: 'g0', em: '🎚️', name: '振り子', line: '昔ながらのメトロノーム。棒が端に来た瞬間が拍。おもりはおそいほど上', short: '棒が端に来た瞬間が拍',
@@ -10000,8 +10000,8 @@ function drawKarakuri(st, now, ah) {
 
 /* ---------- モード：ブロック積み（ゲーム） ----------
    ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面タップ（または J・Enter キー）
-   ・判定は「ぴったり／早い／遅い」。1小節ぶんのブロックが全部決まると、列が光って消える
-   ・叩きそびれたブロックの列は消えずに残る（4列まで）
+   ・判定は「ぴったり／早い／遅い」。1小節＝1段。段は消えずに、どんどん積み上がる（夜の街の上へ、視点も上がっていく）
+   ・叩きそびれたブロックは灰色で残る
    ・「見るだけ」にすると、自動で積まれる。判定には映像と音のズレ補正の値も使う */
 let blockRes = {}, blockScore = 0, blockCombo = 0, blockBest = 0, blockDone = {}, blockFx = [];
 function blockReset() { blockRes = {}; blockScore = 0; blockCombo = 0; blockBest = 0; blockDone = {}; blockFx = []; }
@@ -10112,179 +10112,252 @@ function blocksBgGet(ah, G) {
   blocksBg = { bg: bc, fg: fc }; blocksBgKey = key; return blocksBg;
 }
 let blocksFx = [];
+// ブロック積み：夜の街の上に、ブロックのタワーをどんどん積み上げる。積むほど視点が上がり、ビルの屋上をこえて雲・星へ
+let blocksCam = 0, blocksCamT = 0, blocksCity = null, blocksCityKey = '';
+function blocksCityGet(ah, cs) {   // 背景（星・遠くの街・高層ビル・地上の通り）を、画面の大きさごとに1回だけ作る
+  const dpr = blocksDpr(), key = [W, ah, cs, K, dpr].join('|');
+  if (blocksCity && blocksCityKey === key) return blocksCity;
+  const mk = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w * dpr)); c.height = Math.max(1, Math.ceil(h * dpr)); const g = c.getContext('2d'); g.scale(dpr, dpr); return [c, g]; };
+  // 星（画面ぶんより少し高く作って、ゆっくり流す）
+  const [sc, sg] = mk(W, ah * 2);
+  for (let i = 0; i < Math.min(900, W * ah / 600); i++) {
+    const x = hash01(i * 1.7) * W, y = hash01(i * 2.9 + 4) * ah * 2, b = hash01(i * 5.3 + 1), r = (b > 0.97 ? 1.5 : b > 0.85 ? 1 : 0.6) * K;
+    sg.fillStyle = `rgba(${b > 0.9 ? '255,240,220' : '220,230,255'},${0.35 + 0.6 * b})`; sg.beginPath(); sg.arc(x, y, r, 0, Math.PI * 2); sg.fill();
+  }
+  // 遠くの街なみ（シルエット＋小さな明かり）
+  const fh = ah * 0.42, [fc, fg] = mk(W, fh);
+  let x = -10;
+  while (x < W + 10) {
+    const w = (14 + hash01(x * 0.37) * 40) * K, h = fh * (0.2 + 0.8 * Math.pow(hash01(x * 0.71 + 3), 1.6));
+    fg.fillStyle = '#0a0f1f'; fg.fillRect(x, fh - h, w, h);
+    for (let yy = fh - h + 4 * K; yy < fh - 3 * K; yy += 5 * K) for (let xx = x + 2 * K; xx < x + w - 2 * K; xx += 4 * K) if (hash01(xx * 3.1 + yy * 1.3) > 0.82) { fg.fillStyle = hash01(xx + yy) > 0.5 ? 'rgba(255,214,140,0.55)' : 'rgba(200,220,255,0.45)'; fg.fillRect(xx, yy, 1.4 * K, 1.8 * K); }
+    x += w + hash01(x * 1.9) * 6 * K;
+  }
+  // 高層ビル（1本ずつ絵にする。窓の明かり・屋上）
+  const tall = [], S = 0.55;   // 高層ビルの層は、カメラの 0.55 倍の速さで動く
+  x = -W * 0.05; let i = 0;
+  while (x < W * 1.05) {
+    const w = Math.round((0.11 + 0.12 * hash01(i * 7.1)) * W / (W < 640 ? 1.3 : 2.4)), rows = 6 + Math.floor(Math.pow(hash01(i * 3.3 + 2), 1.3) * 46);
+    const h = rows * cs * S, tone = ['#141c33', '#18213b', '#101828', '#1b1f33'][i % 4];
+    const [bc, g] = mk(w, h);
+    let gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, shade(tone, 0.12)); gr.addColorStop(0.55, tone); gr.addColorStop(1, shade(tone, -0.35)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    const fw = Math.max(3, 5 * K), fhh = Math.max(4, 7 * K), lit = 0.25 + 0.4 * hash01(i * 9.1), warm = hash01(i * 4.4) > 0.4;
+    for (let yy = 6 * K; yy < h - 4 * K; yy += fhh + 3 * K) {
+      const band = hash01(yy * 0.13 + i) > 0.92;
+      for (let xx = 4 * K; xx < w - fw - 2 * K; xx += fw + 3 * K) {
+        const on = band || hash01(xx * 2.3 + yy * 0.7 + i * 13) < lit;
+        g.fillStyle = on ? (warm ? `rgba(255,${200 + Math.floor(hash01(xx + yy) * 40)},140,${0.55 + 0.4 * hash01(yy + xx * 3)})` : `rgba(190,215,255,${0.45 + 0.4 * hash01(yy + xx * 3)})`) : 'rgba(40,55,90,0.35)';
+        g.fillRect(xx, yy, fw, fhh);
+      }
+    }
+    gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(255,170,90,0.12)'); g.fillStyle = gr; g.fillRect(0, 0, w, h);   // 下からの街の照り返し
+    g.fillStyle = 'rgba(255,255,255,0.08)'; g.fillRect(0, 0, w, 2);
+    tall.push({ c: bc, x, w, h, ant: hash01(i * 2.2) > 0.45, seed: i });
+    x += w + (6 + 30 * hash01(i * 5.5)) * K; i++;
+  }
+  // 地上（道路・街灯・低い建物）
+  const gh = cs * 4, [gc, gg] = mk(W, gh);
+  x = -5; let j = 0;
+  while (x < W) { const w = (40 + 50 * hash01(j * 3.7)) * K, h = gh * (0.4 + 0.5 * hash01(j * 1.9)); gg.fillStyle = j % 2 ? '#141a2b' : '#111726'; gg.fillRect(x, gh - h, w, h);
+    for (let yy = gh - h + 5 * K; yy < gh - 10 * K; yy += 9 * K) for (let xx = x + 4 * K; xx < x + w - 6 * K; xx += 8 * K) if (hash01(xx * 1.7 + yy) > 0.55) { gg.fillStyle = 'rgba(255,205,140,0.6)'; gg.fillRect(xx, yy, 4 * K, 5 * K); }
+    x += w + 2 * K; j++; }
+  let gr2 = gg.createLinearGradient(0, gh - 10 * K, 0, gh); gr2.addColorStop(0, '#1c2230'); gr2.addColorStop(1, '#0c0f16'); gg.fillStyle = gr2; gg.fillRect(0, gh - 10 * K, W, 10 * K);
+  gg.fillStyle = 'rgba(255,220,120,0.5)'; for (let xx = 10 * K; xx < W; xx += 26 * K) gg.fillRect(xx, gh - 5 * K, 12 * K, 1.2 * K);
+  blocksCity = { stars: sc, far: fc, fh, tall, S, ground: gc, gh }; blocksCityKey = key; return blocksCity;
+}
 function drawBlocks(st, now, ah) {
   const m = st.m, N = m.total, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
-  const top = 112 * K, maxRows = 4;
+  const top = 112 * K;
   const Nmax = Math.max(...m.bars.map(b => b.reduce((a, v) => a + v, 0)));
-  const cs = Math.max(16, Math.min((W * (W < 640 ? 0.62 : 0.56)) / Nmax, (ah - top - 20 * K) / (maxRows + 3.2), 80 * K));
-  const wellW = cs * Nmax, wx = W < 640 ? (W - wellW) / 2 : Math.max(16 * K + Math.max(7 * K, cs * 0.3), Math.min((W - wellW) / 2, W - wellW - Math.max(7 * K, cs * 0.3) - 150 * K)), floorY = ah - 10 * K, wellTop = floorY - cs * (maxRows + 3);
-  const dz = Math.round(cs * 0.16), pw = Math.max(7 * K, cs * 0.3), bh = Math.max(4, 9 * K);
+  const cs = Math.round(Math.max(16, Math.min((W * (W < 640 ? 0.6 : 0.4)) / Nmax, (ah - top) / 7.5, 72 * K)));
+  const wellW = cs * Nmax, wx = Math.round((W - wellW) / 2 - (W < 640 ? cs * 0.35 : 0)), groundY = ah - 18 * K;
+  const dz = Math.round(cs * 0.16);
   const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0;
-  const barNo = has ? st.measure * B + m.barOfGroup[g] : 0, gAbs = has ? st.step : -1;
-  const headScOf = (bn, i) => {   // bn 小節目の i 番目の拍の頭（刻みの通し番号）
-    const cyc = Math.floor(bn / B), b = mod(bn, B); return cyc * N + m.starts[m.barStartGroup[b] + i];
-  };
-  // 見のがし：頭を過ぎても叩かれなかったブロック
+  const barNo = has ? st.measure * B + m.barOfGroup[g] : 0;
+  const headScOf = (bn, i) => { const cyc = Math.floor(bn / B), b = mod(bn, B); return cyc * N + m.starts[m.barStartGroup[b] + i]; };
   if (playing && !auto) for (const n of noteLog) { if (!n.head || n.res || n.miss || n.sc === undefined) continue; if (now - n.time > 0.18) { n.miss = true; if (!blockRes[n.sc]) { blockRes[n.sc] = 'm'; blockCombo = 0; } } }
   const resOf = sc => auto ? 'p' : blockRes[sc];
   const okRow = bn => { const b = mod(bn, B); return m.bars[b].every((L, i) => { const r = resOf(headScOf(bn, i)); return r && r !== 'm'; }); };
-  // 消えずに残った列（下から）
-  const stuck = [];
-  for (let bn = Math.max(0, barNo - 12); bn < barNo; bn++) {
-    if (bn < 0 || !has) continue;
-    const ok = okRow(bn);
-    if (ok && !blockDone[bn]) { blockDone[bn] = true; blockScore += auto ? 0 : 300; blockFx.push({ t: performance.now(), bn }); }
-    if (!ok) stuck.push(bn);
+  for (let bn = Math.max(0, barNo - 3); bn < barNo; bn++) if (has && okRow(bn) && !blockDone[bn]) { blockDone[bn] = true; blockScore += auto ? 0 : 300; blockFx.push({ t: performance.now(), bn }); }
+  // 落ちてくるブロック：次のまとまりが、いまのまとまりの間に落ちて、次の頭で着地
+  let fall = null;
+  if (has) {
+    const L = m.groups[g], gp = clamp((kCur + st.frac) / L, 0, 1), gNext = (g + 1) % G_(m), bNext = m.barOfGroup[gNext];
+    const nextBar = gNext === m.barStartGroup[bNext] ? barNo + 1 : barNo, iNext = gNext - m.barStartGroup[bNext];
+    let c = 0; for (let i = 0; i < iNext; i++) c += m.bars[bNext][i];
+    fall = { gp, Ln: m.groups[gNext], c, row: nextBar };
   }
-  while (stuck.length > maxRows - 1) stuck.shift();
-  const rowY = ri => floorY - (ri + 1) * cs;
-  // 部屋・机・木箱（井戸）
-  const bgc = blocksBgGet(ah, { cs, wx, wellW, wellTop, floorY, dz, pw, bh, Nmax });
-  cx.drawImage(bgc.bg, 0, 0, W, ah);
-  // 🎮 たたいた反応（見るだけ OFF のときは、いつでも叩ける）
+  // カメラ：いちばん上の段が、画面の上から45%くらいに来るよう、なめらかに上がる
+  const hiRow = fall ? fall.row : barNo, focusY = top + (ah - top) * 0.42;
+  const want = Math.max(0, focusY - (groundY - (hiRow + 1) * cs) > 0 ? focusY - (groundY - (hiRow + 1) * cs) : 0);
+  const pn = performance.now(), dt = clamp((pn - blocksCamT) / 1000, 0, 0.1); blocksCamT = pn;
+  if (!has && !playing) blocksCam += (0 - blocksCam) * Math.min(1, dt * 1.5); else blocksCam += (want - blocksCam) * Math.min(1, dt * 2.6);
+  const cam = blocksCam, rowY = r => groundY - (r + 1) * cs + cam, alt = cam / cs;
+  // ===== 背景：空 → 星 =====
+  const city = blocksCityGet(ah, cs), ta = clamp(alt / 70, 0, 1);
+  let gr = cx.createLinearGradient(0, 0, 0, ah);
+  gr.addColorStop(0, ta > 0.5 ? '#02030b' : '#060a1c'); gr.addColorStop(0.6, shade('#0b1433', -0.5 * ta)); gr.addColorStop(1, `rgb(${Math.round(60 - 45 * ta)},${Math.round(36 - 20 * ta)},${Math.round(52 - 20 * ta)})`);
+  cx.fillStyle = gr; cx.fillRect(0, 0, W, ah);
+  cx.globalAlpha = 0.35 + 0.65 * ta; cx.drawImage(city.stars, 0, -ah + mod(cam * 0.04, ah), W, ah * 2); cx.globalAlpha = 1;
+  if (alt > 30) { const mq = clamp((alt - 30) / 30, 0, 1); cx.save(); cx.globalAlpha = mq; const mxp = W * 0.82, myp = top + 30 * K; const mg = cx.createRadialGradient(mxp, myp, 0, mxp, myp, 70 * K); mg.addColorStop(0, 'rgba(255,248,225,0.35)'); mg.addColorStop(1, 'rgba(255,248,225,0)'); cx.fillStyle = mg; cx.fillRect(mxp - 70 * K, myp - 70 * K, 140 * K, 140 * K); shadeSphere(mxp, myp, 16 * K, '#f3ecd6', 'matte'); cx.restore(); }
+  // 遠くの街（ほとんど動かない）
+  const farBase = groundY + cam * 0.12; if (farBase - city.fh < ah) cx.drawImage(city.far, 0, farBase - city.fh, W, city.fh);
+  // 街の明かりのもや
+  gr = cx.createLinearGradient(0, farBase - city.fh, 0, farBase); gr.addColorStop(0, 'rgba(255,150,80,0)'); gr.addColorStop(1, `rgba(255,150,80,${0.18 * (1 - ta)})`); cx.fillStyle = gr; cx.fillRect(0, farBase - city.fh, W, city.fh);
+  // 高層ビル（カメラの半分くらいの速さ）。屋上の赤いランプが点滅
+  const tallBase = groundY + cam * city.S;
+  for (const b of city.tall) {
+    const y = tallBase - b.h; if (y > ah || tallBase < 0) continue;
+    cx.drawImage(b.c, b.x, y, b.w, b.h);
+    if (b.ant) { cx.strokeStyle = '#2a3348'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.moveTo(b.x + b.w / 2, y); cx.lineTo(b.x + b.w / 2, y - 18 * K); cx.stroke();
+      const on = (now * 0.9 + b.seed * 0.37) % 1 < 0.5; if (on) { cx.save(); cx.globalCompositeOperation = 'lighter'; gearsSoftAt(b.x + b.w / 2, y - 18 * K, 9 * K, '#ff3b3b', 0.9); cx.restore(); } }
+    else { const on = (now * 0.9 + b.seed * 0.37) % 1 < 0.5; if (on) { cx.fillStyle = '#ff5050'; cx.fillRect(b.x + 3 * K, y - 2 * K, 3 * K, 2 * K); cx.fillRect(b.x + b.w - 6 * K, y - 2 * K, 3 * K, 2 * K); } }
+  }
+  // 雲（高さ 20〜55 段のあたりを通りぬける）
+  if (alt > 12 && alt < 70) for (let k = 0; k < 7; k++) {
+    const wa = 20 + k * 5.5, yv = groundY - wa * cs * 0.8 + cam * 0.8, xc = mod(hash01(k * 3.3) * W * 1.4 + now * (6 + 4 * hash01(k)) * K, W * 1.4) - W * 0.2;
+    if (yv < -60 * K || yv > ah + 60 * K) continue;
+    cx.save(); cx.globalAlpha = 0.18 + 0.12 * hash01(k * 7); cx.fillStyle = '#c9d4ea';
+    for (let q = 0; q < 5; q++) { cx.beginPath(); cx.ellipse(xc + (q - 2) * 26 * K, yv + Math.sin(q * 2) * 6 * K, (34 + 12 * hash01(q + k)) * K, (13 + 5 * hash01(q * 3 + k)) * K, 0, 0, Math.PI * 2); cx.fill(); }
+    cx.restore();
+  }
+  // 地上（カメラと同じ速さ）
+  const gTop = groundY - city.gh + cam;
+  if (gTop < ah) { cx.drawImage(city.ground, 0, gTop, W, city.gh); cx.fillStyle = '#0a0d14'; cx.fillRect(0, groundY + cam, W, Math.max(0, ah - groundY - cam)); }
+  // 🎮 たたいた反応
   const pf = gearsPlay('M', !auto), pa = pf.a, pOff = pf.kind === 'e' || pf.kind === 'l';
-  // ランプの光の中のほこりと、連続ぴったりの飾り（電球 → 旗）
-  { cx.save(); cx.globalCompositeOperation = 'lighter';
-    if (pf.f2 > 0) gearsSoftAt(wx + wellW / 2, (wellTop + floorY) / 2, Math.max(wellW, floorY - wellTop) * 0.8, '#ffe0a8', 0.2 * pf.f2);
-    for (let i = 0; i < 10; i++) { const t = mod(now * (0.015 + hash01(i + 90) * 0.02) + hash01(i + 91), 1), xx = W * (0.05 + 0.5 * hash01(i + 92)) + Math.sin(now * 0.6 + i) * 10 * K, yy = ah * t;
-      cx.globalAlpha = 0.3 * Math.sin(t * Math.PI); cx.fillStyle = '#fff3d6'; cx.beginPath(); cx.arc(xx, yy, 0.9 * K, 0, Math.PI * 2); cx.fill(); }
-    cx.globalAlpha = 1; cx.restore(); }
-  if (pf.f1 > 0) {
-    // 広い画面は壁に、せまい画面は木箱のふちにわたす
-    const nar = W < 640, xa = nar ? wx - pw : 0, xb = nar ? wx + wellW + pw + dz : W, yw = nar ? wellTop - dz - 2 * K : Math.max(top + 8 * K, wellTop - cs * 0.9 - 30 * K);
-    const n = Math.max(nar ? 8 : 10, Math.round((xb - xa) / (30 * K))), pts = [], sag = (nar ? 9 : 14) * K;
-    for (let i = 0; i <= n; i++) { const t = i / n; pts.push([xa + t * (xb - xa), yw + sag * 4 * ((t * 3) % 1) * (1 - (t * 3) % 1)]); }
-    cx.globalAlpha = pf.f1; gearsWire(pts, 'rgba(20,14,10,0.9)', 1.2 * K); cx.globalAlpha = 1;
-    if (pf.f2 > 0) { const cols = ['#f87171', '#fbbf24', '#a3e635', '#38bdf8', '#c084fc'];
-      for (let i = 0; i < n; i += 2) { const [x1, y1] = pts[i], [x2, y2] = pts[i + 1], mx = (x1 + x2) / 2, my = (y1 + y2) / 2, fl = Math.sin(now * 3 + i) * 1.5 * K;
-        cx.globalAlpha = pf.f2; cx.fillStyle = cols[(i / 2) % cols.length]; cx.beginPath(); cx.moveTo(x1 + 2 * K, y1 + 1 * K); cx.lineTo(x2 - 2 * K, y2 + 1 * K); cx.lineTo(mx + fl, my + 13 * K); cx.closePath(); cx.fill(); }
-      cx.globalAlpha = 1; }
-    gearsBulbs(pts, pf.f1, now, ['#ffd27a', '#fef3c7', '#fca5a5', '#a3e635', '#67e8f9'], pf.f2);
+  // ===== タワー =====
+  const r0 = Math.max(0, Math.floor((groundY + cam - ah) / cs) - 1), r1 = Math.min(barNo + 1, Math.ceil((groundY + cam) / cs) + 1);
+  // 土台（コンクリート）
+  const baseY = rowY(-1);
+  if (baseY < ah + cs) { cx.fillStyle = metalGrad(wx - cs * 0.4, 0, wx + wellW + cs * 0.4, 0, 'steel'); cx.fillRect(wx - cs * 0.4, baseY, wellW + cs * 0.8 + dz, Math.max(6 * K, groundY + cam - baseY)); cx.fillStyle = 'rgba(0,0,0,0.35)'; cx.fillRect(wx - cs * 0.4, baseY, wellW + cs * 0.8 + dz, 3 * K); }
+  // 足場（タワーの両わきの鉄骨）と、連続ぴったりで光る電球
+  const tTop = rowY(barNo) - cs * 0.3, tBot = Math.min(ah, groundY + cam);
+  for (const sx of [wx - cs * 0.28, wx + wellW + dz + cs * 0.08]) {
+    if (tTop > tBot) break;
+    cx.fillStyle = '#2b3446'; cx.fillRect(sx, tTop, 3 * K, tBot - tTop); cx.fillRect(sx + cs * 0.17, tTop, 3 * K, tBot - tTop);
+    cx.strokeStyle = 'rgba(80,95,120,0.8)'; cx.lineWidth = 1.2 * K; cx.beginPath();
+    for (let r = r0; r <= r1; r++) { const y = rowY(r); if (y < tTop - cs || y > tBot) continue; cx.moveTo(sx, y + cs); cx.lineTo(sx + cs * 0.17 + 3 * K, y); cx.moveTo(sx, y + cs); cx.lineTo(sx + cs * 0.17 + 3 * K, y + cs); }
+    cx.stroke();
+    if (pf.f1 > 0) for (let r = r0; r <= r1; r++) { const y = rowY(r) + cs / 2; if (y < tTop || y > tBot) continue; const on = (Math.floor(now * 4) + r) % 3 !== 0 || pf.f2 < 0.5; if (on) { cx.save(); cx.globalCompositeOperation = 'lighter'; gearsSoftAt(sx + cs * 0.1, y, 7 * K, ['#ffd27a', '#fca5a5', '#a3e635', '#67e8f9'][r % 4], 0.8 * pf.f1); cx.restore(); } }
   }
   const bw = cs - 3, bhh = cs - 3;
-  // 積み木1個。sq：着地のつぶれ（0〜1）
   const drawBlock = (x, y, L, res, glow, al = 1, sq = 0, rot = 0) => {
-    const dull = res === 'm', col = dull ? '#8a93a3' : COLORS[L], sp = blocksSprite(L, col, bw, bhh, dz, dull);
-    const fx = x + 1.5, fy = y + 1.5, fw = sp.fw;
+    const dull = res === 'm', col = dull ? '#8a93a3' : COLORS[L], sp = blocksSprite(L, col, bw, bhh, dz, dull), fx = x + 1.5, fy = y + 1.5, fw = sp.fw;
     cx.save();
-    if (rot) { const ax = rot < 0 ? fx : fx + fw, ay = fy + bhh; cx.translate(ax, ay); cx.rotate(rot); cx.translate(-ax, -ay); }   // 早い・遅い：かたむいて、もどる
+    if (rot) { const ax = rot < 0 ? fx : fx + fw, ay = fy + bhh; cx.translate(ax, ay); cx.rotate(rot); cx.translate(-ax, -ay); }
     if (sq > 0) { const sX = 1 + 0.07 * sq, sY = 1 - 0.13 * sq, ax = fx + fw / 2, ay = fy + bhh; cx.translate(ax, ay); cx.scale(sX, sY); cx.translate(-ax, -ay); }
     if (glow) { cx.shadowColor = col; cx.shadowBlur = 22 * K * glow; }
     cx.drawImage(sp.c, fx, fy - dz, sp.CW, sp.CH); cx.shadowBlur = 0;
-    if (al < 1) {   // 残った列は少し暗く
-      cx.fillStyle = `rgba(8,10,18,${(1 - al) * 1.4})`;
-      cx.beginPath(); cx.moveTo(fx, fy + bhh); cx.lineTo(fx, fy); cx.lineTo(fx + dz, fy - dz); cx.lineTo(fx + fw + dz, fy - dz); cx.lineTo(fx + fw + dz, fy + bhh - dz); cx.lineTo(fx + fw, fy + bhh); cx.closePath(); cx.fill();
-    }
-    if (res && res !== 'm') { cx.strokeStyle = hexA(TAPK[res].color, 0.95); cx.lineWidth = 2.5 * K; rr(fx + 1 * K, fy + 1 * K, fw - 2 * K, bhh - 2 * K, Math.min(bw, bhh) * 0.1); cx.stroke(); }
+    if (al < 1) { cx.fillStyle = `rgba(8,10,18,${(1 - al) * 1.2})`; cx.fillRect(fx, fy - dz, fw + dz, bhh + dz); }
+    if (res && res !== 'm' && al >= 1) { cx.strokeStyle = hexA(TAPK[res].color, 0.95); cx.lineWidth = 2.5 * K; rr(fx + 1 * K, fy + 1 * K, fw - 2 * K, bhh - 2 * K, Math.min(bw, bhh) * 0.1); cx.stroke(); }
     if (dull) txt('×', fx + fw - cs * 0.25, fy + cs * 0.28, cs * 0.3, '#e11d48', 900);
     cx.restore();
   };
-  const rowBlocks = (bn, y, upto, al, fresh = -1, sq = 0, rot = 0) => {
-    const b = mod(bn, B); let c = 0;
-    let used = 0; m.bars[b].forEach((L, i) => { if (i <= upto) used = c + L; c += L; });
-    if (used > 0) { const sg = cx.createLinearGradient(0, y + cs - 5 * K, 0, y + cs + 1); sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.45)'); cx.fillStyle = sg; cx.fillRect(wx, y + cs - 5 * K, used * cs + dz * 0.5, 5 * K + 1); }   // 接地のかげ
-    c = 0;
-    m.bars[b].forEach((L, i) => { if (i <= upto) drawBlock(wx + c * cs, y, L, resOf(headScOf(bn, i)), 0, al, i === fresh ? sq : 0, i === fresh ? rot : 0); c += L; });
+  const rowBlocks = (bn, upto, al, fresh = -1, sq = 0, rot = 0) => {
+    const b = mod(bn, B), y = rowY(bn); let c = 0, used = 0;
+    m.bars[b].forEach((L, i) => { if (i <= upto) used = c + L; c += L; });
+    if (used > 0) { const sg = cx.createLinearGradient(0, y + cs - 5 * K, 0, y + cs + 1); sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.45)'); cx.fillStyle = sg; cx.fillRect(wx, y + cs - 5 * K, used * cs + dz * 0.5, 5 * K + 1); }
+    c = 0; m.bars[b].forEach((L, i) => { if (i <= upto) drawBlock(wx + c * cs, y, L, resOf(headScOf(bn, i)), 0, al, i === fresh ? sq : 0, i === fresh ? rot : 0); c += L; });
   };
-  stuck.forEach((bn, ri) => rowBlocks(bn, rowY(ri), 99, 0.75));
-  const curRow = stuck.length;
-  // 落ちてくるブロックの準備（着地点の影を先に描く）
-  let fall = null, blocksLand = null;
-  if (has) {
-    const L = m.groups[g], gp = clamp((kCur + st.frac) / L, 0, 1);
-    const gNext = (g + 1) % G_(m), bNext = m.barOfGroup[gNext], nextBarNo = gNext === m.barStartGroup[bNext] ? barNo + 1 : barNo;
-    const iNext = gNext - m.barStartGroup[bNext], Ln = m.groups[gNext];
-    let c = 0; for (let i = 0; i < iNext; i++) c += m.bars[bNext][i];
-    const bCur = mod(barNo, B);
-    const curOk = m.bars[bCur].every((LL, i) => { if (i > g - m.barStartGroup[bCur]) return true; const r2 = resOf(headScOf(barNo, i)); return !r2 || r2 !== 'm'; });
-    const targetRow = nextBarNo === barNo ? curRow : (curOk ? curRow : Math.min(curRow + 1, maxRows - 1));
-    const ty = rowY(targetRow), sy = wellTop - cs * 0.2, y = sy + (ty - sy) * gp * gp;
-    fall = { gp, Ln, c, ty, sy, y };
+  // 下の段から順に（古い段は少し暗く。窓のように光るものも）
+  if (has) for (let bn = r0; bn < barNo; bn++) {
+    const y = rowY(bn); if (y > ah || y < -cs * 2) continue;
+    rowBlocks(bn, 99, barNo - bn > 2 ? 0.82 : 1);
+    if (pf.f2 > 0 && okRow(bn)) { cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = hexA('#ffd27a', 0.08 * pf.f2 * (0.6 + 0.4 * Math.sin(now * 3 + bn))); cx.fillRect(wx, y + 2, wellW, cs - 4); cx.restore(); }
   }
-  // いまの小節の列（着地したブロック）
+  let blocksLand = null;
   if (has) {
-    const b = mod(barNo, B), iCur = g - m.barStartGroup[b];
-    const ageH = (kCur + st.frac) * dur, q = clamp(ageH / 0.35, 0, 1);
-    const sq = ageH < 0.35 ? Math.exp(-q * 3) * Math.cos(q * 9) : 0;   // つぶれて、少しはね返る
+    const b = mod(barNo, B), iCur = g - m.barStartGroup[b], ageH = (kCur + st.frac) * dur, q = clamp(ageH / 0.35, 0, 1);
+    const sq = ageH < 0.35 ? Math.exp(-q * 3) * Math.cos(q * 9) : 0;
     const rot = pOff && pa < 0.7 ? (pf.kind === 'e' ? -1 : 1) * 0.12 * Math.exp(-pa * 5) * Math.abs(Math.sin(pa * 18)) : 0;
-    rowBlocks(barNo, rowY(curRow), iCur, 1, iCur, Math.max(0, sq), rot);
-    { let c = 0; for (let i = 0; i < iCur; i++) c += m.bars[b][i]; blocksLand = { x: wx + c * cs, y: rowY(curRow), w: m.groups[g] * cs, near: ageH < dur * m.groups[g] / 2 }; }
-    // 着地したばかりのブロックのほこり・光
+    rowBlocks(barNo, iCur, 1, iCur, Math.max(0, sq), rot);
+    let c = 0; for (let i = 0; i < iCur; i++) c += m.bars[b][i];
+    blocksLand = { x: wx + c * cs, y: rowY(barNo), w: m.groups[g] * cs, near: ageH < dur * m.groups[g] / 2 };
     if (ageH < 0.35) {
-      let c = 0; for (let i = 0; i < iCur; i++) c += m.bars[b][i];
-      const L = m.groups[g], yb = rowY(curRow) + cs;
+      const L = m.groups[g], yb = rowY(barNo) + cs;
       cx.fillStyle = `rgba(235,222,200,${0.2 * (1 - q)})`;
-      for (let z = 0; z < 6; z++) {
-        const sd = z % 2 ? 1 : -1, ex = sd < 0 ? wx + c * cs : wx + (c + L) * cs, dd = (6 + 26 * q * (0.6 + hash01(z) * 0.6)) * K;
-        cx.beginPath(); cx.arc(ex + sd * dd, yb - 4 * K - q * (4 + 8 * hash01(z + 9)) * K, (3 + 6 * q) * K * (0.6 + hash01(z + 3) * 0.5), 0, Math.PI * 2); cx.fill();
-      }
-      cx.strokeStyle = hexA(COLORS[L], 0.8 * (1 - q)); cx.lineWidth = 3 * K * (1 - q) + 0.5; rr(wx + c * cs - 6 * K * q, rowY(curRow) - 6 * K * q, L * cs + 12 * K * q, cs + 12 * K * q, 8 * K); cx.stroke();
+      for (let z = 0; z < 6; z++) { const sd = z % 2 ? 1 : -1, ex = sd < 0 ? wx + c * cs : wx + (c + L) * cs, d2 = (6 + 26 * q * (0.6 + hash01(z) * 0.6)) * K; cx.beginPath(); cx.arc(ex + sd * d2, yb - 4 * K - q * (4 + 8 * hash01(z + 9)) * K, (3 + 6 * q) * K * (0.6 + hash01(z + 3) * 0.5), 0, Math.PI * 2); cx.fill(); }
+      cx.strokeStyle = hexA(COLORS[L], 0.8 * (1 - q)); cx.lineWidth = 3 * K * (1 - q) + 0.5; rr(wx + c * cs - 6 * K * q, rowY(barNo) - 6 * K * q, L * cs + 12 * K * q, cs + 12 * K * q, 8 * K); cx.stroke();
     }
+  } else {
+    txt('ここに積み上げる', W / 2, rowY(0) + cs / 2, Math.max(13, 14 * K), 'rgba(226,232,240,0.6)', 800);
   }
-  // 列が消える光
-  blockFx = blockFx.filter(e => performance.now() - e.t < 600);
+  // 段がそろった光
+  blockFx = blockFx.filter(e => performance.now() - e.t < 700);
   for (const e of blockFx) {
-    const q = (performance.now() - e.t) / 600, y = rowY(curRow);
+    const q = (performance.now() - e.t) / 700, y = rowY(e.bn);
     cx.save(); cx.globalCompositeOperation = 'lighter';
-    const gr = cx.createLinearGradient(0, y - cs * 0.3, 0, y + cs * 1.3); gr.addColorStop(0, hexA(LIME, 0)); gr.addColorStop(0.5, hexA(LIME, 0.6 * (1 - q))); gr.addColorStop(1, hexA(LIME, 0));
-    cx.fillStyle = gr; cx.fillRect(wx - 10 * K * q, y - cs * 0.3, wellW + 20 * K * q, cs * 1.6);
-    for (let z = 0; z < 14; z++) { const px = wx + wellW * (z + 0.5) / 14, py = y + cs / 2 - 60 * K * q * (0.5 + hash01(z)); cx.fillStyle = hexA(z % 2 ? '#fde047' : '#ffffff', 1 - q); cx.beginPath(); cx.arc(px, py, 3 * K, 0, Math.PI * 2); cx.fill(); }
-    cx.restore();
-    if (q < 0.7) { txt('そろった！', W / 2 + 1, y - 13 * K, Math.max(16, 20 * K), `rgba(0,0,0,${0.6 * (1 - q)})`, 900); txt('そろった！', W / 2, y - 14 * K, Math.max(16, 20 * K), hexA(LIME, 1 - q), 900); }
+    const g2 = cx.createLinearGradient(0, y - cs * 0.3, 0, y + cs * 1.3); g2.addColorStop(0, hexA(LIME, 0)); g2.addColorStop(0.5, hexA(LIME, 0.55 * (1 - q))); g2.addColorStop(1, hexA(LIME, 0));
+    cx.fillStyle = g2; cx.fillRect(wx - 10 * K * q, y - cs * 0.3, wellW + 20 * K * q, cs * 1.6); cx.restore();
+    if (q < 0.7) { const tx = Math.min(W - 60 * K, wx + wellW + 54 * K); txt('そろった！', tx + 1, y + cs / 2 + 1, Math.max(14, 17 * K), `rgba(0,0,0,${0.6 * (1 - q)})`, 900); txt('そろった！', tx, y + cs / 2, Math.max(14, 17 * K), hexA(LIME, 1 - q), 900); }
   }
-  // 落ちてくるブロック（次のまとまり）：いまのまとまりの間に落ちて、次の頭でちょうど着地
+  // ===== クレーン（ブロックをつって、上からおろす） =====
+  const mastX = wx + wellW + dz + cs * 0.75, jibY = Math.max(top - 6 * K, rowY(hiRow + 2.4)), mastW = Math.max(8 * K, cs * 0.32);
+  { const yb = Math.min(ah, groundY + cam);
+    cx.fillStyle = '#d4a017'; cx.fillRect(mastX, jibY, 2.5 * K, yb - jibY); cx.fillRect(mastX + mastW, jibY, 2.5 * K, yb - jibY);
+    cx.strokeStyle = 'rgba(212,160,23,0.85)'; cx.lineWidth = 1.2 * K; cx.beginPath();
+    for (let y = jibY; y < yb; y += mastW) { cx.moveTo(mastX, y); cx.lineTo(mastX + mastW, y + mastW); cx.moveTo(mastX, y + mastW); cx.lineTo(mastX + mastW, y + mastW); }
+    cx.stroke();
+    const jx0 = Math.max(4 * K, wx - cs * 0.6), jx1 = Math.min(W - 4 * K, mastX + mastW + cs * 1.4);
+    cx.fillStyle = '#e0b020'; cx.fillRect(jx0, jibY - 4 * K, jx1 - jx0, 4 * K); cx.strokeStyle = 'rgba(224,176,32,0.7)'; cx.beginPath(); cx.moveTo(jx0, jibY); cx.lineTo(mastX + mastW / 2, jibY - mastW * 1.6); cx.lineTo(jx1, jibY - 2 * K); cx.stroke();
+    cx.fillStyle = '#3b4252'; cx.fillRect(mastX + mastW + cs * 0.6, jibY - 2 * K, cs * 0.7, cs * 0.45);   // おもり
+    cx.fillStyle = '#5b6b85'; rr(mastX - 3 * K, jibY + 2 * K, mastW + 8 * K, mastW * 0.9, 2 * K); cx.fill();   // 運転席
+    cx.fillStyle = 'rgba(160,210,255,0.55)'; cx.fillRect(mastX, jibY + 4 * K, mastW + 2 * K, mastW * 0.4);
+    if ((now * 1.1) % 1 < 0.5) { cx.save(); cx.globalCompositeOperation = 'lighter'; gearsSoftAt(jx1 - 3 * K, jibY - 6 * K, 8 * K, '#ff4040', 0.9); cx.restore(); }
+  }
   if (fall) {
-    const { gp, Ln, c, ty, sy, y } = fall, bx = wx + c * cs;
-    // 着地する場所の目印と、近づくにつれて濃くなる影
-    softShadow(bx + Ln * cs / 2 + dz * 0.5, ty + cs - dz * 0.4, Ln * cs * (0.35 + 0.2 * gp), dz * 0.9 + 2, 0.45 * gp);
-    cx.setLineDash([4 * K, 4 * K]); cx.strokeStyle = hexA(COLORS[Ln], 0.4 + 0.5 * gp); cx.lineWidth = 2 * K;
-    rr(bx + 2, ty + 2, Ln * cs - 4, cs - 4, 6 * K); cx.stroke(); cx.setLineDash([]);
-    cx.save(); cx.beginPath(); cx.rect(wx, wellTop - cs - dz, wellW + dz, floorY - wellTop + cs + dz); cx.clip();
-    for (let i = 3; i >= 1; i--) {   // 速さのぶれ
-      const gq = Math.max(0, gp - i * 0.035), yq = sy + (ty - sy) * gq * gq;
-      if (y - yq > 2) { cx.globalAlpha = 0.12 * (4 - i) * gp; drawBlock(bx, yq, Ln, null, 0); }
-    }
+    const { gp, Ln, c, row } = fall, bx = wx + c * cs, ty = rowY(row), sy = jibY + cs * 0.5, y = sy + (ty - sy) * gp * gp, cxm = bx + Ln * cs / 2;
+    softShadow(cxm + dz * 0.5, ty + cs - dz * 0.4, Ln * cs * (0.35 + 0.2 * gp), dz * 0.9 + 2, 0.45 * gp);
+    cx.setLineDash([4 * K, 4 * K]); cx.strokeStyle = hexA(COLORS[Ln], 0.4 + 0.5 * gp); cx.lineWidth = 2 * K; rr(bx + 2, ty + 2, Ln * cs - 4, cs - 4, 6 * K); cx.stroke(); cx.setLineDash([]);
+    // トロリーとワイヤー
+    cx.fillStyle = '#4b5568'; cx.fillRect(cxm - 7 * K, jibY - 2 * K, 14 * K, 6 * K);
+    cx.strokeStyle = 'rgba(200,205,215,0.8)'; cx.lineWidth = 1 * K; cx.beginPath(); cx.moveTo(cxm - 2 * K, jibY + 4 * K); cx.lineTo(cxm - 2 * K, y - dz); cx.moveTo(cxm + 2 * K, jibY + 4 * K); cx.lineTo(cxm + 2 * K, y - dz); cx.stroke();
+    cx.fillStyle = '#c9a227'; cx.fillRect(cxm - 4 * K, y - dz - 6 * K, 8 * K, 6 * K);   // フック
+    for (let i = 3; i >= 1; i--) { const gq = Math.max(0, gp - i * 0.035), yq = sy + (ty - sy) * gq * gq; if (y - yq > 2) { cx.globalAlpha = 0.12 * (4 - i) * gp; drawBlock(bx, yq, Ln, null, 0); } }
     cx.globalAlpha = 1;
     drawBlock(bx, y, Ln, null, gp > 0.75 ? (gp - 0.75) * 4 : 0);
-    cx.restore();
   }
-  cx.drawImage(bgc.fg, 0, 0, W, ah);   // 右の柱（手前）
   // ===== 🎮 たたいた反応 =====
   if (pf.fresh && has) {
-    const tg = blocksLand && (blocksLand.near || !fall) ? blocksLand : fall ? { x: wx + fall.c * cs, y: fall.ty, w: fall.Ln * cs } : null;
+    const tg = blocksLand && (blocksLand.near || !fall) ? blocksLand : fall ? { x: wx + fall.c * cs, y: rowY(fall.row), w: fall.Ln * cs } : null;
     if (tg) {
       const tx = tg.x + tg.w / 2, ty = tg.y;
       if (pf.kind === 'p') {
         gearsBurst(blocksFx, tx, ty, 14 + Math.min(10, pf.combo), { v: 240, cols: ['#ffe9a0', '#fbbf24', '#ffffff', COLORS[2]], g: 420, life: 0.7, r: 2.1, dir: -Math.PI / 2, spread: 2.6 });
         gearsBurst(blocksFx, tx, ty + cs * 0.4, 5, { v: 120, cols: ['#fff5cc'], kind: 'star', g: 60, life: 0.8, r: 3.2 });
-        blocksFx.gold = { t: performance.now(), x: tg.x, y: tg.y, w: tg.w };
+        blocksFx.gold = { t: performance.now(), x: tg.x, y: tg.y, w: tg.w, row: tg === blocksLand ? barNo : fall.row };
       } else if (pOff) gearsBurst(blocksFx, pf.kind === 'e' ? tg.x : tg.x + tg.w, ty + cs, 4, { v: 45, cols: [pf.kind === 'e' ? '#a9bcd6' : '#d6aaaa'], kind: 'puff', g: -30, life: 0.8, r: 8, grow: 1.4 });
       else gearsBurst(blocksFx, tx, ty + cs, 2, { v: 25, cols: ['#d6c8b0'], kind: 'puff', g: -20, life: 0.5, r: 6, grow: 1.2 });
     }
   }
-  if (blocksFx.gold && pf.kind === 'p' && pa < 0.7) {   // ぴったり：ブロックが金色にかがやく
-    const gd = blocksFx.gold, e = 1 - pa / 0.7;
+  if (blocksFx.gold && pf.kind === 'p' && pa < 0.7) {
+    const gd = blocksFx.gold, e = 1 - pa / 0.7, gy = rowY(gd.row);
     cx.save(); cx.globalCompositeOperation = 'lighter';
-    cx.strokeStyle = hexA('#ffd76a', 0.9 * e); cx.lineWidth = 3 * K; rr(gd.x + 1, gd.y + 1, gd.w - 2, cs - 2, 6 * K); cx.stroke();
-    cx.fillStyle = hexA('#ffe08a', 0.35 * e); rr(gd.x + 1, gd.y + 1, gd.w - 2, cs - 2, 6 * K); cx.fill();
-    const sw = gd.x + (gd.w + 20 * K) * Math.min(1, pa / 0.35) - 10 * K;   // 光の帯が走る
-    cx.beginPath(); cx.rect(gd.x, gd.y, gd.w, cs); cx.clip();
-    cx.fillStyle = hexA('#ffffff', 0.55 * e); cx.beginPath(); cx.moveTo(sw - 8 * K, gd.y + cs); cx.lineTo(sw + 6 * K, gd.y); cx.lineTo(sw + 14 * K, gd.y); cx.lineTo(sw, gd.y + cs); cx.closePath(); cx.fill();
+    cx.strokeStyle = hexA('#ffd76a', 0.9 * e); cx.lineWidth = 3 * K; rr(gd.x + 1, gy + 1, gd.w - 2, cs - 2, 6 * K); cx.stroke();
+    cx.fillStyle = hexA('#ffe08a', 0.35 * e); rr(gd.x + 1, gy + 1, gd.w - 2, cs - 2, 6 * K); cx.fill();
     cx.restore();
-    gearsGlint(gd.x + gd.w - 6 * K, gd.y + 4 * K, 22 * K * e + 4 * K, '#fff1c4', e, pa * 2);
+    gearsGlint(gd.x + gd.w - 6 * K, gy + 4 * K, 22 * K * e + 4 * K, '#fff1c4', e, pa * 2);
+  }
+  if (pf.f2 > 0) {   // サーチライト
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (const s of [0.2, 0.8]) { const a = -Math.PI / 2 + Math.sin(now * 0.6 + s * 5) * 0.5, x0 = W * s, y0 = groundY + cam * 0.55;
+      const g3 = cx.createLinearGradient(x0, y0, x0 + Math.cos(a) * ah, y0 + Math.sin(a) * ah); g3.addColorStop(0, `rgba(190,215,255,${0.16 * pf.f2})`); g3.addColorStop(1, 'rgba(190,215,255,0)');
+      cx.fillStyle = g3; cx.beginPath(); cx.moveTo(x0, y0); cx.lineTo(x0 + Math.cos(a - 0.06) * ah * 1.3, y0 + Math.sin(a - 0.06) * ah * 1.3); cx.lineTo(x0 + Math.cos(a + 0.06) * ah * 1.3, y0 + Math.sin(a + 0.06) * ah * 1.3); cx.closePath(); cx.fill(); }
+    cx.restore();
   }
   if (pf.f3 > 0) gearsRain(blocksFx, 14 * pf.f3, pf.dt, 0, W, top - 20 * K);
   gearsParts(blocksFx);
-  // スコア
-  const tx = wx + wellW + pw + 12 * K, nar = W < 640;
-  const sx = nar ? W / 2 : tx, al = nar ? 'center' : 'left', sy0 = nar ? wellTop - 30 * K : wellTop + 10 * K;
-  const sh = (s, x, y, sz, col, w, a) => { txt(s, x + 1, y + 1.5, sz, 'rgba(0,0,0,0.6)', w, a); txt(s, x, y, sz, col, w, a); };
-  sh(`スコア ${blockScore}`, sx, sy0, Math.max(15, 18 * K), '#f8fafc', 900, al);
-  if (!nar) sh(`いちばん長い連続 ${blockBest}`, sx, sy0 + 26 * K, Math.max(12, 13 * K), '#b9c3d3', 700, al);
-  if (blockCombo >= 2 && !auto) sh(`${blockCombo} 連続ぴったり！`, nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(15, (16 + Math.min(blockCombo, 20) * 0.6) * K), blockCombo >= 10 ? '#fde047' : LIME, 900, al);
-  if (auto) sh('見るだけ（自動）', nar ? W / 2 : tx, nar ? sy0 + 24 * K : sy0 + 58 * K, Math.max(13, 14 * K), '#a3b1c6', 800, al);
-  if (!has) sh(auto ? '▶ 再生すると、ブロックが自動で積まれます' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
-  else sh(auto ? '拍の頭でブロックが着地する' : (nar ? '着地の瞬間にタップ！' : 'ブロックが着地する瞬間に、画面をタップ（J・Enter キーでも）'), W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
+  // ===== 高さ・スコア =====
+  const nar = W < 640, sh = (s, x, y, sz, col, w, a) => { txt(s, x + 1, y + 1.5, sz, 'rgba(0,0,0,0.7)', w, a); txt(s, x, y, sz, col, w, a); };
+  const floors = has ? barNo : 0, meters = floors * 3;
+  const rx = W - 14 * K, hy = top + 2 * K;   // 左上は「見るだけ」ボタンなので、右にまとめる
+  const tag = alt > 55 ? '🌌 星の世界' : alt > 20 ? '☁️ 雲の上' : alt > 8 ? '🏙 ビルの上' : '';
+  sh(`🏗 ${floors}段（${meters}m）`, rx, hy, Math.max(15, 19 * K), '#f8fafc', 900, 'right');
+  sh(`${tag ? tag + '　' : ''}スコア ${blockScore}`, rx, hy + 22 * K, Math.max(12, 13 * K), '#c4d4f0', 800, 'right');
+  if (blockCombo >= 2 && !auto) sh(`${blockCombo} 連続ぴったり！`, rx, hy + 44 * K, Math.max(13, (14 + Math.min(blockCombo, 20) * 0.5) * K), blockCombo >= 10 ? '#fde047' : LIME, 900, 'right');
+  if (!has) sh(auto ? '▶ 再生すると、ブロックが自動で積み上がります' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
+  else sh(auto ? '拍の頭でブロックが着地。どんどん積み上がる' : (nar ? '着地の瞬間にタップ！ どこまで高く？' : 'ブロックが着地する瞬間に、画面をタップ。どこまで高く積めるかな？'), W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
 }
 const G_ = m => m.groups.length;
 
