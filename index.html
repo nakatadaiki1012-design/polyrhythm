@@ -760,6 +760,21 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   .tab.locked { opacity: .55; } .tab.locked .em { filter: grayscale(1); }
   .mic-meter { flex: 1; max-width: 220px; height: 10px; border-radius: 99px; background: #1e293b; overflow: hidden; } .mic-meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22d3ee, #a3e635, #fb7185); transition: width .05s; }
   .ens-badge[hidden] { display: none; } .ens-badge { background: #166534; border-color: #4ade80; animation: ensPulse 2s infinite; } @keyframes ensPulse { 50% { box-shadow: 0 0 0 4px rgba(74,222,128,.25); } }
+  /* パソコン：演出を前後に切りかえるボタン（絵の左右のはし） */
+  .view-nav, .view-name { display: none; }
+  @media (hover: hover) and (min-width: 900px) {
+    .view-nav { display: flex; align-items: center; justify-content: center; position: absolute; top: 50%; transform: translateY(-50%); z-index: 6; width: 46px; height: 86px; border-radius: 16px;
+                background: rgba(15,23,42,.42); border: 1px solid rgba(148,163,184,.35); color: #fff; font-size: 40px; font-weight: 900; line-height: 1; opacity: .5; transition: opacity .15s, background .15s, transform .15s; backdrop-filter: blur(4px); }
+    .view-nav.l { left: 10px; } .view-nav.r { right: 10px; }
+    #stage:hover .view-nav { opacity: .8; } .view-nav:hover { opacity: 1 !important; background: rgba(34,211,238,.35); } .view-nav:active { transform: translateY(-50%) scale(.94); }
+    .view-nav[hidden], .view-name[hidden] { display: none; }
+    .view-name { display: block; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 6; padding: 4px 14px; border-radius: 999px; background: rgba(15,23,42,.55); color: #e2e8f0;
+                 font-size: 13px; font-weight: 800; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+    #stage:hover .view-name { opacity: .9; }
+    body.fs .view-nav { opacity: 0; } body.fs #stage:hover .view-nav { opacity: .5; }
+  }
+  html[data-theme="light"] .view-nav { background: rgba(255,255,255,.55); color: #0f172a; border-color: rgba(100,116,139,.4); }
+  html[data-theme="light"] .view-name { background: rgba(255,255,255,.7); color: #1e293b; }
 </style>
 </head>
 <body>
@@ -780,7 +795,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <div id="songMap" class="song-map" hidden></div>
   <div id="body">
     <!-- ===== まん中：絵 ===== -->
-    <div id="stage"><canvas id="cv"></canvas><div id="swipeTip"></div><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
+    <div id="stage"><canvas id="cv"></canvas><div id="swipeTip"></div><button id="viewPrev" class="view-nav l" title="前の演出（, キー）" aria-label="前の演出">‹</button><button id="viewNext" class="view-nav r" title="次の演出（. キー）" aria-label="次の演出">›</button><div id="viewName" class="view-name"></div><button id="emblemReset" class="stage-btn" hidden>↺ 模様をリセット</button><button id="blockAutoBtn" class="stage-btn" hidden>👀 見るだけ：OFF</button><button id="cmpBtn" class="stage-btn" hidden style="left:12px">⚖ 組み合わせ・表示</button><button id="tupBtn" class="stage-btn" hidden style="left:12px">🎛 連符の設定</button><div id="quizUI" class="quiz" hidden></div><div id="maneUI" class="quiz" hidden></div><button id="helpBtn" class="help-btn" title="くわしい説明">？</button>
       <div id="fsbar"><button id="fsDown">−</button><b id="fsBpm">120</b><button id="fsUp">＋</button><button class="fsplay" id="fsPlay">▶</button><button id="fsExit">⤢</button></div></div>
 
     <!-- ===== メトロノームの操作 ===== -->
@@ -7204,7 +7219,14 @@ function dancerPlanks(fy, y1, offX, step, vp) {
   for (let x = mod(offX, step) - step * 2; x < W + step * 2; x += step) { cx.moveTo(vp + (x + 1.5 * K - vp) * s0, fy); cx.lineTo(x + 1.5 * K, y1); }
   cx.stroke();
 }
+/* 人の動きらしさ：うで・頭・スカートは、ばねでおくれてついてくる（反動・オーバーシュート） */
+const dancerM = { t: 0, dt: 0.016 };
+function dSpr(key, target, kk, c) {
+  const dm = dancerM; let x = dm[key], v = dm['v' + key] || 0; if (x === undefined) x = target;
+  v += ((target - x) * kk - v * c) * dm.dt; x += v * dm.dt; dm[key] = x; dm['v' + key] = v; return x;
+}
 function drawDancer(st, now, ah) {
+  { const pn = performance.now(); dancerM.dt = clamp((pn - dancerM.t) / 1000, 0.001, 0.05); dancerM.t = pn; }
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   // 足がつく場所：1拍で1歩。拍の頭の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
   const EX = 0.6, cnt = [];
@@ -7249,18 +7271,24 @@ function drawDancer(st, now, ah) {
   const ankS = [xS - fl * (1 - 0.55 * relS) * 0.6, fy - toeH * relS - 1.5 * K];
   const ankW = [xW - fl * 0.35, fy - toeH - lift];
   const d = Math.abs(ankW[0] - ankS[0]);
-  const hh = Math.sqrt(Math.max(0, Math.pow(0.97 * Lt, 2) - d * d / 4));
+  const hh = Math.sqrt(Math.max(0, Math.pow(0.945 * Lt, 2) - d * d / 4));   // ひざを、いつも少しだけ曲げておく
   const hxp = (ankS[0] + ankW[0]) / 2 + fl * 0.3;
-  const hyp = ankS[1] - hh + pl * plDepth - prep * 0.05 * Lt + subDip;
+  const bobS = has ? 0.028 * Lt * Math.sin(Math.PI * s) : 0;   // 歩くときのように、足をはこぶ間に体が少し浮く
+  const hyp = ankS[1] - hh + pl * plDepth - prep * 0.05 * Lt + subDip - bobS;
   const lean = (has ? 0.03 + pl * 0.2 - prep * 0.05 : 0.02) + tp.dir * 0.16 * env + 0.05 * tWob - 0.06 * tJoy;
-  const T = 0.34 * hB, shx = hxp + Math.sin(lean) * T, shy = hyp - Math.cos(lean) * T;
-  const headR = 0.08 * hB, hdx = shx + Math.sin(lean) * (0.075 * hB + headR), hdy = shy - Math.cos(lean) * (0.075 * hB + headR) - prep * 0.01 * hB;
+  const stepPh = has ? Math.cos(Math.PI * (k + f)) : 0;   // 1歩ごとに +1 と −1 を行き来する
+  const T = 0.34 * hB, twist = 0.022 * hB * stepPh, shx = hxp + Math.sin(lean) * T + twist, shy = hyp - Math.cos(lean) * T;   // 肩はこしと逆にねじれる
+  const headR = 0.08 * hB, hl = dSpr('hl', lean, 46, 6.5), nod = has ? 0.04 * hB * Math.exp(-ageS / 0.09) * (headNow ? 1.4 : 0.7) : 0;   // 頭は体より少しおくれてついてきて、拍でうなずく
+  const hdx = shx + Math.sin(lean) * (0.075 * hB + headR) + (lean - hl) * 0.4 * hB, hdy = shy - Math.cos(lean) * (0.075 * hB + headR) - prep * 0.01 * hB + nod;
   // 腕：刻みはやわらかく横にひろげたまま、拍の頭で大きくひらく（前の腕は上へ、うしろの腕はうしろへ）
   const open = headNow ? Math.pow(Math.sin(Math.PI * clamp(f * 1.05, 0, 1)), 0.6) * (L === 3 ? 1 : 0.75) * (barNow ? 1.15 : 1) : 0;
   const breathe = has ? 0.1 * Math.sin(2 * Math.PI * f) : 0;
   let aA = 1.25 + breathe - prep * 0.35 + open * 1.25, aB = 1.0 - breathe - prep * 0.25 - open * 1.7;
   if (tJoy > 0) { aA += (2.9 - aA) * tJoy * 0.85; aB += (-2.6 - aB) * tJoy * 0.75; }   // 両うでを高く（アン・オー）
   if (tWob) { aA += 0.5 * tWob; aB -= 0.45 * tWob; }   // バランスをとろうと、うでがぱたぱた
+  { const swing = has ? 0.3 * stepPh : 0; aA += swing; aB -= swing * 0.85; }   // 足と逆のうでが前に出る（歩くときのうでの振り）
+  aA = dSpr('aA', aA, 105, 11.5); aB = dSpr('aB', aB, 90, 10.5);   // ばねで、ふわっとおくれてついてくる
+  const dancerSk = dSpr('sk', 0.35 * open + 0.25 * pl + 0.12 * Math.abs(stepPh), 52, 6);
   const al = 0.36 * hB, lw = 0.08 * hB, aw = 0.055 * hB;
   const legPts = (an, rel) => { const kk = ikLimb(hxp, hyp, an[0], an[1], Lt, 1); return [kk.kx, kk.ky, kk.fx, kk.fy, kk.fx + fl * (1 - 0.45 * rel), kk.fy + toeH * rel + (1 - rel) * 1.5 * K]; };
   const armPts = ang => { const hx2 = shx + Math.sin(ang) * al * 0.92, hy2 = shy + Math.cos(ang) * al * 0.92; const kk = ikLimb(shx, shy, hx2, hy2, al, -1); return [kk.kx, kk.ky, kk.fx, kk.fy]; };
@@ -7290,7 +7318,7 @@ function drawDancer(st, now, ah) {
     tg.addColorStop(0, '#3a4258'); tg.addColorStop(0.45, SUIT); tg.addColorStop(1, '#0a0c12');
     cx.fillStyle = tg; cx.fill();
     // スカート（いまのグループの色。拍の頭で光って、ふわっとひろがる）
-    const fl2 = 1 + 0.35 * open + 0.25 * pl, w0 = P(0.18, -0.065), w1 = P(0.18, 0.06);
+    const fl2 = 1 + dancerSk, w0 = P(0.18, -0.065), w1 = P(0.18, 0.06);
     const hb = P(-0.42, -0.15 * fl2), hf = P(-0.36, 0.15 * fl2), hm = P(-0.5, 0);
     cx.beginPath(); cx.moveTo(w0[0], w0[1]); cx.quadraticCurveTo(P(-0.15, -0.12 * fl2)[0], P(-0.15, -0.12 * fl2)[1], hb[0], hb[1]);
     cx.quadraticCurveTo(hm[0], hm[1], hf[0], hf[1]); cx.quadraticCurveTo(P(-0.12, 0.11 * fl2)[0], P(-0.12, 0.11 * fl2)[1], w1[0], w1[1]); cx.closePath();
@@ -12353,6 +12381,9 @@ function setMode(md) {
   if (md !== 'W' && md !== 'F' && md !== 'X' && md !== 'V' && md !== 'Y') { SET.mMode = md; saveSet(); }
   renderPresets(); renderPolySel(); updateBarRhythm(); if (typeof renderSongMap === 'function') renderSongMap();
   if (!lsOpen() && !LEARN_MODES.includes(md) && metroSnap && metroSnap.by === 'mode') metroBack(false);
+  { const VO = typeof viewsOpen === 'function' ? viewsOpen() : [], i = VO.indexOf(md), ok = i >= 0 && !lsOpen();   // 演出ボタン：学ぶ・あそぶの画面では出さない
+    ['viewPrev', 'viewNext'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = !ok; });
+    const vn = document.getElementById('viewName'); if (vn) { vn.hidden = !ok; if (ok) vn.textContent = `${MODE_INFO[md].em || ''} ${MODE_INFO[md].name}　${i + 1} / ${VO.length}`; } }
   if (typeof perfQ !== 'undefined' && was !== md) { perfQ.upHold = 3000; perfQ.fast = perfQ.slow = 0; perfQ.upAt = 0; }   // 見た目を変えたら、画質はまた早めに戻せるように   // 学ぶ・あそぶから、ふつうの見せ方にもどった
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
@@ -13031,6 +13062,9 @@ function swipeView(d, to) {
   tip.classList.add('on'); clearTimeout(swipeTipT); swipeTipT = setTimeout(() => tip.classList.remove('on'), 1100);
   return true;
 }
+$('#viewPrev').onclick = e => { e.stopPropagation(); swipeView(-1); };
+$('#viewNext').onclick = e => { e.stopPropagation(); swipeView(1); };
+['pointerdown', 'pointerup'].forEach(ev => ['viewPrev', 'viewNext'].forEach(id => document.getElementById(id).addEventListener(ev, e => e.stopPropagation())));
 cv.addEventListener('pointerdown', e => { swipe0 = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }; }, true);
 cv.addEventListener('pointerup', e => {
   const s0 = swipe0; swipe0 = null; if (!s0 || s0.id !== e.pointerId) return;
