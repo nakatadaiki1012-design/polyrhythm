@@ -2924,7 +2924,6 @@ function rollCache(key, w, h, paint) {
   }
   return e.c;
 }
-/* @@BEGIN drawRoll */
 /* 🎮 タップ演出の共通部品（多角形・円軌道・ひも振り子・メトロノーム3種で使う）
    rollPlay(key)：いまのタップの反応（種類・経過秒）と、コンボでにぎやかになる度合い fest（0〜3、なめらかに上下する） */
 const rollPlayLv = {};
@@ -3269,7 +3268,6 @@ function drawRoll(st, now, ah) {
     rollPlayConfetti(0, -10 * K, W, groundY, PL.f3, tt, 29);
   }
 }
-/* @@END drawRoll */
 function rollRows(y0, y1) {   // ゆか板の継ぎ目の高さ（奥ほどせまい）
   const out = []; let y = y0, h = (y1 - y0) * 0.06;
   while (y < y1) { out.push(y); y += h; h *= 1.28; }
@@ -3342,7 +3340,6 @@ function bounceRoomPaint(g, w, h, backY, frontY, faceY) {
   g.save(); g.beginPath(); g.rect(0, faceY, w, h - faceY); g.clip(); bounceGrain(g, 0, faceY, w, h - faceY, 6, 0.25, 9); g.restore();
   g.fillStyle = 'rgba(0,0,0,0.5)'; g.fillRect(0, faceY, w, 1.5 * K);
 }
-/* @@BEGIN drawBounce */
 // 部屋の空気（左上の窓からの光の筋・天井のランプの光・まわりのかげり）をキャッシュ
 function drawBounceAtmosPaint(g, w, h, backY, frontY) {
   // 窓からななめにさしこむ光の筋（かべと床に）
@@ -3594,7 +3591,6 @@ function drawBounceParty(now, fest, top, backY, tp) {
   }
   cx.restore();
 }
-/* @@END drawBounce */
 
 /* ---------- モードC：円軌道レーダー ---------- */
 /* 円軌道：金属のふちの時計の文字盤（ガラスのふた）の上を、光の球が回る */
@@ -3608,7 +3604,6 @@ function orbitCache(key, w, h, paint) {
   }
   return e.c;
 }
-/* @@BEGIN drawOrbit */
 function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
@@ -3765,15 +3760,797 @@ function drawOrbit(st, now, ah) {
   txt(st.has ? syl(L, k) : '▶', cxC, cyC + 1, hub * 1.05, st.has ? COLORS[L] : '#64748b', 900);
   cx.beginPath(); cx.arc(cxC, cyC, hub * 0.86, 0, Math.PI * 2); glassShine(cxC - hub, cyC - hub, hub * 2, hub * 2, 0.22);
 }
-/* @@END drawOrbit */
-/* @@BEGIN drawRocket */
-
 /* ---------- 共通：顔つきのボール ---------- */
-function drawRocket(st, now, ah) { drawMetroBall(st, now, ah); }
-/* @@END drawRocket */
-/* @@BEGIN drawAurora */
-function drawAurora(st, now, ah) { drawMetroBall(st, now, ah); }
-/* @@END drawAurora */
+/* 🚀 ロケット／🌌 オーロラ 共通の小道具（キャッシュ・タイミング・タップの反応） */
+const rocketCv = {};
+function rocketCache(name, key, w, h, paint) {   // 重い絵は大きさが変わったときだけ描きなおす
+  let e = rocketCv[name];
+  if (!e || e.key !== key) {
+    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
+    const g = c.getContext('2d'); g.scale(d, d); paint(g);
+    e = rocketCv[name] = { key, c };
+  }
+  return e.c;
+}
+// 光の粒（中心が白く、まわりが色でにじむ）
+function rocketGlow(col, core = 1) {
+  return rocketCache('gl' + col + core, '1', 64, 64, g => {
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gr.addColorStop(0, `rgba(255,255,255,${core})`); gr.addColorStop(0.12, hexA(col, 0.9)); gr.addColorStop(0.38, hexA(col, 0.3)); gr.addColorStop(1, hexA(col, 0));
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  });
+}
+// けむり（もこもこした雲のかたまり。上が明るく、下がかげる）
+function rocketSmokeSpr(warm) {
+  return rocketCache('smk' + warm, '1', 96, 96, g => {
+    const blobs = [[48, 52, 30], [34, 56, 22], [62, 58, 22], [44, 38, 20], [58, 42, 18], [30, 44, 14]];
+    blobs.forEach(([x, y, r], i) => {
+      const gr = g.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+      gr.addColorStop(0, warm ? 'rgba(255,236,214,0.9)' : 'rgba(250,252,255,0.9)'); gr.addColorStop(0.55, warm ? 'rgba(214,196,190,0.6)' : 'rgba(205,212,224,0.6)');
+      gr.addColorStop(1, 'rgba(150,158,175,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+    });
+  });
+}
+const rocketSS = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+function rocketLerpCol(a, b, t) {
+  const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16), f = s => Math.round(((pa >> s) & 255) * (1 - t) + ((pb >> s) & 255) * t);
+  return `rgb(${f(16)},${f(8)},${f(0)})`;
+}
+function rocketKey(keys, p, idx) {   // keys：[[位置, 色0, 色1, 色2], ...] の間をなめらかに
+  let i = 0; while (i < keys.length - 2 && p > keys[i + 1][0]) i++;
+  const a = keys[i], b = keys[i + 1], t = rocketSS(a[0], b[0], p);
+  return rocketLerpCol(a[idx], b[idx], t);
+}
+// 刻みの位置（拍の中の割合）。音と同じタイミングにする
+function rocketSubOffs(m, L) {
+  const f = metF(m), s = SET.msub, o = [];
+  if (f === 2) return s === 3 ? [1 / 3, 2 / 3] : s === 4 ? [0.25, 0.5, 0.75] : s === 'sw' ? [2 / 3] : s === 1 ? [] : [0.5];
+  for (let k = 1; k < L; k++) o.push(k / L);
+  if (s === 4) for (let k = 0; k < L; k++) o.push((k + 0.5) / L);
+  return o;
+}
+// さっきまでの「拍の頭」と「刻み」の一覧（age：何秒前か）
+function rocketEvents(st, b, maxAge) {
+  const m = b.m, ev = [], dur = 60 / bpm, acc = accOf(m), G = m.groups.length;
+  if (b.g < 0) return ev;
+  const elapsed = (st.sc + st.frac) * dur + 0.02, quiet = SET.msub === 1 && metF(m) !== 2 ? 0.5 : 1;
+  let g = b.g, start = b.age;
+  for (let j = 0; j < 48 && start <= maxAge && start <= elapsed; j++) {
+    const L = m.groups[g], len = L * dur, id = Math.round((st.sc + st.frac) - start / dur);
+    ev.push({ age: start, head: true, bar: m.barStartGroup.includes(g), g, lv: acc[g], muted: j === 0 && b.muted, id });
+    rocketSubOffs(m, L).forEach((o, k) => { const a = start - o * len; if (a >= 0) ev.push({ age: a, head: false, g, w: quiet, side: (id + k) % 2 ? 1 : -1, id: id * 7 + k + 1 }); });
+    g = (g - 1 + G) % G; start += m.groups[g] * dur;
+  }
+  return ev;
+}
+// 何小節目か（小数つき）と、小節の頭から何秒たったか
+function rocketBarInfo(st, b) {
+  const m = b.m, dur = 60 / bpm;
+  if (b.g < 0) return { B: 0, bar: 0, age: 9, len: 1 };
+  const bi = m.barOfGroup[b.g], bs = m.barStartSub[bi], be = bi + 1 < m.nBars ? m.barStartSub[bi + 1] : m.total;
+  const bar = (st.measure || 0) * m.nBars + bi;
+  return { B: bar + clamp((st.pos - bs) / (be - bs), 0, 1), bar, age: (st.pos - bs) * dur, len: (be - bs) * dur };
+}
+// タップ（ぴったり／早い／遅い）。タップ判定がOFFなら何もしない
+function rocketTap() {
+  if (!SET.tapOn || !playFx.kind) return null;
+  const a = playAge(); return a < 1.2 ? { k: playFx.kind, a } : null;
+}
+// 連続ぴったりの「ごほうび度」（0〜3）。ゆっくり上がり、ゆっくり戻る
+const rocketHypeS = {};
+function rocketHype(name) {
+  const pn = performance.now(), c = playFx.combo || 0;
+  const tgt = SET.tapOn && playAge() < 4 ? (c >= 16 ? 3 : c >= 8 ? 2 : c >= 4 ? 1 : 0) : 0;
+  const last = rocketHypeS[name + 'T'] || pn, dt = clamp((pn - last) / 1000, 0, 0.1); rocketHypeS[name + 'T'] = pn;
+  let v = rocketHypeS[name] || 0; v += (tgt - v) * (1 - Math.exp(-dt * (tgt > v ? 3 : 1.2)));
+  if (Math.abs(tgt - v) < 0.002) v = tgt;
+  return (rocketHypeS[name] = v);
+}
+
+/* ---------- ロケットの部品（キャッシュ） ---------- */
+function rocketCylGrad(g, x0, x1, kind) {   // 円柱のつや（左上から光）
+  const gr = g.createLinearGradient(x0, 0, x1, 0);
+  const c = kind === 'dark' ? ['#0d1016', '#3a414c', '#5c6470', '#2a3039', '#0a0c11'] : kind === 'gold' ? ['#6b4a12', '#d9b25a', '#fff1c2', '#c79a3c', '#4f350c'] : ['#59626e', '#c3cad3', '#ffffff', '#d4dae2', '#5b636e'];
+  gr.addColorStop(0, c[0]); gr.addColorStop(0.2, c[1]); gr.addColorStop(0.4, c[2]); gr.addColorStop(0.72, c[3]); gr.addColorStop(1, c[4]); return gr;
+}
+function rocketCoreSpr(bw, Hr) {   // 本体（中央の段・フェアリング・ひれ・ノズル）
+  const w = bw * 2.6, h = Hr;
+  return rocketCache('core', [bw, Hr].join('|'), w, h, g => {
+    const c = w / 2, r = bw / 2, fr = r * 1.14;
+    // ひれ（うしろ側）
+    g.fillStyle = '#1b2029';
+    [-1, 1].forEach(s => { g.beginPath(); g.moveTo(c + s * r * 0.9, h * 0.76); g.lineTo(c + s * r * 2.3, h * 0.9); g.lineTo(c + s * r * 2.3, h * 0.945); g.lineTo(c + s * r * 0.9, h * 0.93); g.closePath(); g.fill(); });
+    g.fillStyle = 'rgba(255,255,255,0.18)'; g.beginPath(); g.moveTo(c - r * 0.9, h * 0.76); g.lineTo(c - r * 2.3, h * 0.9); g.lineTo(c - r * 2.3, h * 0.905); g.lineTo(c - r * 0.9, h * 0.768); g.fill();
+    // ノズル（金属のつりがね）
+    const nT = h * 0.928, nB = h;
+    let gr = g.createLinearGradient(c - r * 0.75, 0, c + r * 0.75, 0); gr.addColorStop(0, '#2a1a12'); gr.addColorStop(0.3, '#c58a5a'); gr.addColorStop(0.5, '#7a4a2c'); gr.addColorStop(1, '#1c120c');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(c - r * 0.42, nT); g.quadraticCurveTo(c - r * 0.5, nB - h * 0.03, c - r * 0.78, nB); g.lineTo(c + r * 0.78, nB); g.quadraticCurveTo(c + r * 0.5, nB - h * 0.03, c + r * 0.42, nT); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,200,150,0.5)'; g.lineWidth = Math.max(1, r * 0.06); g.beginPath(); g.ellipse(c, nB - 0.5, r * 0.77, r * 0.12, 0, 0, Math.PI); g.stroke();
+    // 1段目（白い円柱）
+    const s1 = h * 0.4, s2 = h * 0.905;
+    g.fillStyle = rocketCylGrad(g, c - r, c + r); g.fillRect(c - r, s1, bw, s2 - s1);
+    // ロールパターン（白黒のもよう）
+    g.fillStyle = rocketCylGrad(g, c - r, c + r, 'dark'); g.fillRect(c - r, s1 + h * 0.02, r, h * 0.05); g.fillRect(c, s1 + h * 0.07, r, h * 0.05);
+    // 文字（たてに）
+    g.save(); g.translate(c + r * 0.08, h * 0.66); g.rotate(-Math.PI / 2); g.fillStyle = 'rgba(30,41,59,0.75)'; g.font = `900 ${Math.max(6, bw * 0.38)}px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('RHYTHM', 0, 0); g.restore();
+    g.fillStyle = 'rgba(220,38,38,0.85)'; g.fillRect(c - r, h * 0.52, bw, Math.max(1, h * 0.006));
+    // エンジン部（黒いスカート）
+    g.fillStyle = rocketCylGrad(g, c - r * 1.06, c + r * 1.06, 'dark'); g.beginPath(); g.moveTo(c - r, s2); g.lineTo(c + r, s2); g.lineTo(c + r * 1.06, nT); g.lineTo(c - r * 1.06, nT); g.closePath(); g.fill();
+    // 段のつなぎ目（黒い帯）
+    g.fillStyle = rocketCylGrad(g, c - r, c + r, 'dark'); g.fillRect(c - r, h * 0.375, bw, h * 0.028);
+    // 2段目
+    g.fillStyle = rocketCylGrad(g, c - r, c + r); g.fillRect(c - r, h * 0.225, bw, h * 0.15);
+    // フェアリング（先の丸いカバー）
+    g.fillStyle = rocketCylGrad(g, c - fr, c + fr);
+    g.beginPath(); g.moveTo(c, 0); g.bezierCurveTo(c + fr * 0.55, h * 0.012, c + fr, h * 0.09, c + fr, h * 0.17); g.lineTo(c + fr, h * 0.2); g.lineTo(c + r, h * 0.228);
+    g.lineTo(c - r, h * 0.228); g.lineTo(c - fr, h * 0.2); g.lineTo(c - fr, h * 0.17); g.bezierCurveTo(c - fr, h * 0.09, c - fr * 0.55, h * 0.012, c, 0); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(15,23,42,0.35)'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(c, h * 0.012); g.lineTo(c, h * 0.2); g.stroke();
+    // つなぎ目の影（AO）と細い線
+    [[h * 0.2, 0.25], [h * 0.228, 0.35], [s1, 0.3], [s2, 0.45]].forEach(([y, a]) => {
+      gr = g.createLinearGradient(0, y, 0, y + h * 0.02); gr.addColorStop(0, `rgba(10,14,22,${a})`); gr.addColorStop(1, 'rgba(10,14,22,0)');
+      g.fillStyle = gr; g.fillRect(c - fr, y, fr * 2, h * 0.02);
+    });
+    g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(c - r * 0.5, h * 0.24, r * 0.12, h * 0.12);   // 長い光の筋
+    g.fillRect(c - r * 0.5, s1 + h * 0.13, r * 0.12, h * 0.36);
+    // ひれ（手前）
+    gr = g.createLinearGradient(c - r * 0.25, 0, c + r * 0.25, 0); gr.addColorStop(0, '#3b424d'); gr.addColorStop(0.5, '#8a94a3'); gr.addColorStop(1, '#262b33');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(c - r * 0.14, h * 0.8); g.lineTo(c + r * 0.14, h * 0.8); g.lineTo(c + r * 0.22, h * 0.95); g.lineTo(c - r * 0.22, h * 0.95); g.closePath(); g.fill();
+  });
+}
+function rocketBoosterSpr(bb, Lb) {   // 横のブースター
+  const w = bb * 1.5, h = Lb;
+  return rocketCache('boost', [bb, Lb].join('|'), w, h, g => {
+    const c = w / 2, r = bb / 2;
+    let gr = g.createLinearGradient(c - r * 0.8, 0, c + r * 0.8, 0); gr.addColorStop(0, '#2a1a12'); gr.addColorStop(0.35, '#b98257'); gr.addColorStop(1, '#1c120c');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(c - r * 0.45, h * 0.9); g.lineTo(c - r * 0.75, h); g.lineTo(c + r * 0.75, h); g.lineTo(c + r * 0.45, h * 0.9); g.fill();
+    g.fillStyle = rocketCylGrad(g, c - r, c + r); g.fillRect(c - r, h * 0.12, bb, h * 0.8);
+    g.beginPath(); g.moveTo(c, 0); g.quadraticCurveTo(c + r, h * 0.03, c + r, h * 0.13); g.lineTo(c - r, h * 0.13); g.quadraticCurveTo(c - r, h * 0.03, c, 0); g.fill();
+    g.fillStyle = rocketCylGrad(g, c - r, c + r, 'dark'); g.fillRect(c - r, h * 0.84, bb, h * 0.08); g.fillRect(c - r, h * 0.3, bb, h * 0.025);
+    gr = g.createLinearGradient(0, h * 0.13, 0, h * 0.17); gr.addColorStop(0, 'rgba(10,14,22,0.35)'); gr.addColorStop(1, 'rgba(10,14,22,0)'); g.fillStyle = gr; g.fillRect(c - r, h * 0.13, bb, h * 0.04);
+  });
+}
+function rocketFlameSpr(pal) {   // 炎（上がノズル側）。pal：n ふつう／g 金色／b 青白い（新しい段）
+  return rocketCache('flm' + pal, '1', 64, 256, g => {
+    const st = pal === 'g' ? ['#ffffff', '#fff7c2', '#ffd75a', 'rgba(255,170,30,0.75)', 'rgba(255,120,20,0.3)']
+      : pal === 'b' ? ['#ffffff', '#e0f2ff', '#9cc8ff', 'rgba(110,140,255,0.6)', 'rgba(140,90,255,0.25)']
+        : ['#ffffff', '#fff1c4', '#ffc160', 'rgba(255,120,40,0.75)', 'rgba(230,60,20,0.3)'];
+    const gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, st[0]); gr.addColorStop(0.1, st[1]); gr.addColorStop(0.3, st[2]); gr.addColorStop(0.55, st[3]); gr.addColorStop(0.8, st[4]); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(10, 0); g.bezierCurveTo(-4, 70, 18, 170, 32, 256); g.bezierCurveTo(46, 170, 68, 70, 54, 0); g.closePath(); g.fill();
+    g.globalCompositeOperation = 'destination-in';
+    const hg = g.createLinearGradient(0, 0, 64, 0); hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(0.3, 'rgba(0,0,0,0.85)'); hg.addColorStop(0.5, 'rgba(0,0,0,1)'); hg.addColorStop(0.7, 'rgba(0,0,0,0.85)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = hg; g.fillRect(0, 0, 64, 256);
+  });
+}
+// 発射台・やぐら・地面（ロケットの下の端＝ yP）
+function rocketGroundSpr(rx, bw, Hr, GH, yP) {
+  return rocketCache('gnd', [W, rx, bw, Hr, GH, yP, K].join('|'), W, GH, g => {
+    const yH = yP - Hr * 0.16;
+    // 遠い森と丘
+    g.fillStyle = '#1a2133'; g.beginPath(); g.moveTo(0, yH);
+    for (let x = 0; x <= W + 8; x += 8 * K) g.lineTo(x, yH - (6 + 10 * Math.abs(Math.sin(x * 0.011)) + 5 * hash01(x | 0)) * K);
+    g.lineTo(W, yH + 2); g.lineTo(0, yH + 2); g.fill();
+    let gr = g.createLinearGradient(0, yH, 0, GH); gr.addColorStop(0, '#2a2f3d'); gr.addColorStop(0.15, '#151a24'); gr.addColorStop(1, '#07090e');
+    g.fillStyle = gr; g.fillRect(0, yH, W, GH - yH);
+    // 遠くの明かり
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(255,${190 + 50 * hash01(i + 3) | 0},140,${0.3 + 0.5 * hash01(i + 9)})`; g.fillRect(hash01(i + 40) * W, yH + (1 + 6 * hash01(i + 70)) * K, 1.6 * K, 1.2 * K); }
+    // 発射台（コンクリート）と炎の通り道
+    const pw = bw * 7;
+    gr = g.createLinearGradient(0, yP, 0, yP + Hr * 0.09); gr.addColorStop(0, '#6b7280'); gr.addColorStop(0.15, '#3f4651'); gr.addColorStop(1, '#1b1f27');
+    g.fillStyle = gr; g.beginPath(); g.moveTo(rx - pw / 2, yP); g.lineTo(rx + pw / 2, yP); g.lineTo(rx + pw * 0.62, yP + Hr * 0.09); g.lineTo(rx - pw * 0.62, yP + Hr * 0.09); g.closePath(); g.fill();
+    g.fillStyle = '#05060a'; g.beginPath(); g.ellipse(rx, yP + Hr * 0.004, bw * 0.9, Hr * 0.012, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.25)'; g.fillRect(rx - pw / 2, yP, pw, 1);
+    // やぐら（鉄骨の塔）
+    const tx = rx - bw * 2.7, tw = bw * 1.0, tTop = yP - Hr * 1.08;
+    gr = g.createLinearGradient(tx - tw / 2, 0, tx + tw / 2, 0); gr.addColorStop(0, '#5b1d1d'); gr.addColorStop(0.4, '#b33a32'); gr.addColorStop(1, '#3d1212');
+    g.strokeStyle = gr; g.lineWidth = Math.max(1.2, bw * 0.08);
+    g.beginPath(); g.moveTo(tx - tw / 2, yP); g.lineTo(tx - tw / 2, tTop); g.moveTo(tx + tw / 2, yP); g.lineTo(tx + tw / 2, tTop); g.stroke();
+    g.lineWidth = Math.max(0.7, bw * 0.035); const n = 22, ch = (yP - tTop) / n;
+    g.beginPath(); for (let i = 0; i < n; i++) { const y = yP - i * ch; g.moveTo(tx - tw / 2, y); g.lineTo(tx + tw / 2, y - ch); g.moveTo(tx + tw / 2, y); g.lineTo(tx - tw / 2, y - ch); g.moveTo(tx - tw / 2, y); g.lineTo(tx + tw / 2, y); } g.stroke();
+    // 腕（ロケットからはなれた状態）・避雷針
+    g.fillStyle = '#4b5563'; [0.32, 0.62].forEach(f => { const y = yP - Hr * (1 - f); g.fillRect(tx + tw / 2, y, bw * 0.9, Math.max(2, Hr * 0.012)); g.fillStyle = 'rgba(255,255,255,0.2)'; g.fillRect(tx + tw / 2, y, bw * 0.9, 1); g.fillStyle = '#4b5563'; });
+    g.strokeStyle = '#9ca3af'; g.lineWidth = 1; g.beginPath(); g.moveTo(tx, tTop); g.lineTo(tx, tTop - Hr * 0.12); g.stroke();
+    // 塔の影（地面に落ちる）
+    g.fillStyle = 'rgba(0,0,0,0.35)'; g.beginPath(); g.ellipse(tx, yP + 2, tw * 1.6, Hr * 0.012, 0, 0, Math.PI * 2); g.fill();
+    // 照明の柱
+    [rx + bw * 5.2, rx - bw * 5.6].forEach((lx, i) => {
+      const lt = yP - Hr * (0.5 + 0.1 * i); g.strokeStyle = '#30363f'; g.lineWidth = Math.max(1, bw * 0.06); g.beginPath(); g.moveTo(lx, yP + Hr * 0.03); g.lineTo(lx, lt); g.stroke();
+      g.fillStyle = '#e5e7eb'; g.fillRect(lx - bw * 0.3, lt - bw * 0.1, bw * 0.6, bw * 0.2);
+    });
+  });
+}
+// 地球（宇宙から見た丸いふち）
+function rocketEarthSpr(EH) {
+  return rocketCache('earth', [W, EH, K].join('|'), W, EH, g => {
+    const R = W * 2.2 + EH * 2, ex = W * 0.42, ey = R + EH * 0.18;
+    g.save(); g.beginPath(); g.arc(ex, ey, R, 0, Math.PI * 2); g.clip();
+    let gr = g.createLinearGradient(0, EH * 0.18, 0, EH); gr.addColorStop(0, '#2f7fd8'); gr.addColorStop(0.25, '#124a9a'); gr.addColorStop(1, '#041633');
+    g.fillStyle = gr; g.fillRect(0, 0, W, EH);
+    for (let i = 0; i < 40; i++) {   // 雲のすじ
+      const x = hash01(i + 300) * W, y = EH * (0.2 + 0.8 * Math.pow(hash01(i + 330), 1.3)), w = W * (0.05 + 0.18 * hash01(i + 360)), hh = w * (0.08 + 0.1 * hash01(i + 390));
+      g.fillStyle = `rgba(255,255,255,${0.12 + 0.28 * hash01(i + 420)})`; g.beginPath(); g.ellipse(x, y, w, hh, (hash01(i + 450) - 0.5) * 0.4, 0, Math.PI * 2); g.fill();
+    }
+    g.fillStyle = 'rgba(46,92,60,0.5)'; g.beginPath(); g.ellipse(W * 0.75, EH * 0.6, W * 0.22, EH * 0.13, -0.2, 0, Math.PI * 2); g.fill();
+    gr = g.createLinearGradient(W, 0, 0, 0); gr.addColorStop(0, 'rgba(0,0,10,0.7)'); gr.addColorStop(0.35, 'rgba(0,0,10,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, EH);   // 夜の側
+    g.restore();
+    // 大気の光
+    g.save(); g.globalCompositeOperation = 'lighter';
+    [[10, 'rgba(80,160,255,0.16)'], [5, 'rgba(120,200,255,0.3)'], [1.6, 'rgba(200,235,255,0.7)']].forEach(([lw, c]) => { g.strokeStyle = c; g.lineWidth = lw * K; g.beginPath(); g.arc(ex, ey, R + lw * K * 0.3, Math.PI * 1.15, Math.PI * 1.85); g.stroke(); });
+    g.restore();
+  });
+}
+function rocketStarsSpr(h) {
+  return rocketCache('stars', [W, h, K].join('|'), W, h, g => {
+    for (let i = 0; i < 230; i++) {
+      const r = (0.35 + 0.9 * Math.pow(hash01(i + 77), 3)) * K;
+      g.fillStyle = `rgba(${215 + 40 * hash01(i + 3) | 0},${220 + 30 * hash01(i + 4) | 0},255,${0.35 + 0.6 * hash01(i + 5)})`;
+      g.beginPath(); g.arc(hash01(i + 11) * W, hash01(i + 13) * h, r, 0, Math.PI * 2); g.fill();
+    }
+  });
+}
+// HUD のガラス板
+function rocketHudSpr(x, y, w, h) {
+  return rocketCache('hud', [W, x, y, w, h, K].join('|'), W, y + h + 4, g => {
+    g.save(); g.shadowColor = 'rgba(0,0,0,0.6)'; g.shadowBlur = 14 * K; g.shadowOffsetY = 4 * K;
+    metroBallRR(g, x, y, w, h, 12 * K); g.fillStyle = 'rgba(5,10,22,0.78)'; g.fill(); g.restore();
+    metroBallRR(g, x, y, w, h, 12 * K); g.save(); g.clip();
+    let gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, 'rgba(120,180,255,0.14)'); gr.addColorStop(0.4, 'rgba(120,180,255,0.03)'); gr.addColorStop(1, 'rgba(0,0,0,0.2)');
+    g.fillStyle = gr; g.fillRect(x, y, w, h);
+    g.strokeStyle = 'rgba(103,232,249,0.06)'; g.lineWidth = 1; for (let yy = y + 3; yy < y + h; yy += 3) { g.beginPath(); g.moveTo(x, yy); g.lineTo(x + w, yy); g.stroke(); }   // 走査線
+    g.restore();
+    metroBallRR(g, x + 0.5, y + 0.5, w - 1, h - 1, 12 * K); g.strokeStyle = 'rgba(103,232,249,0.35)'; g.lineWidth = 1; g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.25)'; g.beginPath(); g.moveTo(x + 14 * K, y + 1.5); g.lineTo(x + w - 14 * K, y + 1.5); g.stroke();
+    g.strokeStyle = 'rgba(103,232,249,0.8)'; g.lineWidth = 2 * K; const c = 10 * K;   // 角の目じるし
+    [[x + 5 * K, y + 5 * K, 1, 1], [x + w - 5 * K, y + 5 * K, -1, 1], [x + 5 * K, y + h - 5 * K, 1, -1], [x + w - 5 * K, y + h - 5 * K, -1, -1]].forEach(([px, py, sx, sy]) => { g.beginPath(); g.moveTo(px, py + sy * c); g.lineTo(px, py); g.lineTo(px + sx * c, py); g.stroke(); });
+  });
+}
+// 計器のランプ（金属のふち・光るドーム・いまの拍の進み具合を示すリング）
+function rocketLamp(x, y, r, col, lv, on, u, gold) {
+  if (on > 0 && lv) { cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = on * 0.9; const s = r * 6; cx.drawImage(rocketGlow(col, 0.6), x - s / 2, y - s / 2, s, s); cx.restore(); }
+  cx.fillStyle = metalGrad(x - r * 1.3, y - r * 1.3, x + r * 1.3, y + r * 1.3, gold > 0.5 ? 'brass' : 'steel'); cx.beginPath(); cx.arc(x, y, r * 1.28, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = '#04060a'; cx.beginPath(); cx.arc(x, y, r * 1.08, 0, Math.PI * 2); cx.fill();
+  const base = lv ? col : '#475569', off = lv ? shade(base, lv === 1 ? -0.75 : -0.62) : '#161b24';
+  let g = cx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.05, x, y, r);
+  if (on > 0 && lv) { g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, shade(col, 0.4)); g.addColorStop(1, shade(col, -0.2)); }
+  else { g.addColorStop(0, shade(off, 0.35)); g.addColorStop(0.7, off); g.addColorStop(1, shade(off, -0.45)); }
+  cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r * (on > 0 && lv ? 1 + 0.06 * on : 1), 0, Math.PI * 2); cx.fill();
+  if (!(on > 0) && lv) { cx.fillStyle = hexA(col, lv === 1 ? 0.12 : 0.24); cx.beginPath(); cx.arc(x, y, r * 0.45, 0, Math.PI * 2); cx.fill(); }
+  if (lv === 0) txt('×', x, y + 1, r * 1.1, '#64748b', 900);
+  if (u >= 0) {   // 進み具合のリング
+    cx.strokeStyle = hexA(lv ? col : '#94a3b8', 0.9); cx.lineWidth = Math.max(2, 2.4 * K); cx.lineCap = 'round';
+    cx.beginPath(); cx.arc(x, y, r * 1.55, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * u); cx.stroke(); cx.lineCap = 'butt';
+  }
+  cx.fillStyle = 'rgba(255,255,255,0.35)'; cx.beginPath(); cx.ellipse(x - r * 0.3, y - r * 0.42, r * 0.38, r * 0.2, -0.4, 0, Math.PI * 2); cx.fill();
+}
+
+/* 🚀 ロケット：拍の頭でエンジンが火をふき、8小節で発射台から宇宙へ（くり返す）。
+   刻み＝姿勢をととのえる小さな噴射。小節の頭＝ブースター／段の切りはなし */
+const ROCKET_NB = 8;
+function drawRocket(st, now, ah) {
+  const b = metBeatInfo(st, now), m = b.m, acc = accOf(m), pn = performance.now() / 1000, live = b.g >= 0;
+  const top = 62 * K, hudH = clamp(ah * 0.2, 74, 112 * K), hudY = ah - hudH - 6 * K, avail = hudY - top;
+  const BI = rocketBarInfo(st, b), cyc = live ? mod(BI.B, ROCKET_NB) : 0, p = cyc / ROCKET_NB, cBar = live ? Math.floor(cyc) : 0;
+  const hype = rocketHype('rocket'), tap = rocketTap();
+  const ev = live ? rocketEvents(st, b, 2.6) : [];
+  // いまの勢い
+  let burst = 0, push = 0, subP = 0, subSide = 1;
+  ev.forEach(e => {
+    if (e.head) {
+      const s = e.muted ? 0 : e.lv === 3 ? 1.25 : e.lv === 2 ? 1 : e.lv === 1 ? 0.6 : 0;
+      burst = Math.max(burst, s * Math.exp(-e.age / 0.2)); push = Math.max(push, s * (1 - Math.exp(-e.age / 0.035)) * Math.exp(-e.age / 0.3));
+    } else { const s = Math.exp(-e.age / 0.1) * e.w; if (s > subP) { subP = s; subSide = e.side; } }
+  });
+  const vac = rocketSS(0.5, 0.82, p), atm = 1 - vac;
+  // 大きさと位置
+  const Hr = clamp(avail * 0.64, 100, 420 * K), bw = Hr * 0.115, rx = W * 0.6, noseY = top + avail * 0.05;
+  let dy = -6 * K * push, tilt = live ? 0.06 * rocketSS(0.15, 0.5, p) : 0, flameMul = 1, goldMix = 0;
+  if (tap) {
+    const a = tap.a;
+    if (tap.k === 'p') { dy -= 7 * K * (1 - Math.exp(-a / 0.03)) * Math.exp(-a / 0.25); flameMul += 0.55 * Math.exp(-a / 0.25); goldMix = Math.exp(-a / 0.45); }
+    else if (tap.k === 'e' || tap.k === 'l') { tilt += (tap.k === 'e' ? -1 : 1) * 0.08 * Math.sin(a * 13) * Math.exp(-a * 4); flameMul -= 0.3 * Math.exp(-a / 0.15) * (0.6 + 0.4 * Math.sin(a * 80)); }
+    else dy += 2.5 * K * Math.sin(a * 30) * Math.exp(-a * 9);
+  }
+  goldMix = Math.max(goldMix, 0.3 * Math.min(1, hype));
+  const baseY = noseY + Hr + dy;
+  // 発射：最初の小節でゆっくり持ち上がり、地面が下へ消える
+  const span = ah - noseY - Hr + Hr * 1.35, gq = clamp(cyc / 1.2, 0, 1), sGnd = live ? span * Math.pow(gq, 2.2) : 0;
+  const vWorld = cyc < 1.2 ? span * 2.2 * Math.pow(gq, 1.2) / 1.2 / Math.max(0.3, BI.len) : ah * (1.1 - 0.4 * vac);
+  const D = live ? (cyc < 1.2 ? sGnd : span + (cyc - 1.2) * ah * 1.2) : 0;   // のぼった距離（雲・すじの動き）
+  // 画面のゆれ
+  const shake = (3.2 * burst + (cBar === 0 && live ? 1.2 : 0)) * K * (1 - 0.6 * vac);
+  cx.save(); cx.translate(shake * Math.sin(pn * 93), shake * Math.cos(pn * 71));
+  // 空：夕焼け → 青 → 宇宙
+  const SK = [[0, '#20335e', '#5d6fa3', '#f2a36b'], [0.16, '#16305f', '#3768ac', '#a9c7e6'], [0.4, '#081634', '#14366f', '#3f7fc4'], [0.62, '#020514', '#060d28', '#10295a'], [1, '#000004', '#01030b', '#071233']];
+  let g = cx.createLinearGradient(0, 0, 0, ah);
+  g.addColorStop(0, rocketKey(SK, p, 1)); g.addColorStop(0.55, rocketKey(SK, p, 2)); g.addColorStop(1, rocketKey(SK, p, 3));
+  cx.fillStyle = g; cx.fillRect(-20, -20, W + 40, ah + 40);
+  // 星（だんだん見えてくる・ゆっくり流れる）
+  const starA = rocketSS(0.3, 0.7, p) + (live ? 0 : 0.15);
+  if (starA > 0.01) {
+    const sc = rocketStarsSpr(ah), off = mod(D * 0.03, ah);
+    cx.globalAlpha = Math.min(1, starA); cx.drawImage(sc, 0, off - ah, W, ah); cx.drawImage(sc, 0, off, W, ah);
+    cx.globalAlpha = 1;
+  }
+  if (hype > 2) {   // ワープ：星が線になって流れる
+    {
+      cx.globalAlpha = Math.min(1, hype - 2) * 0.7; cx.lineWidth = 1.4 * K;
+      for (let i = 0; i < 26; i++) { const x = hash01(i + 900) * W, l = (40 + 90 * hash01(i + 920)) * K, y = mod(pn * ah * (1.4 + hash01(i + 940)) + hash01(i + 960) * ah, ah + l) - l; cx.strokeStyle = i % 3 ? '#a5f3fc' : '#fde68a'; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x, y + l); cx.stroke(); }
+    }
+    cx.globalAlpha = 1;
+  }
+  // 太陽：夕方は地平線、宇宙では左上でまぶしく
+  cx.save(); cx.globalCompositeOperation = 'lighter';
+  const sunSp = rocketSS(0.5, 0.8, p);
+  if (sunSp > 0) {
+    const sx = W * 0.14, sy = top + avail * 0.1, s = Math.min(W, ah) * 0.7; cx.globalAlpha = sunSp * 0.9; cx.drawImage(rocketGlow('#fff3d6', 1), sx - s / 2, sy - s / 2, s, s);
+    cx.globalAlpha = sunSp * 0.25; [0.35, 0.55, 0.8].forEach((f, i) => { const fx = sx + (rx - sx) * f * 1.6, fy = sy + (baseY - sy) * f * 1.2, fs = (18 + 16 * i) * K; cx.drawImage(rocketGlow(i % 2 ? '#a5b4fc' : '#67e8f9', 0), fx - fs / 2, fy - fs / 2, fs, fs); });
+  }
+  cx.restore(); cx.globalAlpha = 1;
+  // 地球のふち
+  if (vac > 0) { const EH = avail * 0.5, e = rocketSS(0.45, 0.85, p); cx.globalAlpha = Math.min(1, vac * 1.6); cx.drawImage(rocketEarthSpr(EH), 0, hudY + hudH * 0.4 - EH * 0.85 * e, W, EH); cx.globalAlpha = 1; }
+  // 雲（大気の中だけ。のぼると下へ流れる）
+  const cloudA = live ? rocketSS(0.04, 0.12, p) * (1 - rocketSS(0.36, 0.5, p)) : 0;
+  if (cloudA > 0) {
+    const spanY = ah * 1.6;
+    for (let i = 0; i < 7; i++) {
+      const sp = 0.5 + 0.9 * hash01(i + 500), w = W * (0.35 + 0.45 * hash01(i + 520)) * sp, h = w * 0.32;
+      const y = mod(D * sp * 0.9 + i * spanY / 7, spanY) - h * 1.2, x = hash01(i + 540) * W * 1.2 - W * 0.1;
+      cx.globalAlpha = cloudA * (0.35 + 0.4 * sp) * (i === 3 ? 0.6 : 1);
+      cx.drawImage(rocketSmokeSpr(p < 0.12 ? 1 : 0), x - w / 2, y, w, h);
+    }
+    cx.globalAlpha = 1;
+  }
+  // 風のすじ（スピード感）
+  const streakA = live ? rocketSS(0.08, 0.18, p) * (1 - rocketSS(0.6, 0.8, p)) * (0.05 + 0.22 * burst) : 0;
+  if (streakA > 0.01) {
+    cx.strokeStyle = `rgba(230,240,255,${streakA})`; cx.lineWidth = 1;
+    for (let i = 0; i < 16; i++) { const l = (30 + 60 * hash01(i + 600)) * K, x = rx + (hash01(i + 620) - 0.5) * W * 0.9, y = mod(D * 2.4 + hash01(i + 640) * ah, ah + l) - l; cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x, y + l); cx.stroke(); }
+  }
+  // 発射台（最初の小節）
+  const yP = noseY + Hr, GH = ah - yP + Hr * 1.4 + 40 * K, groundOn = !live || cyc < 1.35;
+  if (groundOn) {
+    const gy = yP - Hr * 1.4 + sGnd, gTopY = yP - Hr * 0.16 + sGnd;
+    // 夕日（地平線のあたり）
+    cx.save(); cx.globalCompositeOperation = 'lighter'; const ss = Math.min(W, ah) * 0.9; cx.globalAlpha = 0.55; cx.drawImage(rocketGlow('#fb923c', 0.8), W * 0.15 - ss / 2, gTopY - ss / 2, ss, ss); cx.restore(); cx.globalAlpha = 1;
+    cx.drawImage(rocketGroundSpr(rx, bw, Hr, GH, Hr * 1.4), 0, gy, W, GH);
+    // やぐらの赤いランプ（点滅）
+    const tx = rx - bw * 2.7, tTop = yP + sGnd - Hr * 1.08, bl = 0.5 + 0.5 * Math.sin(pn * 4);
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.4 + 0.6 * bl; const ls = 16 * K;
+    cx.drawImage(rocketGlow('#ef4444', 1), tx - ls / 2, tTop - Hr * 0.12 - ls / 2, ls, ls);
+    [rx + bw * 5.2, rx - bw * 5.6].forEach((lx, i) => { const lt = yP + sGnd - Hr * (0.5 + 0.1 * i) - bw * 0.1, s2 = bw * 4; cx.globalAlpha = 0.5; cx.drawImage(rocketGlow('#fef9c3', 0.9), lx - s2 / 2, lt - s2 / 2, s2, s2); });
+    cx.restore(); cx.globalAlpha = 1;
+  }
+  // けむりの尾（拍の頭で大きく、刻みで小さく）
+  const smk = rocketSmokeSpr(p < 0.15 ? 1 : 0), side = 1 - rocketSS(0, 0.7, cyc);
+  ev.forEach(e => {
+    if (e.age > 2.5) return;
+    const q = e.age / 2.5, n = e.head ? 3 : 1;
+    for (let i = 0; i < n; i++) {
+      const h1 = hash01(e.id * 13 + i), h2 = hash01(e.id * 7 + i * 3);
+      const sz = bw * (e.head ? 1.6 : 0.9) * (0.8 + 3.2 * Math.pow(e.age, 0.6)) * (1 + vac * 1.5);
+      let x = rx + (h1 - 0.5) * bw * (1 + e.age * 2), y = baseY + bw * 0.4 + vWorld * e.age * (0.8 + 0.4 * h2);
+      if (side > 0) { const dir = i % 2 ? 1 : -1; x += dir * side * bw * (1 + 7 * Math.pow(e.age, 0.5)) * (0.6 + h2); y = Math.min(y, yP + sGnd - sz * 0.35 - e.age * 8 * K); }
+      cx.globalAlpha = (e.head ? 0.55 : 0.32) * Math.pow(1 - q, 1.6) * (1 - vac * 0.85);
+      cx.drawImage(smk, x - sz / 2, y - sz / 2, sz, sz);
+    }
+  });
+  cx.globalAlpha = 1;
+  if (!live) {   // 待機中：液体酸素の白い湯気
+    for (let i = 0; i < 6; i++) { const ph = (pn * 0.35 + i / 6) % 1, s = bw * (0.8 + 2.2 * ph), sd = i % 2 ? 1 : -1; cx.globalAlpha = 0.28 * Math.sin(Math.PI * ph); cx.drawImage(smk, rx + sd * (bw * 0.5 + ph * bw * 1.6) - s / 2, noseY + Hr * (0.3 + 0.12 * (i % 3)) + ph * Hr * 0.12 - s / 2, s, s); }
+    cx.globalAlpha = 1;
+  }
+  // 段の切りはなし（小節の頭）
+  const sep = live && cBar >= 1 && BI.age < 1.8 ? BI.age : -1, boostersOn = !live || cBar === 0;
+  const bb = bw * 0.55, Lb = Hr * 0.46, byT = Hr * 0.47;
+  if (sep >= 0) {
+    if (cBar === 1) {   // ブースターが左右にはなれて落ちる
+      [-1, 1].forEach(s => {
+        const x = rx + s * (bw * 0.5 + bb * 0.45 + sep * bw * 1.2 + sep * sep * bw * 1.4), y = noseY + byT + sep * 24 * K + sep * sep * ah * 0.45, a = clamp(1.6 - sep, 0, 1);
+        cx.save(); cx.translate(x, y + Lb / 2); cx.rotate(s * (sep * 0.9 + sep * sep * 0.5)); cx.globalAlpha = a;
+        if (sep < 0.35) { cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = a * (1 - sep / 0.35); const fl = rocketFlameSpr('n'); cx.drawImage(fl, -bb * 0.6, Lb / 2 - 2, bb * 1.2, Hr * 0.12); cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = a; }
+        const bs = rocketBoosterSpr(bb, Lb); cx.drawImage(bs, -bb * 0.75, -Lb / 2, bb * 1.5, Lb); cx.restore();
+      });
+    } else {   // 段のつなぎ目の輪が2つに割れて落ちる
+      [-1, 1].forEach(s => {
+        const x = rx + s * (bw * 0.35 + sep * bw * 1.4), y = baseY - Hr * 0.08 + sep * 20 * K + sep * sep * ah * 0.5, a = clamp(1.5 - sep, 0, 1);
+        cx.save(); cx.translate(x, y); cx.rotate(s * sep * 2.2); cx.globalAlpha = a; cx.fillStyle = rocketCylGrad(cx, -bw * 0.25, bw * 0.25, 'dark');
+        cx.beginPath(); cx.ellipse(0, 0, bw * 0.28, Hr * 0.045, 0, 0, Math.PI * 2); cx.fill(); cx.fillStyle = 'rgba(255,255,255,0.25)'; cx.fillRect(-bw * 0.2, -Hr * 0.04, bw * 0.06, Hr * 0.08); cx.restore();
+      });
+    }
+    cx.globalAlpha = 1;
+  }
+  // 炎
+  const blueMix = sep >= 0 ? Math.exp(-sep / 0.35) : 0, flick = 1 + 0.06 * Math.sin(pn * 61) + 0.04 * Math.sin(pn * 37);
+  const idle = live ? 0.3 : 0, fLen = Hr * (idle + 0.42 * burst + 0.25 * blueMix + 0.08 * Math.min(hype, 3)) * flick * Math.max(0.2, flameMul) * (1 + vac * 0.3);
+  const fW = bw * (0.85 + 0.3 * burst) * (1 + vac * 1.1);
+  cx.save(); cx.translate(rx, noseY + dy); cx.rotate(tilt);
+  if (fLen > 1) {
+    cx.globalCompositeOperation = 'lighter';
+    const drawF = (x0, w, l, a) => {
+      const nG = 1 - goldMix, nB = blueMix;
+      cx.globalAlpha = a * Math.max(0, nG - nB * 0.5); cx.drawImage(rocketFlameSpr('n'), x0 - w / 2, Hr - 2, w, l);
+      if (goldMix > 0.02) { cx.globalAlpha = a * goldMix; cx.drawImage(rocketFlameSpr('g'), x0 - w / 2, Hr - 2, w, l * 1.08); }
+      if (nB > 0.02) { cx.globalAlpha = a * nB; cx.drawImage(rocketFlameSpr('b'), x0 - w / 2, Hr - 2, w * 1.1, l * 1.1); }
+      cx.globalAlpha = a * 0.6; cx.drawImage(rocketFlameSpr('b'), x0 - w * 0.22, Hr - 2, w * 0.44, l * 0.32);   // 青白い芯
+    };
+    drawF(0, fW, fLen, 1 - vac * 0.35);
+    if (boostersOn) [-1, 1].forEach(s => drawF(s * (bw * 0.5 + bb * 0.45), bb * 1.2 * (0.9 + 0.3 * burst), fLen * 0.75, 0.95));
+    if (burst > 0.15) {   // ショックダイヤモンド（炎の中の明るい点）
+      for (let i = 1; i <= 4; i++) { const yy = Hr + fLen * 0.11 * i, s = fW * 0.55 * (1 - i * 0.15); cx.globalAlpha = burst * 0.6 * (1 - i * 0.18); cx.drawImage(rocketGlow('#fde68a', 1), -s / 2, yy - s * 0.35, s, s * 0.7); }
+    }
+    cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = 1;
+  }
+  // ロケット本体
+  const core = rocketCoreSpr(bw, Hr), cw = bw * 2.6;
+  if (boostersOn) { const bs = rocketBoosterSpr(bb, Lb); [-1, 1].forEach(s => cx.drawImage(bs, s * (bw * 0.5 + bb * 0.45) - bb * 0.75, byT, bb * 1.5, Lb)); }
+  cx.drawImage(core, -cw / 2, 0, cw, Hr);
+  // 炎の光が機体の下を照らす（にじみ）
+  cx.globalCompositeOperation = 'lighter';
+  const gl = bw * (3 + 4 * burst) * Math.max(0.3, flameMul) * (live ? 1 : 0.3);
+  cx.globalAlpha = 0.55 + 0.35 * burst; cx.drawImage(rocketGlow(goldMix > 0.5 ? '#fbbf24' : '#fb923c', 0.9), -gl / 2, Hr + bw * 0.2 - gl / 2, gl, gl);
+  // 姿勢制御の小さな噴射（刻み）
+  if (subP > 0.02) {
+    const ny = Hr * 0.27, sx = subSide * bw * 0.55;
+    cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = subP * 0.8;
+    for (let i = 0; i < 3; i++) { const d = (1 - subP) * bw * (1.2 + i * 0.7), s = bw * (0.35 + 0.25 * i + (1 - subP) * 0.8); cx.drawImage(smk, sx + subSide * d - s / 2, ny - s / 2 + i * 1.5 * K, s, s); }
+    cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = subP; const fs = bw * 0.7; cx.drawImage(rocketGlow('#e0f2fe', 1), sx - fs / 2 + subSide * fs * 0.2, ny - fs / 2, fs, fs);
+  }
+  // タップ：ぴったり＝金色の光が機体をかけのぼる
+  if (tap && tap.k === 'p' && tap.a < 0.45) {
+    const q = tap.a / 0.45, yy = Hr * (0.95 - q * 0.95);
+    cx.globalAlpha = (1 - q) * 0.9; const s = bw * 2.2; cx.drawImage(rocketGlow('#fde68a', 1), -s / 2, yy - s * 0.25, s, s * 0.5);
+  }
+  if (tap && (tap.k === 'e' || tap.k === 'l') && tap.a < 0.6) {   // 早い／遅い：横に小さなけむり（青／赤）
+    const q = tap.a / 0.6, sd = tap.k === 'e' ? 1 : -1, s = bw * (1 + q * 1.5);
+    cx.globalCompositeOperation = 'source-over'; cx.globalAlpha = (1 - q) * 0.6; cx.drawImage(smk, sd * bw * (0.8 + q * 1.5) - s / 2, Hr * 0.55 - s / 2, s, s);
+    cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = (1 - q) * 0.45; cx.drawImage(rocketGlow(tap.k === 'e' ? '#60a5fa' : '#fb7185', 0), sd * bw * 0.9 - s, Hr * 0.55 - s, s * 2, s * 2);
+  }
+  cx.restore(); cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+  // 発射台のけむり（手前）
+  if (groundOn && live) {
+    ev.forEach(e => {
+      if (!e.head || e.age > 2.4 || cyc - e.age / Math.max(0.3, BI.len) > 1.1) return;
+      for (let i = 0; i < 4; i++) {
+        const dir = i % 2 ? 1 : -1, h1 = hash01(e.id * 5 + i), sz = bw * (2 + 4 * Math.pow(e.age, 0.5)) * (0.8 + 0.5 * h1);
+        const x = rx + dir * bw * (1 + 9 * Math.pow(e.age, 0.55) * (0.5 + h1)), y = yP + sGnd - sz * 0.3 - e.age * 10 * K;
+        cx.globalAlpha = 0.6 * Math.pow(1 - e.age / 2.4, 1.3); cx.drawImage(smk, x - sz / 2, y - sz / 2, sz, sz);
+      }
+    });
+    cx.globalAlpha = 1;
+  }
+  // 切りはなしの瞬間の光の輪と火花
+  if (sep >= 0 && sep < 0.45) {
+    const q = sep / 0.45, yy = noseY + dy + (cBar === 1 ? Hr * 0.7 : Hr * 0.9);
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.strokeStyle = `rgba(186,230,253,${0.5 * (1 - q) * (1 - q)})`; cx.lineWidth = 2 * K * (1 - q) + 0.5;
+    cx.beginPath(); cx.ellipse(rx, yy, bw * (0.9 + q * 3.2), bw * (0.25 + q * 0.8), 0, 0, Math.PI * 2); cx.stroke();
+    for (let i = 0; i < 12; i++) { const a = hash01(i + BI.bar * 17) * Math.PI * 2, v = bw * (2 + 4 * hash01(i + 33)) * q, s = 8 * K * (1 - q); cx.globalAlpha = 1 - q; cx.drawImage(rocketGlow('#fde68a', 1), rx + Math.cos(a) * v - s / 2, yy + Math.sin(a) * v * 0.6 + q * q * 30 * K - s / 2, s, s); }
+    cx.restore(); cx.globalAlpha = 1;
+  }
+  // タップ：ぴったり＝ノズルから金色の輪と星くず
+  if (tap && tap.k === 'p' && tap.a < 0.9) {
+    const q = tap.a / 0.9, ny = baseY + bw * 0.2;
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    cx.strokeStyle = `rgba(253,224,71,${0.9 * (1 - q)})`; cx.lineWidth = 3 * K * (1 - q) + 0.5; cx.beginPath(); cx.ellipse(rx, ny, bw * (0.8 + q * 5), bw * (0.25 + q * 1.3), 0, 0, Math.PI * 2); cx.stroke();
+    for (let i = 0; i < 16; i++) { const a = Math.PI * (0.1 + 0.8 * hash01(i + 70)), v = bw * (2 + 5 * hash01(i + 90)) * Math.pow(q, 0.6), s = (6 + 5 * hash01(i)) * K * (1 - q * 0.7); cx.globalAlpha = 1 - q; cx.drawImage(rocketGlow(i % 3 ? '#fde047' : '#ffffff', 1), rx + Math.cos(a) * v - s / 2, ny + Math.sin(a) * v + q * q * 40 * K - s / 2, s, s); }
+    cx.restore(); cx.globalAlpha = 1;
+  }
+  // 連続ぴったり：金色のきらきらの尾
+  if (hype > 1) {
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 18; i++) { const ph = (pn * 0.9 + i / 18) % 1, x = rx + Math.sin(i * 2.3 + pn * 2) * bw * (0.4 + ph * 2.5), y = baseY + bw + ph * ah * 0.55, s = (5 + 6 * hash01(i)) * K * (1 - ph * 0.5); cx.globalAlpha = Math.min(1, hype - 1) * (1 - ph) * (0.5 + 0.5 * Math.sin(pn * 12 + i)); cx.drawImage(rocketGlow(i % 4 ? '#fde047' : '#f0abfc', 1), x - s / 2, y - s / 2, s, s); }
+    cx.restore(); cx.globalAlpha = 1;
+  }
+  cx.restore();   // ゆれ おわり
+  // 新しい打ち上げ（8小節ごと）：白くふわっと切りかわる
+  if (live && cBar === 0 && BI.bar >= ROCKET_NB && BI.age < 0.4) { cx.fillStyle = `rgba(255,248,235,${0.55 * (1 - BI.age / 0.4)})`; cx.fillRect(0, 0, W, ah); }
+  // 大きな数字（左の空に）
+  const numX = Math.min(W * 0.25, rx - bw * 3.4 - 50 * K), numY = top + avail * 0.32, numS = Math.min(avail * 0.3, 120 * K);
+  if (live) {
+    cx.save(); cx.strokeStyle = 'rgba(103,232,249,0.4)'; cx.lineWidth = 1.5 * K; const bxw = numS * 0.62, c = numS * 0.14;
+    [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => { const px = numX + sx * bxw, py = numY + sy * numS * 0.62; cx.beginPath(); cx.moveTo(px, py - sy * c); cx.lineTo(px, py); cx.lineTo(px - sx * c, py); cx.stroke(); });
+    txt('BEAT', numX, numY - numS * 0.75, Math.max(9, 10 * K), 'rgba(165,243,252,0.7)', 800);
+    cx.shadowColor = hexA(goldMix > 0.5 ? '#fbbf24' : metCol(m, b.g, acc[b.g]), 0.7); cx.shadowBlur = 24 * K;
+    metBigNum(b, numX, numY, numS); cx.restore();
+  } else txt('▶ スタートで発射', numX + 10 * K, numY, Math.max(15, 17 * K), '#e2e8f0', 800);
+  // HUD（計器パネル）
+  const hx = 8 * K, hw = W - 16 * K;
+  cx.drawImage(rocketHudSpr(hx, hudY, hw, hudH), 0, 0, W, hudY + hudH + 4);
+  if (hype > 0.02) { cx.save(); metroBallRR(cx, hx + 0.5, hudY + 0.5, hw - 1, hudH - 1, 12 * K); cx.strokeStyle = `rgba(251,191,36,${0.8 * Math.min(1, hype)})`; cx.lineWidth = 2 * K; cx.shadowColor = '#fbbf24'; cx.shadowBlur = 12 * K * Math.min(1, hype); cx.stroke(); cx.restore(); }
+  const mono = `800 ${Math.max(9, 10 * K)}px ui-monospace, Menlo, Consolas, monospace`, ty = hudY + 12 * K;
+  cx.font = mono; cx.textBaseline = 'middle';
+  const alt = live ? (cyc < 1 ? 3 * cyc * cyc : 3 + 400 * Math.pow((cyc - 1) / (ROCKET_NB - 1), 1.5)) : 0;
+  cx.textAlign = 'left'; cx.fillStyle = 'rgba(165,243,252,0.85)'; cx.fillText(`ALT ${alt.toFixed(1)} km`, hx + 14 * K, ty);
+  const msg = !live ? 'READY' : cBar === 0 ? 'LIFTOFF' : sep >= 0 && sep < 1.2 ? (cBar === 1 ? 'BOOSTER SEP' : `STAGE ${cBar + 1} IGN`) : hype > 2 ? 'MAX THRUST' : vac > 0.5 ? 'ORBIT' : `STAGE ${cBar + 1}`;
+  cx.textAlign = 'right'; cx.fillStyle = hype > 1 || (sep >= 0 && sep < 1.2) ? '#fde68a' : 'rgba(165,243,252,0.85)'; cx.fillText(msg, hx + hw - 14 * K, ty);
+  // 拍のランプ（タップの場所も兼ねる）
+  const G = m.groups.length, ly = hudY + hudH * 0.56, lr = clamp(Math.min(W / (G * 3.6), hudH * 0.15), 7, 16 * K);
+  cx.save(); cx.globalAlpha = 0; const pos = metDotRow(m, ly, W * 0.1, W * 0.9, b, lr); cx.restore();
+  m.groups.forEach((L, gi) => {
+    const { x } = pos[gi], lv = acc[gi], col = metCol(m, gi, lv), cur = b.g === gi && !b.muted, on = cur ? Math.max(0, 1 - b.age / 0.25) : 0;
+    const pr = lr * (lv === 3 ? 1 : lv === 2 ? 0.86 : lv === 1 ? 0.7 : 0.6);
+    rocketLamp(x, ly, pr, col, lv, on, b.g === gi ? clamp(b.age / b.len, 0, 1) : -1, hype);
+    if (cur && tap && tap.k === 'p' && tap.a < 0.5) { cx.strokeStyle = `rgba(253,224,71,${1 - tap.a / 0.5})`; cx.lineWidth = 2.5 * K; cx.beginPath(); cx.arc(x, ly, pr * (1.6 + tap.a * 2), 0, Math.PI * 2); cx.stroke(); }
+    txt(['', '弱', '中', '強'][lv] || '', x, ly + lr * 1.75, Math.max(9, 10 * K), on > 0 ? '#e2e8f0' : '#7c8aa0', 700);
+    if (metF(m) !== 2) txt(String(L), x, ly - lr * 1.65, Math.max(10, 11 * K), hexA(col, 0.9), 900);
+  });
+}
+/* 🌌 オーロラ：雪山と湖の夜。拍の頭でオーロラのカーテンが波打って明るくなり、刻みでちらちら光る。小節の頭で流れ星
+   （小道具は drawRocket のところの rocketCache・rocketEvents などを使う） */
+let auroraLayer = null;
+// オーロラの光のすじ（下のふちが明るく、上へいくほど色が変わって消える）
+function auroraRaySpr(pal) {
+  return rocketCache('aur' + pal, '1', 24, 160, g => {
+    const S = {
+      g: [[0, 'rgba(0,0,0,0)'], [0.18, 'rgba(150,90,230,0.10)'], [0.45, 'rgba(40,190,170,0.20)'], [0.74, 'rgba(50,235,160,0.5)'], [0.88, 'rgba(120,255,185,0.95)'], [0.91, 'rgba(225,255,235,1)'], [1, 'rgba(60,255,170,0)']],
+      p: [[0, 'rgba(0,0,0,0)'], [0.2, 'rgba(120,80,255,0.16)'], [0.5, 'rgba(220,80,220,0.32)'], [0.78, 'rgba(255,110,190,0.55)'], [0.9, 'rgba(255,200,230,0.95)'], [1, 'rgba(255,120,200,0)']],
+      y: [[0, 'rgba(0,0,0,0)'], [0.3, 'rgba(255,170,60,0.18)'], [0.65, 'rgba(255,215,90,0.5)'], [0.88, 'rgba(255,245,190,1)'], [1, 'rgba(255,220,120,0)']],
+      b: [[0, 'rgba(0,0,0,0)'], [0.4, 'rgba(70,120,255,0.18)'], [0.8, 'rgba(110,170,255,0.5)'], [0.9, 'rgba(200,225,255,0.9)'], [1, 'rgba(90,150,255,0)']],
+      r: [[0, 'rgba(0,0,0,0)'], [0.4, 'rgba(255,80,120,0.16)'], [0.8, 'rgba(255,110,140,0.45)'], [0.9, 'rgba(255,200,210,0.85)'], [1, 'rgba(255,90,130,0)']],
+    }[pal];
+    const gr = g.createLinearGradient(0, 0, 0, 160); S.forEach(([o, c]) => gr.addColorStop(o, c));
+    g.fillStyle = gr; g.fillRect(0, 0, 24, 160);
+    g.globalCompositeOperation = 'destination-in';
+    const hg = g.createLinearGradient(0, 0, 24, 0); hg.addColorStop(0, 'rgba(0,0,0,0)'); hg.addColorStop(0.5, 'rgba(0,0,0,1)'); hg.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = hg; g.fillRect(0, 0, 24, 160);
+  });
+}
+// 4つの角の星（拍の星・きらめき）
+function auroraStarPath(x, y, r, thin = 0.18) {
+  cx.beginPath();
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4 - Math.PI / 2, rr2 = i % 2 ? r * thin : r * (i % 4 === 0 ? 1 : 0.8); cx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
+  cx.closePath();
+}
+// 山の峰1つ（左の面に光、右の面は影。上の方は雪）
+function auroraPeak(g, px, h, w, Hz, seed, rock, snowL, snowD, snowF) {
+  const pts = [], n = 14;
+  for (let i = 0; i <= n; i++) { const u = i / n, x = px - w + u * w, y = Hz - h * Math.pow(u, 1.25) + (i && i < n ? (hash01(seed + i) - 0.5) * h * 0.13 : 0); pts.push([x, y]); }
+  for (let i = 1; i <= n; i++) { const u = 1 - i / n, x = px + (i / n) * w * 1.1, y = Hz - h * Math.pow(u, 1.1) + (i < n ? (hash01(seed + 40 + i) - 0.5) * h * 0.13 : 0); pts.push([x, y]); }
+  const path = () => { g.beginPath(); g.moveTo(px - w, Hz + 1); pts.forEach(([x, y]) => g.lineTo(x, y)); g.lineTo(px + w * 1.1, Hz + 1); g.closePath(); };
+  let gr = g.createLinearGradient(px - w, 0, px + w * 1.1, 0); gr.addColorStop(0, shade(rock, 0.18)); gr.addColorStop(0.47, shade(rock, 0.1)); gr.addColorStop(0.48, shade(rock, -0.35)); gr.addColorStop(1, shade(rock, -0.55));
+  path(); g.fillStyle = gr; g.fill();
+  g.save(); path(); g.clip();
+  const sl = Hz - h * (0.42 + 0.12 * hash01(seed + 90));   // 雪の線（ぎざぎざ）
+  g.beginPath(); g.moveTo(px - w, Hz - h * 1.2);
+  for (let x = px - w; x <= px + w * 1.1; x += w / 9) g.lineTo(x, sl + (hash01(seed + x * 0.37) - 0.3) * h * 0.18 + Math.abs(x - px) / w * h * 0.12);
+  g.lineTo(px + w * 1.1, Hz - h * 1.2); g.closePath();
+  gr = g.createLinearGradient(px - w, 0, px + w * 1.1, 0); gr.addColorStop(0, snowL); gr.addColorStop(0.475, snowF); gr.addColorStop(0.485, snowD); gr.addColorStop(1, shade(snowD, -0.3));
+  g.fillStyle = gr; g.fill();
+  g.strokeStyle = hexA(snowD, 0.6); g.lineWidth = 1;   // 谷の雪のすじ
+  for (let i = 0; i < 6; i++) { const x = px - w * 0.7 + hash01(seed + i * 3) * w * 1.6, y0 = sl - h * 0.05; g.beginPath(); g.moveTo(x, y0); g.lineTo(x + (hash01(seed + i) - 0.5) * w * 0.15, y0 + h * (0.12 + 0.2 * hash01(seed + i + 9))); g.stroke(); }
+  g.restore();
+}
+// もみの木のシルエット（枝に雪）
+function auroraPine(g, x, by, h, col, snow) {
+  const w = h * 0.36, tiers = 7;
+  g.fillStyle = col; g.fillRect(x - h * 0.025, by - h * 0.12, h * 0.05, h * 0.13);
+  for (let i = 0; i < tiers; i++) {
+    const t0 = i / tiers, yb = by - h * 0.08 - t0 * h * 0.86, ww = w * (1 - t0 * 0.85) * 0.5, th = h * 0.22;
+    g.fillStyle = col; g.beginPath(); g.moveTo(x, yb - th); g.lineTo(x + ww, yb); g.lineTo(x + ww * 0.3, yb - th * 0.12); g.lineTo(x - ww * 0.3, yb - th * 0.12); g.lineTo(x - ww, yb); g.closePath(); g.fill();
+    if (snow) { g.strokeStyle = snow; g.lineWidth = Math.max(1, h * 0.008); g.beginPath(); g.moveTo(x - ww * 0.85, yb - th * 0.05); g.quadraticCurveTo(x - ww * 0.55, yb - th * 0.2, x - ww * 0.35, yb - th * 0.3); g.stroke(); }
+  }
+}
+// 動かない部分（空・湖の色・山・木・雪）をまとめて描いておく
+function auroraScene(top, Hz, shoreY, ah) {
+  const key = [W, ah, top, Hz, shoreY, K].join('|'), SH = Hz - top, mt = SH * 0.36;
+  const sky = rocketCache('ausky', key, W, ah, g => {
+    let gr = g.createLinearGradient(0, 0, 0, Hz); gr.addColorStop(0, '#01030c'); gr.addColorStop(0.5, '#051026'); gr.addColorStop(0.85, '#0a2236'); gr.addColorStop(1, '#123844');
+    g.fillStyle = gr; g.fillRect(0, 0, W, Hz);
+    g.save(); g.translate(W * 0.55, Hz * 0.45); g.rotate(-0.5); g.scale(1, 0.16);   // 天の川
+    gr = g.createRadialGradient(0, 0, 0, 0, 0, Math.max(W, ah)); gr.addColorStop(0, 'rgba(190,200,255,0.12)'); gr.addColorStop(0.5, 'rgba(160,170,230,0.05)'); gr.addColorStop(1, 'rgba(150,160,220,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(0, 0, Math.max(W, ah), 0, Math.PI * 2); g.fill(); g.restore();
+    for (let i = 0; i < 300; i++) {
+      const y = Math.pow(hash01(i + 50), 1.3) * Hz * 0.95, r = (0.3 + 0.95 * Math.pow(hash01(i + 77), 4)) * K, a = (0.25 + 0.7 * hash01(i + 5)) * (1 - 0.6 * y / Hz);
+      g.fillStyle = `rgba(${220 + 35 * hash01(i + 3) | 0},${225 + 25 * hash01(i + 4) | 0},255,${a})`; g.beginPath(); g.arc(hash01(i) * W, y, r, 0, Math.PI * 2); g.fill();
+    }
+    // 湖（空が映る）
+    gr = g.createLinearGradient(0, Hz, 0, shoreY); gr.addColorStop(0, '#0d2c38'); gr.addColorStop(0.4, '#071a28'); gr.addColorStop(1, '#030a14');
+    g.fillStyle = gr; g.fillRect(0, Hz, W, shoreY - Hz + 2);
+    for (let i = 0; i < 70; i++) { const y = Hz + (shoreY - Hz) * Math.pow(hash01(i + 800), 0.8); g.fillStyle = `rgba(200,220,255,${0.08 + 0.2 * hash01(i + 830)})`; g.fillRect(hash01(i + 860) * W, y, (1 + 2 * hash01(i)) * K, 0.8); }
+  });
+  const front = rocketCache('aufront', key, W, ah, g => {
+    const peaks = (gg) => {   // 遠い山 → 近い山
+      [[0.08, 0.62, 0.16], [0.3, 0.8, 0.2], [0.5, 0.55, 0.14], [0.72, 0.9, 0.22], [0.95, 0.7, 0.18]].forEach(([u, hh, ww], i) => auroraPeak(gg, W * u, mt * hh, Math.max(W * ww, mt * 1.2), Hz, i * 50 + 7, '#24334c', '#b6c7dc', '#5d7090', '#d9e6f3'));
+      [[-0.04, 1.15, 0.24], [0.2, 0.75, 0.18], [0.86, 1.05, 0.22], [1.06, 1.25, 0.2]].forEach(([u, hh, ww], i) => auroraPeak(gg, W * u, mt * hh * 0.8, Math.max(W * ww, mt * 1.4), Hz, i * 70 + 300, '#141e30', '#cfdbea', '#4b5d7a', '#eef5fb'));
+      gg.fillStyle = '#060b14';   // 向こう岸の小さな木
+      for (let x = 0; x < W; x += 5 * K) { if (hash01(x * 0.13) < 0.35) continue; const h = (5 + 9 * hash01(x * 0.71)) * K; gg.beginPath(); gg.moveTo(x, Hz - h); gg.lineTo(x + h * 0.28, Hz + 1); gg.lineTo(x - h * 0.28, Hz + 1); gg.fill(); }
+      gg.fillRect(0, Hz - 1.5 * K, W, 3 * K);
+    };
+    peaks(g);
+    // ふもとのもや
+    let gr = g.createLinearGradient(0, Hz - mt * 0.4, 0, Hz); gr.addColorStop(0, 'rgba(60,140,150,0)'); gr.addColorStop(1, 'rgba(60,140,150,0.18)');
+    g.fillStyle = gr; g.fillRect(0, Hz - mt * 0.4, W, mt * 0.4);
+    // 湖に映る山（さかさま・少しつぶれて暗い）
+    g.save(); g.beginPath(); g.rect(0, Hz, W, shoreY - Hz); g.clip();
+    g.translate(0, Hz); g.scale(1, -0.75); g.translate(0, -Hz); g.globalAlpha = 0.5; peaks(g); g.restore();
+    g.save(); g.beginPath(); g.rect(0, Hz, W, shoreY - Hz); g.clip();
+    gr = g.createLinearGradient(0, Hz, 0, shoreY); gr.addColorStop(0, 'rgba(3,10,20,0.15)'); gr.addColorStop(1, 'rgba(3,10,20,0.55)'); g.fillStyle = gr; g.fillRect(0, Hz, W, shoreY - Hz);
+    for (let y = Hz + 3; y < shoreY; y += 3 + (y - Hz) * 0.06) { g.fillStyle = 'rgba(150,190,220,0.05)'; g.fillRect(0, y, W, 1); }   // さざ波
+    g.restore();
+    g.fillStyle = 'rgba(180,220,230,0.25)'; g.fillRect(0, Hz + 1, W, 1);
+    // 手前の雪の岸
+    const fy = x => shoreY + Math.sin(x / W * 5 + 1) * 4 * K + Math.sin(x / W * 13) * 2 * K - (Math.max(0, 1 - x / (W * 0.3)) + Math.max(0, x / W - 0.75) * 1.2) * (ah - shoreY) * 0.5;
+    g.beginPath(); g.moveTo(0, ah); for (let x = 0; x <= W; x += 6 * K) g.lineTo(x, fy(x)); g.lineTo(W, fy(W)); g.lineTo(W, ah); g.closePath();
+    gr = g.createLinearGradient(0, shoreY - (ah - shoreY) * 0.5, 0, ah); gr.addColorStop(0, '#c4d3e6'); gr.addColorStop(0.35, '#7f93b2'); gr.addColorStop(1, '#27324a');
+    g.fillStyle = gr; g.fill();
+    g.save(); g.clip();
+    g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1.2 * K; g.beginPath(); for (let x = 0; x <= W; x += 6 * K) { x ? g.lineTo(x, fy(x) + 1) : g.moveTo(x, fy(x) + 1); } g.stroke();
+    for (let i = 0; i < 5; i++) { const x = hash01(i + 200) * W, y = shoreY + (ah - shoreY) * (0.4 + 0.5 * hash01(i + 210)); g.save(); g.translate(x, y); g.scale(1, 0.18); const rg = g.createRadialGradient(0, 0, 0, 0, 0, W * 0.25); rg.addColorStop(0, 'rgba(20,30,60,0.25)'); rg.addColorStop(1, 'rgba(20,30,60,0)'); g.fillStyle = rg; g.beginPath(); g.arc(0, 0, W * 0.25, 0, Math.PI * 2); g.fill(); g.restore(); }
+    g.restore();
+    // もみの木（左右から画面をはさむ）
+    const ph = (shoreY - top) * 0.62;
+    [[0.02, 1.0], [0.1, 0.78], [-0.03, 0.85], [0.17, 0.55], [0.93, 0.92], [0.99, 1.05], [0.85, 0.6]].forEach(([u, s], i) => {
+      const x = W * u, by = fy(clamp(x, 0, W)) + 4 * K, h = ph * s * (W > 700 ? 0.95 : 1);
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.beginPath(); g.ellipse(x + h * 0.12, by, h * 0.2, h * 0.025, 0, 0, Math.PI * 2); g.fill();
+      auroraPine(g, x, by, h, i % 2 ? '#060a12' : '#080d17', 'rgba(210,225,240,0.32)');
+    });
+  });
+  return { sky, front };
+}
+function drawAurora(st, now, ah) {
+  const b = metBeatInfo(st, now), m = b.m, acc = accOf(m), pn = performance.now() / 1000, live = b.g >= 0;
+  const top = 62 * K, Hz = Math.round(top + (ah - top) * 0.6), shoreY = Math.round(Hz + (ah - Hz) * 0.6), SH = Hz - top;
+  const BI = rocketBarInfo(st, b), hype = rocketHype('aurora'), tap = rocketTap();
+  const ev = live ? rocketEvents(st, b, 1.5) : [];
+  let bright = 0, wave = 9, shim = 0, pink = 0;
+  ev.forEach(e => {
+    if (e.head) {
+      const s = e.muted ? 0 : e.lv === 3 ? 1.25 : e.lv === 2 ? 1 : e.lv === 1 ? 0.6 : 0;
+      if (e.age < 0.9) bright = Math.max(bright, s * Math.exp(-e.age / 0.3));
+      if (s > 0 && e.age < wave) wave = e.age;
+      if (e.bar) pink = Math.max(pink, Math.exp(-e.age / 0.7));
+    } else shim = Math.max(shim, e.w * Math.exp(-e.age / 0.14));
+  });
+  const waveA = live ? Math.exp(-wave / 0.55) : 0;
+  const { sky, front } = auroraScene(top, Hz, shoreY, ah);
+  cx.drawImage(sky, 0, 0, W, ah);
+  // 空のほのかな緑（オーロラの明るさで変わる）
+  const glowA = 0.1 + 0.12 * bright + 0.06 * Math.min(hype, 3);
+  let g = cx.createLinearGradient(0, top, 0, Hz); g.addColorStop(0, 'rgba(40,200,140,0)'); g.addColorStop(1, `rgba(40,200,140,${glowA})`);
+  cx.fillStyle = g; cx.fillRect(0, top, W, Hz - top);
+  // またたく星（刻みで少し強く）
+  for (let i = 0; i < 18; i++) {
+    const tw = Math.max(0, Math.sin(pn * (1.1 + hash01(i + 700)) + i * 2.1)) * (1 + shim * 0.8);
+    const x = hash01(i + 720) * W, y = top * 0.4 + hash01(i + 740) * SH * 0.7, r = (0.9 + 0.5 * hash01(i)) * K;
+    cx.fillStyle = `rgba(241,245,255,${Math.min(1, 0.65 * tw * tw)})`; cx.fillRect(x - r * 1.6, y - r * 0.25, r * 3.2, r * 0.5); cx.fillRect(x - r * 0.25, y - r * 1.6, r * 0.5, r * 3.2);
+  }
+  // オーロラを半分の大きさのキャンバスに描く（やわらかくにじむ・湖にも映す）
+  const LW = Math.max(1, Math.round(W / 2)), LH = Math.max(1, Math.round(Hz / 2));
+  if (!auroraLayer || auroraLayer.width !== LW || auroraLayer.height !== LH) { auroraLayer = document.createElement('canvas'); auroraLayer.width = LW; auroraLayer.height = LH; }
+  const L = auroraLayer.getContext('2d');
+  L.setTransform(1, 0, 0, 1, 0, 0); L.clearRect(0, 0, LW, LH); L.setTransform(LW / W, 0, 0, LH / Hz, 0, 0); L.globalCompositeOperation = 'lighter';
+  let sway = 0, tint = null, tintA = 0;
+  if (tap && (tap.k === 'e' || tap.k === 'l')) { sway = (tap.k === 'e' ? -1 : 1) * W * 0.035 * Math.sin(tap.a * 8) * Math.exp(-tap.a * 3.2); tint = tap.k === 'e' ? 'b' : 'r'; tintA = 0.6 * Math.exp(-tap.a / 0.35); }
+  const gold = tap && tap.k === 'p' ? tap.a : -1;
+  const curtains = [
+    { y: 0.6, h: 0.62, amp: 0.07, k: 1.6, sp: 0.05, ph: 0.4, a: 1.0 },
+    { y: 0.48, h: 0.5, amp: 0.06, k: 2.4, sp: -0.04, ph: 2.1, a: 0.6 },
+    { y: 0.72, h: 0.42, amp: 0.05, k: 1.1, sp: 0.03, ph: 4.0, a: 0.55 },
+  ];
+  if (hype > 1) curtains.push({ y: 0.36, h: 0.4, amp: 0.05, k: 3.1, sp: 0.06, ph: 5.3, a: 0.6 * Math.min(1, hype - 1), pk: 1 });
+  const N = clamp(Math.round(W / 7), 40, 130), sw = W / N, sprG = auroraRaySpr('g'), sprP = auroraRaySpr('p'), sprY = auroraRaySpr('y');
+  const pinkA = 0.12 + 0.55 * pink + 0.25 * Math.min(hype, 2);
+  curtains.forEach((c, ci) => {
+    for (let i = -1; i <= N + 1; i++) {
+      const u = i / N, x = i * sw + sway * (0.6 + 0.4 * (ci % 2));
+      let yb = top + SH * (c.y + c.amp * Math.sin(u * c.k * 6.283 + pn * c.sp * 6.283 + c.ph) + 0.025 * Math.sin(u * 11 + pn * 0.6 + c.ph * 2));
+      yb += SH * 0.04 * waveA * Math.sin(u * 10 - wave * 13 + ci);   // 拍の頭：波がカーテンを走る
+      const fold = 0.5 + 0.5 * Math.sin(u * 21 + pn * 0.8 + c.ph * 3 + Math.sin(u * 7 + pn * 0.3) * 2);
+      const pulse = Math.exp(-Math.pow((Math.abs(u - 0.5) - wave * 1.1) / 0.12, 2)) * waveA;   // 真ん中から外へ広がる明るさ
+      const hh = SH * c.h * (0.7 + 0.3 * Math.sin(u * 6 + pn * 0.5 + c.ph)) * (1 + 0.22 * bright);
+      let a = c.a * (0.22 + 0.78 * fold * fold) * (0.42 + 0.55 * bright + 0.5 * pulse);
+      a *= 1 + 0.45 * shim * Math.sin(i * 2.9 + pn * 47);   // 刻み：ちらちら
+      if (a <= 0.01) continue;
+      const dw = sw * 3, dh = hh / 0.9;
+      L.globalAlpha = Math.min(1, a); L.drawImage(c.pk ? sprP : sprG, x - dw / 2, yb - hh, dw, dh);
+      if (!c.pk && pinkA > 0.05) { L.globalAlpha = Math.min(1, a * pinkA); L.drawImage(sprP, x - dw / 2, yb - hh * 1.35, dw, hh * 0.9); }
+      if (tint) { L.globalAlpha = a * tintA; L.drawImage(auroraRaySpr(tint), x - dw / 2, yb - hh, dw, dh); }
+      if (gold >= 0 && gold < 1) {   // ぴったり：金色の光が真ん中から両側へ
+        const ga = Math.exp(-Math.pow((Math.abs(u - 0.5) - gold * 0.75) / 0.09, 2)) * (1 - gold);
+        if (ga > 0.02) { L.globalAlpha = Math.min(1, ga * 1.3); L.drawImage(sprY, x - dw / 2, yb - hh * 1.1, dw, dh * 1.1); }
+      }
+    }
+  });
+  if (hype > 2) {   // 連続ぴったり：天頂から光の筋が広がる（コロナ）
+    const zx = W / 2, zy = top - SH * 0.15, ca = Math.min(1, hype - 2);
+    for (let i = 0; i < 26; i++) {
+      const an = -Math.PI / 2 + (i / 25 - 0.5) * 2.4 + 0.04 * Math.sin(pn + i), len = SH * (0.55 + 0.25 * Math.sin(i * 1.7 + pn * 1.3));
+      L.save(); L.translate(zx, zy); L.rotate(an - Math.PI / 2 + Math.PI); L.globalAlpha = ca * (0.35 + 0.3 * Math.sin(i * 2.3 + pn * 2)); L.drawImage(i % 3 ? sprG : sprP, -sw * 1.2, 0, sw * 2.4, len); L.restore();
+    }
+  }
+  L.globalCompositeOperation = 'source-over'; L.globalAlpha = 1;
+  // 流れ星（小節の頭）。湖にも映す
+  const meteors = [];
+  if (live && BI.age < 1.1) meteors.push({ q: BI.age / 0.9, s: BI.bar, big: 1 });
+  if (hype > 1 && live && b.age < 0.6 && b.g >= 0 && !m.barStartGroup.includes(b.g)) meteors.push({ q: b.age / 0.5, s: BI.bar * 13 + b.g + 5, big: 0.55 * Math.min(1, hype - 1) });
+  const meteor = (mt, refl) => {
+    if (mt.q >= 1) return;
+    const h1 = hash01(mt.s * 3 + 1), h2 = hash01(mt.s * 3 + 2), x0 = W * (0.45 + 0.5 * h1), y0 = top + SH * (0.04 + 0.22 * h2), an = Math.PI * (0.78 + 0.08 * h2);
+    const e = 1 - Math.pow(1 - mt.q, 2), dist = W * 0.5 * mt.big, hx = x0 + Math.cos(an) * dist * e, hy = y0 + Math.sin(an) * dist * e;
+    const tl = W * 0.2 * mt.big * (1 - mt.q * 0.4), tx = hx - Math.cos(an) * tl, ty = hy - Math.sin(an) * tl, al = Math.sin(Math.PI * Math.min(1, mt.q * 1.2 + 0.05)) * (refl ? 0.35 : 1);
+    const gr = cx.createLinearGradient(tx, ty, hx, hy); gr.addColorStop(0, 'rgba(180,220,255,0)'); gr.addColorStop(1, `rgba(240,250,255,${al})`);
+    cx.strokeStyle = gr; cx.lineWidth = 2 * K * mt.big + 0.5; cx.lineCap = 'round'; cx.beginPath(); cx.moveTo(tx, ty); cx.lineTo(hx, hy); cx.stroke(); cx.lineCap = 'butt';
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = al; const s = 22 * K * mt.big; cx.drawImage(rocketGlow('#bae6fd', 1), hx - s / 2, hy - s / 2, s, s); cx.restore();
+  };
+  meteors.forEach(mt => meteor(mt, false));
+  cx.save(); cx.globalCompositeOperation = 'lighter'; cx.drawImage(auroraLayer, 0, 0, W, Hz); cx.restore();
+  // 湖：映るオーロラと流れ星
+  cx.save(); cx.beginPath(); cx.rect(0, Hz, W, shoreY - Hz); cx.clip();
+  cx.translate(0, Hz); cx.scale(1, -0.75); cx.translate(0, -Hz);
+  cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.5; cx.drawImage(auroraLayer, 0, 0, W, Hz); cx.globalAlpha = 1; cx.globalCompositeOperation = 'source-over';
+  meteors.forEach(mt => meteor(mt, true));
+  cx.restore();
+  // 山・木・雪
+  cx.drawImage(front, 0, 0, W, ah);
+  // 雪と湖を照らすオーロラの光
+  cx.save(); cx.globalCompositeOperation = 'lighter';
+  g = cx.createLinearGradient(0, Hz, 0, ah); g.addColorStop(0, `rgba(60,230,160,${0.05 + 0.1 * bright + 0.05 * pink})`); g.addColorStop(0.5, 'rgba(60,230,160,0.02)'); g.addColorStop(1, `rgba(60,230,160,${0.04 + 0.1 * bright})`);
+  cx.fillStyle = g; cx.fillRect(0, Hz, W, ah - Hz);
+  // 湖面のきらめき（ゆっくり動く・刻みでちらっと）
+  for (let i = 0; i < 16; i++) {
+    const y = Hz + (shoreY - Hz) * (0.06 + 0.85 * hash01(i + 400)), x = mod(hash01(i + 420) * W + pn * (6 + 8 * hash01(i)) * K, W + 40) - 20, w = (10 + 28 * hash01(i + 440)) * K * (0.5 + (y - Hz) / (shoreY - Hz));
+    cx.fillStyle = `rgba(140,255,200,${(0.05 + 0.12 * bright + 0.14 * shim * hash01(i + 9)) * (0.6 + 0.4 * Math.sin(pn * 2 + i))})`; cx.fillRect(x, y, w, 1);
+  }
+  // 雪のきらきら（連続ぴったりで増える）
+  const sn = 10 + Math.round(18 * Math.min(1, hype / 3));
+  for (let i = 0; i < sn; i++) {
+    const tw = Math.max(0, Math.sin(pn * (1.5 + 2 * hash01(i + 600)) + i * 1.9)), x = hash01(i + 620) * W, y = shoreY + (ah - shoreY) * (0.25 + 0.7 * hash01(i + 640)), s = (2 + 3 * hash01(i)) * K * (1 + hype * 0.25);
+    cx.globalAlpha = Math.pow(tw, 6) * (0.6 + 0.4 * Math.min(1, hype)); cx.drawImage(rocketGlow(i % 3 ? '#e0f2fe' : '#bbf7d0', 1), x - s, y - s, s * 2, s * 2);
+  }
+  cx.restore(); cx.globalAlpha = 1;
+  // 湖のさざ波の輪（タップ）
+  if (tap && tap.a < 1.1) {
+    const q = tap.a / 1.1, rcx = W / 2, rcy = Hz + (shoreY - Hz) * 0.5, col = tap.k === 'p' ? '253,224,71' : tap.k === 'e' ? '96,165,250' : tap.k === 'l' ? '251,113,133' : '203,213,225';
+    const big = tap.k === 'p' ? 1 : tap.k === 'x' ? 0.35 : 0.6;
+    for (let k = 0; k < (tap.k === 'p' ? 3 : 1); k++) {
+      const qq = q - k * 0.12; if (qq <= 0) continue;
+      cx.strokeStyle = `rgba(${col},${0.7 * (1 - qq) * big})`; cx.lineWidth = 1.5 * K;
+      cx.beginPath(); cx.ellipse(rcx, rcy, W * 0.3 * qq * big + 4, (shoreY - Hz) * 0.16 * qq * big + 1, 0, 0, Math.PI * 2); cx.stroke();
+    }
+    if (tap.k === 'p') {   // 金色の星くずが湖から舞い上がる
+      cx.save(); cx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 22; i++) {
+        const sp = (hash01(i + 31) - 0.5) * W * 0.5, x = rcx + sp * Math.pow(q, 0.5) + Math.sin(i + q * 6) * 6 * K, y = rcy - (SH * 0.35 + SH * 0.4 * hash01(i + 57)) * Math.pow(q, 0.7), s = (5 + 7 * hash01(i + 3)) * K * (1 - q * 0.5);
+        cx.globalAlpha = (1 - q) * (0.6 + 0.4 * Math.sin(pn * 30 + i)); cx.drawImage(rocketGlow(i % 3 ? '#fde047' : '#f9a8d4', 1), x - s / 2, y - s / 2, s, s);
+      }
+      cx.restore(); cx.globalAlpha = 1;
+    }
+  }
+  // 拍の星（星座のように線でつなぐ。タップの場所も兼ねる）
+  const G = m.groups.length, ys = top + SH * 0.24, r = clamp(Math.min(W / (G * 3.6), SH * 0.07), 8, 18 * K);
+  cx.save(); cx.globalAlpha = 0; const pos = metDotRow(m, ys, W * 0.12, W * 0.88, b, r); cx.restore();
+  cx.strokeStyle = 'rgba(186,215,255,0.28)'; cx.lineWidth = 1.2 * K; cx.setLineDash([2 * K, 4 * K]);
+  cx.beginPath(); pos.forEach((p, i) => { const yy = p.y + Math.sin(i * 2.1) * r * 0.25; i ? cx.lineTo(p.x, yy) : cx.moveTo(p.x, yy); }); cx.stroke(); cx.setLineDash([]);
+  if (live && G > 1) {   // 次の星へ流れる光（拍の進み具合）
+    const a = pos[b.g], nb = pos[(b.g + 1) % G], u = clamp(b.age / b.len, 0, 1), wrap = b.g === G - 1;
+    const x = a.x + (nb.x - a.x) * u, y = (wrap ? ys - Math.sin(Math.PI * u) * r * 2.2 : ys + Math.sin((b.g + u) * 2.1) * r * 0.25);
+    cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.85 * (wrap ? 0.6 : 1); const s = r * 1.6; cx.drawImage(rocketGlow('#e0f2fe', 1), x - s / 2, y - s / 2, s, s); cx.restore();
+  }
+  m.groups.forEach((Lg, gi) => {
+    const p = pos[gi], lv = acc[gi], col = metCol(m, gi, lv), on = b.g === gi && !b.muted ? Math.max(0, 1 - b.age / 0.3) : 0, cur = b.g === gi && live;
+    const yy = p.y + Math.sin(gi * 2.1) * r * 0.25, pr = r * (lv === 3 ? 1 : lv === 2 ? 0.82 : lv === 1 ? 0.65 : 0.55);
+    const goldOn = cur && tap && tap.k === 'p' && tap.a < 0.6 ? 1 - tap.a / 0.6 : 0;
+    cx.save(); cx.globalCompositeOperation = 'lighter';
+    const tw = 0.85 + 0.15 * Math.sin(pn * 3 + gi * 1.7);
+    if (lv) { const s = pr * (3.2 + 3.5 * on + 2 * goldOn); cx.globalAlpha = (0.35 + 0.65 * on) * tw; cx.drawImage(rocketGlow(goldOn > 0.3 ? '#fde047' : col, 0.5 + 0.5 * on), p.x - s / 2, yy - s / 2, s, s); }
+    cx.restore();
+    if (lv === 0) { cx.strokeStyle = '#64748b'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(p.x, yy, pr * 0.7, 0, Math.PI * 2); cx.stroke(); txt('×', p.x, yy + 1, pr * 1.1, '#64748b', 900); }
+    else {
+      const rr2 = pr * (1 + 0.35 * on + 0.4 * goldOn) * (cur ? 1.08 : 1);
+      auroraStarPath(p.x, yy, rr2 * 1.25, 0.2); cx.fillStyle = on > 0 || goldOn ? '#ffffff' : hexA(shade(col, 0.2), lv === 1 ? 0.45 : 0.75); cx.fill();
+      if (on > 0) { auroraStarPath(p.x, yy, rr2 * 0.75, 0.32); cx.fillStyle = hexA(goldOn ? '#fde047' : col, 0.85); cx.fill(); }
+      if (on > 0.2 || goldOn) { cx.strokeStyle = hexA(goldOn ? '#fde68a' : '#ffffff', 0.6 * Math.max(on, goldOn)); cx.lineWidth = 1; const L2 = rr2 * (2.6 + 2 * goldOn); cx.beginPath(); cx.moveTo(p.x - L2, yy); cx.lineTo(p.x + L2, yy); cx.moveTo(p.x, yy - L2); cx.lineTo(p.x, yy + L2); cx.stroke(); }
+    }
+    txt(['', '弱', '中', '強'][lv] || '', p.x, ys + r * 1.9, Math.max(9, 10 * K), on > 0 ? '#e2e8f0' : 'rgba(148,163,184,0.85)', 700);
+    if (metF(m) !== 2) txt(String(Lg), p.x, ys - r * 1.75, Math.max(10, 11 * K), hexA(col, 0.9), 900);
+  });
+  // 大きな数字（夜空に、湖に少し映る）
+  const numY = top + SH * 0.6, numS = Math.min(SH * 0.34, 130 * K);
+  if (live) {
+    cx.save(); cx.shadowColor = hexA(goldNow(), 0.75); cx.shadowBlur = 28 * K; metBigNum(b, W / 2, numY, numS); cx.restore();
+  } else txt('▶ スタートでオーロラが光る', W / 2, numY, Math.max(15, 17 * K), '#cbd5e1', 800);
+  function goldNow() { return tap && tap.k === 'p' && tap.a < 0.6 ? '#fde047' : metCol(m, b.g, acc[b.g]); }
+}
 /* ---------- リアルな見た目の部品（光と影・金属・木・ガラス） ---------- */
 // やわらかい影（床に落ちる楕円）
 function softShadow(x, y, rx, ry, a = 0.4) {
@@ -3828,7 +4605,6 @@ function glassShine(x, y, w, h, a = 0.35) {
   const g = cx.createLinearGradient(x, y, x + w * 0.6, y + h); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.35, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   cx.fillStyle = g; cx.fill();
 }
-/* @@BEGIN drawFace */
 // 小さな顔：つやのある黒い目（映りこみの光つき）、ほお、口。球の上にのせても立体に見えるよう、端ほど細くする
 // mood（なくてもよい）：{ joy：0〜1 にっこり（目が ^ ^、口をあけて笑う）, worry：0〜1 あせり（汗・への字の口）, look：-1〜1 目線 }
 function drawFace(x, y, r, dirX, now, mood) {
@@ -3886,8 +4662,6 @@ function drawFace(x, y, r, dirX, now, mood) {
   cx.strokeStyle = 'rgba(255,255,255,0.25)'; cx.lineWidth = Math.max(0.8, r * 0.03);
   cx.beginPath(); cx.arc(x + lx, y + r * 0.12 + r * 0.04, r * 0.15, 0.3 * Math.PI, 0.7 * Math.PI); cx.stroke();
 }
-/* @@END drawFace */
-/* @@BEGIN drawCharBall */
 // つやのあるボール（左上からの光・下からの照り返し・ふちの光）に、小さな顔
 // fx（なくてもよい）：{ joy, worry, look（顔へ）, gold：0〜1 金色にかがやく, spin：回転（ラジアン） }
 function drawCharBall(x, yBottom, r, sq, colA, colB, dirX, now, fx) {
@@ -4012,7 +4786,6 @@ function drawCharBallConfetti(owner, fest, x0, x1, y0, y1) {
   if (Math.random() < rate / 60) drawCharBallBurst(owner, x0 + Math.random() * (x1 - x0), y0 + Math.random() * Math.max(0, y1 - y0), 1,
     { kind: 'conf', cols: ['#fde047', '#f472b6', '#38bdf8', '#a3e635', '#fb923c', '#c084fc'], sp: 30, a0: 1.2, a1: 1.9, g: 90, drag: 1.2, life: 2.4, size: 3.2, vx: (Math.random() - 0.5) * 40 });
 }
-/* @@END drawCharBall */
 
 /* ---------- モードE：階段をのぼりおり ----------
    ・刻みごとに小さく跳ねる　・拍の頭で次の段へ（1段の幅 ＝ グループの長さ）
@@ -4047,7 +4820,6 @@ function stairsStonePattern() {
   stairsStone = { _key: key, pat: cx.createPattern(c, 'repeat') };
   return stairsStone.pat;
 }
-/* @@BEGIN drawStairs */
 // 遠くの山なみ（2列：奥はうすく、手前は濃く）。横につなげて流せるよう、はしがつながる形
 function drawStairsHillsPaint(g, w, h) {
   const layer = (base, amp, col, seed, haze) => {
@@ -4286,7 +5058,6 @@ function drawStairs(st, now, ah) {
   drawCharBallConfetti('E', fest, 0, W, ah * 0.05, ah * 0.6);
   drawCharBallParticles('E');
 }
-/* @@END drawStairs */
 function star(x, y, r) {
   cx.beginPath();
   for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? r * 0.45 : r; cx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
@@ -4386,7 +5157,6 @@ function conductHallPaint(g, w, h) {
   gr = g.createLinearGradient(0, ry - 16 * K, 0, ry); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.35)');
   g.fillStyle = gr; g.fillRect(0, ry - 16 * K, w, 16 * K);
 }
-/* @@BEGIN drawConduct */
 function drawConduct(st, now, ah) {
   const m = st.m, bar = st.has ? m.barOfGroup[st.g] : 0;
   const bg = m.bars[bar], G = bg.length, g0 = m.barStartGroup[bar], pg = getPattern(G);
@@ -4570,7 +5340,6 @@ function drawConductAir(now, ah, fest, tp) {
     }
   }
 }
-/* @@END drawConduct */
 
 /* ---------- モードG：電車 ----------
    ・パン＝短い車両（8分音符2つぶん）、トマト＝長い車両（3つぶん）。車両の長さは拍の長さに比例
@@ -4679,7 +5448,6 @@ function trainPanto(xp, roofY, wireY, a) {   // シングルアームのパン�
   cx.beginPath(); cx.moveTo(xp - a * 0.1 - a * 0.7, headY); cx.lineTo(xp - a * 0.1 + a * 0.7, headY); cx.stroke();
   cx.lineCap = 'butt';
 }
-/* @@BEGIN drawTrain */
 // 電車：手前の草むら（いちばん速く流れる）のキャッシュと、たたいた反応の粒
 let trainFgC = null, trainFgKey = '', trainFx = [], trainSky2 = [], trainFwT = 0;
 function trainFg(P, h) {
@@ -5049,8 +5817,6 @@ function drawTrain(st, now, ah) {
     txt(pf.kind === 'e' ? 'ガクン（早い）' : 'ガクン（遅い）', clamp(locoX, 60 * K, W - 60 * K), Math.max(carTop - 30 * K, 60 * K), 14 * K, hexA(pf.kind === 'e' ? '#bfdbfe' : '#fecdd3', Math.min(1, e * 1.7)), 800); tshadow(false);
   }
 }
-/* @@END drawTrain */
-/* @@BEGIN drawWheel */
 function drawWheel(x, y, r, s) {
   const a = -s * 2.2;   // 回転（左へ走るので反時計回り）
   const spd = 2.2 * bpm / 60, blur = clamp((spd - 5) / 18, 0, 0.85);   // 速いほど、穴がぶれて見える
@@ -5078,7 +5844,6 @@ function drawWheel(x, y, r, s) {
   cx.fillStyle = '#b8bec8'; cx.beginPath(); cx.arc(x, y, r * 0.16, 0, Math.PI * 2); cx.fill();
   cx.fillStyle = 'rgba(255,255,255,0.8)'; cx.beginPath(); cx.arc(x - r * 0.05, y - r * 0.05, r * 0.06, 0, Math.PI * 2); cx.fill();
 }
-/* @@END drawWheel */
 
 /* ---------- モードH：拍子の紋章 ----------
    ・円のまわりを光が走り、刻みごとに点を打って直線でつなぐ（1周 ＝ 1小節。交互パターンは2小節）
@@ -5183,7 +5948,6 @@ function emblemGlow(x, y, r, col, a) {
   const g = cx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, hexA(col, a)); g.addColorStop(0.35, hexA(col, a * 0.35)); g.addColorStop(1, hexA(col, 0));
   cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
 }
-/* @@BEGIN drawEmblem */
 /* 🎮 たたいた反応の共通部品（花火・しずく・花・ゼリー・カエル・紋章で使う）
    tap mode が off のときは on=false・fest=0 を返すので、絵はふだんどおり */
 let emblemTapS = { f: 0, t: 0 };
@@ -5378,7 +6142,6 @@ function drawEmblem(st, now, ah) {
   sh(left > 0 ? `あと ${left} 周で模様がひとめぐり` : '模様がひとめぐりしました！', top + 22 * K, 11 * K, left > 0 ? '#cbd5e1' : LIME, 700);
   sh(`1周 ＝ ${m.nBars}小節`, top + 40 * K, 11 * K, '#94a3b8', 700);
 }
-/* @@END drawEmblem */
 
 /* ---------- モードI：花火 ----------
    ・拍の頭で大きな花火が開く（ちょうど拍の瞬間に開くよう、少し前から玉を打ち上げる）
@@ -5489,7 +6252,6 @@ function fwCity(horizon) {
   }
   fwCityCache = { key, c: cv.c, lamps, beacons }; return fwCityCache;
 }
-/* @@BEGIN drawFireworks */
 let fireworksBloom = null;
 // 🎮 川岸の見物人（コンボでふえる）。ふだんは描かない
 function fireworksCrowd(ah, fest, cheer, rim, rimA, now) {
@@ -5806,7 +6568,6 @@ function drawFireworks(st, now, ah) {
   }
   // 説明
 }
-/* @@END drawFireworks */
 
 /* ---------- モードJ：歯車 ----------
    ・刻みの歯車：1拍（8分音符）で1マス進み、一定の速さで回り続ける。1回転でちょうど1周期（1小節）。
@@ -5970,7 +6731,6 @@ function gearsTxt(s, x, y, size, color, weight) {   // 金属の上でも読め�
   txt(s, x, y, size, color, weight);
   cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0;
 }
-/* @@BEGIN drawGears */
 /* --- たたいた反応（歯車・電車・ドミノ・からくり・ブロック・ノーツで共有） ---
    gearsPlay(key, force)：最後のタップの種類と経過時間、連続ぴったりによる「にぎやかさ」（0〜3、なめらかに上下） */
 const gearsPlayS = {};
@@ -6327,7 +7087,6 @@ function drawGears(st, now, ah) {
   }
   if (pf.f3 > 0) gearsRain(gearsFx, 14 * pf.f3, pf.dt, 0, W, -6 * K);
 }
-/* @@END drawGears */
 
 
 /* ---------- モードK：踊る人 ----------
@@ -6412,7 +7171,6 @@ function dancerPlanks(fy, y1, offX, step, vp) {
   for (let x = mod(offX, step) - step * 2; x < W + step * 2; x += step) { cx.moveTo(vp + (x + 1.5 * K - vp) * s0, fy); cx.lineTo(x + 1.5 * K, y1); }
   cx.stroke();
 }
-/* @@BEGIN drawDancer */
 function drawDancer(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   // 足がつく場所：1拍で1歩。拍の頭の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
@@ -6632,7 +7390,6 @@ function drawDancerAir(now, fy, lx, fest, tp) {
     }
   }
 }
-/* @@END drawDancer */
 
 /* 足音：床をふむ「ドン」（拍の頭）と、つま先の「トン」（刻み） */
 function playStep(t, head, L, barHead) {
@@ -6786,7 +7543,6 @@ function dominoPiece(px, gy, th, w, h, D, ox, oy, base, d, opt) {
   if (a < 1) cx.globalAlpha = 1;
   return [A, B, C, Dd];
 }
-/* @@BEGIN drawDomino */
 let dominoGold = new Map(), dominoFx = [];   // ぴったりで金色になったドミノ（番号 → 時刻）
 function drawDomino(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
@@ -6958,8 +7714,6 @@ function drawDomino(st, now, ah) {
   else txt(W < 640 ? '背の高いドミノ ＝ 拍の頭' : '背の高いドミノ ＝ 拍の頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
 }
-/* @@END drawDomino */
-/* @@BEGIN drawJuggle */
 
 /* ---------- モード：ジャグリング ----------
    ・1拍＝1回の投げ。パン（2拍）は低く、トマト（3拍）は高く投げる（空中にいる時間が長いほど高い：高さ ∝ 時間²）
@@ -7142,7 +7896,6 @@ function drawJuggle(st, now, ah) {
   if (barFlash > 0) txt('小節の頭！ 同じ投げ方をもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
 }
-/* @@END drawJuggle */
 
 /* ドミノの音：カタッ（刻み）／カタン（拍の頭、低く重い） */
 function playDomino(t, head, L, barHead) {
@@ -7251,7 +8004,6 @@ function dropsDrop(x, y, sz, tint, stretch, alpha) {
   cx.fillStyle = 'rgba(255,255,255,0.6)'; cx.beginPath(); cx.arc(x + sz * 0.45, y + sz * 0.35, sz * 0.07, 0, Math.PI * 2); cx.fill();
   cx.restore();
 }
-/* @@BEGIN drawDrops */
 // 🎮 コイ（コンボでふえる。水の中をゆっくり泳ぐ）
 function dropsKoi(x, y, s, dir, now, a, i) {
   cx.save(); cx.translate(x, y); cx.scale(dir, 1); cx.globalAlpha = a;
@@ -7511,7 +8263,6 @@ function drawDrops(st, now, ah) {
   else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '大きなしずく ＝ 拍の頭' : '大きなしずく ＝ 拍の頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawDrops */
 
 /* ---------- モード：ぷるぷるゼリー ----------
    ・1拍＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー（はばが拍の数に比例）
@@ -7553,7 +8304,6 @@ function jellyBackground(plateY, ah) {
   g.fillStyle = wsh; g.fillRect(0, tY - 10 * K, W, 10 * K);
   jellyBg = { key, c }; return c;
 }
-/* @@BEGIN drawJelly */
 let jellyDeco = null, jellyTapAt = { t: -1, gi: 0 };
 // 部屋の光（窓から差す光・奥のぼけた明かり・まわりの暗がり）：大きさが変わったときだけ作りなおす
 function jellyDecoGet(plateY, ah) {
@@ -7802,7 +8552,6 @@ function drawJelly(st, now, ah) {
   else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ゼリーの大きさ ＝ 拍の長さ' : 'ゼリーの大きさ ＝ 拍の長さ（パン＝刻み2つ ／ トマト＝刻み3つ）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawJelly */
 
 /* しずくの音：ポチャン（拍の頭、トマトは低く長く）／ピチョ（刻み） */
 function playDrop(t, head, L, barHead) {
@@ -7863,7 +8612,6 @@ function pendulumCache(key, w, h, paint) {
   }
   return e.c;
 }
-/* @@BEGIN drawPendulum */
 function drawPendulum(st, now, ah) {
   const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has;
   const top = 118 * K, bobY = ah - Math.max(40 * K, (ah - top) * 0.16);
@@ -8037,7 +8785,6 @@ function drawPendulum(st, now, ah) {
   else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawPendulum */
 function pendulumRR(c, x, y, w, h, r) {   // 角丸の四角（別のキャンバス用）
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
@@ -8133,7 +8880,6 @@ function notesGlow(x, y, r, col, a) {
   const g = cx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, hexA(col, a)); g.addColorStop(0.4, hexA(col, a * 0.3)); g.addColorStop(1, hexA(col, 0));
   cx.fillStyle = g; cx.beginPath(); cx.arc(x, y, r, 0, Math.PI * 2); cx.fill();
 }
-/* @@BEGIN drawNotes */
 let notesFx = [];
 // 客席（シルエット）：拍でゆれ、ぴったりでジャンプ、連続でペンライト
 function notesCrowd(y0, ah, beat, pf, now) {
@@ -8310,7 +9056,6 @@ function drawNotes(st, now, ah) {
   if (!has) sh('▶ 再生して、ノーツが線に重なった瞬間にタップ（J・Enterキーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   else sh(W < 640 ? '線に重なった瞬間にタップ！' : '大きな丸が線に重なった瞬間に、画面をタップ（J・Enter キーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawNotes */
 
 /* 振り子の音：カーン（鐘に当たる＝拍の頭。パンは高く、トマトは低く）／コッ（刻み） */
 function playPendulum(t, head, L, barHead) {
@@ -8406,7 +9151,6 @@ function flowersBackground(top, front, ah) {
   }
   flowersBg = { key, c, hz }; return flowersBg;
 }
-/* @@BEGIN drawFlowers */
 // 🎮 チョウ（コンボでふえる）
 function flowersButterfly(x, y, s, now, i, a) {
   const fl = Math.abs(Math.sin(now * 14 + i * 1.7)), cols = [['#fde047', '#f59e0b'], ['#f9a8d4', '#db2777'], ['#a5f3fc', '#0891b2']][i % 3];
@@ -8614,7 +9358,6 @@ function drawFlowers(st, now, ah) {
   else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '花びら2枚 ＝ 刻み1つ' : '花びら2枚 ＝ 刻み1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawFlowers */
 
 /* ---------- モード：カエルのハス跳び ----------
    ・ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝刻み1つ）
@@ -8776,7 +9519,6 @@ function frogFigure(x, y, fs, sqX, sqY, air, rot, sac) {
   }
   cx.restore();
 }
-/* @@BEGIN drawFrog */
 
 function drawFrog(st, now, ah) {
   const m = st.m, N = m.total, G = m.groups.length, dur = 60 / bpm, has = st.has;
@@ -8950,7 +9692,6 @@ function drawFrog(st, now, ah) {
   else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
-/* @@END drawFrog */
 
 /* 花の音：ポン（開く＝拍の頭。パンは高く、トマトは低く）／ピン（花びら＝刻み） */
 function playFlower(t, head, L, barHead) {
@@ -9056,7 +9797,6 @@ function karakuriTube(tube, r, pass) {   // ガラス（アクリル）の管
     line(); cx.strokeStyle = 'rgba(220,240,255,0.08)'; cx.lineWidth = r * 1.9; cx.stroke();
   }
 }
-/* @@BEGIN drawKarakuri */
 let karakuriFx = [];
 function drawKarakuri(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has;
@@ -9257,7 +9997,6 @@ function drawKarakuri(st, now, ah) {
   else txt(W < 640 ? '大きな仕掛け ＝ 拍の頭' : '大きな仕掛け（ばね・ベル）＝ 拍の頭。刻み1つごとに1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
 }
-/* @@END drawKarakuri */
 
 /* ---------- モード：ブロック積み（ゲーム） ----------
    ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面タップ（または J・Enter キー）
@@ -9372,7 +10111,6 @@ function blocksBgGet(ah, G) {
   const [fc, f] = mk(); post(f, wx + wellW);
   blocksBg = { bg: bc, fg: fc }; blocksBgKey = key; return blocksBg;
 }
-/* @@BEGIN drawBlocks */
 let blocksFx = [];
 function drawBlocks(st, now, ah) {
   const m = st.m, N = m.total, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
@@ -9548,7 +10286,6 @@ function drawBlocks(st, now, ah) {
   if (!has) sh(auto ? '▶ 再生すると、ブロックが自動で積まれます' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
   else sh(auto ? '拍の頭でブロックが着地する' : (nar ? '着地の瞬間にタップ！' : 'ブロックが着地する瞬間に、画面をタップ（J・Enter キーでも）'), W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
 }
-/* @@END drawBlocks */
 const G_ = m => m.groups.length;
 
 /* からくりの音：仕掛けごとに素材のちがう音 */
@@ -9688,7 +10425,6 @@ function metroBallDotRow(m, y, x0, x1, b, r, py) {
   });
   return pos;
 }
-/* @@BEGIN drawMetroBall */
 function drawMetroBall(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, top = 70 * K, y = top + (ah - top) * 0.74;
   const r = clamp(Math.min(W / (m.groups.length * 3.2), ah * 0.06), 9, 30 * K);
@@ -9836,12 +10572,10 @@ function drawMetroBall(st, now, ah) {
   if (P.f3 > 0.01) rollPlayConfetti(0, -20 * K, W, cTop + 20 * K, P.f3, tt, 13);   // コンボ（16〜）：紙ふぶき
 }
 const metroBallStripN = w => Math.max(0, Math.min(14, Math.floor((w * 0.55) / (11 * K))));
-/* @@END drawMetroBall */
 function metroBallRR(c, x, y, w, h, r) {   // rr と同じ角丸の四角（別のキャンバス用）
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
 }
-/* @@BEGIN drawMetroPend */
 /* 振り子メトロノーム：書斎の机の上。窓の光（夜はランプ）・つやのある木のケース・ガラスのふたの目盛り板・金属の棒・真ちゅうのおもり（おもりの位置＝いまのテンポ）。
    右には呼び鈴（チン！）。タップがぴったりだと、鈴が鳴って金色にきらめく */
 const MAELZEL = [40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 63, 66, 69, 72, 76, 80, 84, 88, 92, 96, 100, 104, 108, 112, 116, 120, 126, 132, 138, 144, 152, 160, 168, 176, 184, 192, 200, 208];
@@ -10197,8 +10931,6 @@ function drawMetroPend(st, now, ah) {
   metDotRow(m, dY, W * 0.2, W * 0.8, b, dr);
   metBigNum(b, W * 0.12, top + 50 * K, Math.min(ah * 0.18, 90 * K));
 }
-/* @@END drawMetroPend */
-/* @@BEGIN drawMetroFlash */
 /* フラッシュ：かべにかけた大きなLEDランプのパネル（ガラスの前面・金属のふち）。拍の頭で光り、まわりのかべも照らす */
 function drawMetroFlash(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m;
@@ -10343,7 +11075,6 @@ function drawMetroFlash(st, now, ah) {
   cx.fillStyle = 'rgba(10,12,18,0.82)'; rr(x0 - dr * 1.6 + 2 * K, dotY - rh / 2 + 2 * K, x1 - x0 + dr * 3.2 - 4 * K, rh - 4 * K, rh / 2); cx.fill();
   metroBallDotRow(m, dotY, x0, x1, b, dr, 1);
 }
-/* @@END drawMetroFlash */
 
 /* =========================================================
    👏 まねっこ（お手本 → あなた の、よびかけとこたえ）
