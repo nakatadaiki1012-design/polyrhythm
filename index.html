@@ -734,6 +734,32 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   html[data-theme="light"] .modal { background: rgba(15,23,42,.35); }
   html[data-theme="light"] input, html[data-theme="light"] textarea, html[data-theme="light"] select { color: #0f172a; }
   #themeBtn { font-size: 16px; }
+  /* 🏆 きろく */
+  .rec-btn { position: relative; } .rec-btn i { position: absolute; top: 5px; right: 5px; width: 9px; height: 9px; border-radius: 50%; background: #f43f5e; box-shadow: 0 0 0 2px #0b1222; }
+  .play-chip { background: linear-gradient(135deg, #7c3aed, #db2777); color: #fff; border-color: #a855f7; }
+  .play-chip.on { background: linear-gradient(135deg, #a3e635, #22d3ee); color: #0f172a; border-color: #a3e635; }
+  .rc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 6px 0 12px; }
+  .rc-stat { background: #111c33; border: 1px solid #24314d; border-radius: 14px; padding: 8px 6px; text-align: center; }
+  .rc-stat b { display: block; font-size: 22px; color: #67e8f9; } .rc-stat span { font-size: 11px; color: #94a3b8; font-weight: 700; }
+  .rc-chal { border-radius: 16px; padding: 12px 14px; background: linear-gradient(135deg, rgba(124,58,237,.35), rgba(219,39,119,.25)); border: 1px solid #a855f7; margin-bottom: 12px; }
+  .rc-chal.done { background: linear-gradient(135deg, rgba(163,230,53,.25), rgba(34,211,238,.2)); border-color: #a3e635; }
+  .rc-chal h4 { margin: 0 0 4px; font-size: 13px; color: #f0abfc; letter-spacing: .06em; } .rc-chal.done h4 { color: #bef264; }
+  .rc-chal .ct { font-size: 19px; font-weight: 900; margin-bottom: 8px; }
+  .rc-bar { height: 10px; border-radius: 99px; background: rgba(255,255,255,.12); overflow: hidden; margin: 6px 0 10px; } .rc-bar i { display: block; height: 100%; background: linear-gradient(90deg, #a3e635, #22d3ee); border-radius: 99px; }
+  .rc-cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin: 6px 0 12px; }
+  .rc-cal div { aspect-ratio: 1; border-radius: 6px; background: #1e293b; font-size: 10px; display: flex; align-items: center; justify-content: center; color: #64748b; font-weight: 800; }
+  .rc-cal div.l1 { background: #14532d; color: #bbf7d0; } .rc-cal div.l2 { background: #15803d; color: #fff; } .rc-cal div.l3 { background: #65a30d; color: #fff; } .rc-cal div.today { outline: 2px solid #22d3ee; }
+  .rc-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 6px 0 12px; }
+  .rc-badge { border-radius: 14px; padding: 8px 4px; text-align: center; background: #111c33; border: 1px solid #24314d; }
+  .rc-badge .e { font-size: 26px; display: block; } .rc-badge b { font-size: 12px; display: block; } .rc-badge small { font-size: 10px; color: #94a3b8; display: block; line-height: 1.3; }
+  .rc-badge.lock { opacity: .4; filter: grayscale(1); } .rc-badge.secret { border-color: #f0abfc; background: rgba(168,85,247,.15); }
+  .toast { position: fixed; left: 50%; top: 64px; transform: translateX(-50%); z-index: 90; padding: 12px 20px; border-radius: 16px; background: rgba(15,23,42,.95); border: 1px solid #a3e635;
+           color: #fff; font-weight: 900; font-size: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.5); text-align: center; animation: toastIn .35s ease; max-width: calc(100% - 24px); }
+  .toast small { display: block; font-size: 12px; color: #bef264; font-weight: 700; margin-top: 2px; }
+  @keyframes toastIn { from { opacity: 0; transform: translate(-50%, -14px) scale(.9); } to { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+  .tab.locked { opacity: .55; } .tab.locked .em { filter: grayscale(1); }
+  .mic-meter { flex: 1; max-width: 220px; height: 10px; border-radius: 99px; background: #1e293b; overflow: hidden; } .mic-meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #22d3ee, #a3e635, #fb7185); transition: width .05s; }
+  .ens-badge { background: #166534; border-color: #4ade80; animation: ensPulse 2s infinite; } @keyframes ensPulse { 50% { box-shadow: 0 0 0 4px rgba(74,222,128,.25); } }
 </style>
 </head>
 <body>
@@ -742,6 +768,8 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <header id="topbar">
     <div class="mtitle">⏱ <span class="long">ビジュアル・</span>メトロノーム<small>VISUAL METRONOME</small></div>
     <button class="tbtn" id="presetBtn" title="プリセット（保存した設定）">★<span class="tx"> プリセット</span></button>
+    <button class="tbtn ens-badge" id="ensBadge" hidden title="合奏モード中">👥</button>
+    <button class="tbtn rec-btn" id="recBtn" title="きろく・今日のお題・ごほうび">🏆<span class="tx"> きろく</span><i id="recDot" hidden></i></button>
     <button class="tbtn learn" id="homeBtn" title="学ぶ・あそぶ（レッスン・ゲーム・クイズ・民謡・曲の進行）">📚<span class="tx"> 学ぶ・あそぶ</span></button>
     <button class="tbtn" id="themeBtn" title="明るいモード／ダークモード">☀️</button>
     <button class="tbtn" id="barFs" title="全画面（F キー）">⛶</button>
@@ -777,6 +805,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
         <button class="pchip" data-p="ramp">テンポアップ</button>
         <button class="pchip" data-p="mute">消音練習</button>
         <button class="pchip" data-p="timer">タイマー</button>
+        <button class="pchip play-chip" id="playChip">🎮 たたいて遊ぶ</button>
         <button class="pchip" data-p="check">ズレ判定</button>
         <button class="pchip" id="progBtn">🎼 テンポのプログラム</button>
         <button class="pchip" id="barBand">🎸 伴奏</button>
@@ -1088,6 +1117,8 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   </section>
   <div class="home-h">なにをする？</div>
   <div class="home-grid">
+    <button class="hcard rec rec-card" data-go="rec"><span class="hc-em">🏆</span><b>きろく・今日のお題</b><span class="hc-d">毎日のお題・練習した日のカレンダー・ごほうび（ひみつの見た目）</span><span class="hc-p" id="homeRecP"></span></button>
+    <button class="hcard" data-go="ens"><span class="hc-em">👥</span><b>みんなで合わせる</b><span class="hc-d">QRコードで、部員みんなのスマホを同じタイミングで鳴らす（合奏モード）</span></button>
     <button class="hcard rec" data-go="lesson"><span class="hc-em">📘</span><b>変拍子レッスン</b><span class="hc-d">9ステップで変拍子のしくみを学ぶ。授業にもそのまま使える</span><span class="hc-p" id="homeLessonP"></span></button>
     <button class="hcard rec game" data-go="game"><span class="hc-em">👏</span><b>まねっこゲーム</b><span class="hc-d">お手本のあとに、同じリズムで手をたたく</span></button>
     <button class="hcard" data-go="quiz"><span class="hc-em">👂</span><b>耳で当てるクイズ</b><span class="hc-d">音だけを聞いて、リズムを当てる（10問）</span><span class="hc-p" id="homeQuizP"></span></button>
@@ -1126,6 +1157,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <div class="ogrid" id="gSound"></div>
   <div class="row" style="margin-top:10px"><div class="lbl">音量</div><input type="range" id="vol2" min="0" max="100" value="70" style="max-width:220px"></div>
   <div class="row"><div><div class="lbl">試しに鳴らす</div><div class="hint">強・細分・中・細分・弱</div></div><button class="btn" id="trySound">▶ 試す</button></div>
+  <div class="row"><div><div class="lbl">📳 拍で振動</div><div class="hint">拍の頭でスマホがふるえる（Android。iPhone は対応していません）</div></div><button class="sw" id="vibeSw"></button></div>
 </div></div>
 <div id="shPrac" class="modal hidden"><div class="modal-box">
   <div class="mhead"><h3>練習の機能</h3><button class="dr-close" data-close>✕</button></div>
@@ -1147,7 +1179,22 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <div class="row"><div><div class="lbl">ズレ判定</div><div class="hint">画面（またはJ・Enterキー）を拍に合わせてタップすると「ぴったり／早い／遅い」と何ミリ秒ずれたか</div></div><button class="sw" id="tapSw2"></button></div>
   <div class="msub" id="subCheck"><div class="row"><span class="lbl2">たたく拍</span><div class="seg" id="tapTarget2"><button data-v="all">細分もぜんぶ</button><button data-v="head">拍の頭だけ</button></div></div>
     <div class="row"><div class="score" id="tapScore2"></div><button class="btn small" id="tapReset2">記録を消す</button></div></div>
+  <div class="row"><div><div class="lbl">🎤 マイクで判定</div><div class="hint">楽器や手拍子の音をマイクで聞いて「ぴったり／早い／遅い」。タップしなくても判定できます（イヤホンを使うと正確）</div></div><button class="sw" id="micSw"></button></div>
+  <div class="msub off" id="micBox">
+    <div class="row"><span class="lbl2">音の大きさ</span><div class="mic-meter"><i id="micLv"></i></div></div>
+    <div class="row"><span class="lbl2">感度</span><div class="seg" id="micSensSel"><button data-v="lo">低い</button><button data-v="mid">ふつう</button><button data-v="hi">高い</button></div></div>
+    <div class="row"><div><div class="lbl2">おくれを合わせる</div><div class="hint" id="micCalMsg">はじめて使うときに1回。拍の頭に合わせて8回たたく</div></div><button class="btn small" id="micCal">合わせる</button></div>
+  </div>
   <div class="row"><div><div class="lbl">補助を少しずつ消す・止めかた など</div><div class="hint">「⚙ くわしい設定」の「練習する」「授業で使う」に</div></div><button class="btn small" id="toDrawerPrac">開く</button></div>
+</div></div>
+<div id="shRec" class="modal hidden"><div class="modal-box wide">
+  <div class="mhead"><h3>🏆 きろく・今日のお題</h3><button class="dr-close" data-close>✕</button></div>
+  <div id="recBody"></div>
+</div></div>
+<div id="toast" class="toast" hidden></div>
+<div id="shEns" class="modal hidden"><div class="modal-box">
+  <div class="mhead"><h3>👥 みんなで合わせる</h3><button class="dr-close" data-close>✕</button></div>
+  <div id="ensBody"></div>
 </div></div>
 <div id="shPreset" class="modal hidden"><div class="modal-box">
   <div class="mhead"><h3>★ プリセット</h3><button class="dr-close" data-close>✕</button></div>
@@ -1157,7 +1204,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
 </div></div>
 
 <!-- モードの一覧（スマホ） -->
-<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>見せ方を選ぶ</h3><div class="row" style="margin:-4px 0 6px"><div><div class="lbl">楽譜・カウント帯・説明も出す</div><div class="hint">OFF（はじめ）：絵と拍の番号だけのシンプルな画面</div></div><button class="sw" id="simpleSw"></button></div><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
+<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>見せ方を選ぶ</h3><div class="row" style="margin:-4px 0 6px"><div><div class="lbl">楽譜・カウント帯・説明も出す</div><div class="hint">OFF（はじめ）：絵と拍の番号だけのシンプルな画面</div></div><button class="sw" id="simpleSw"></button></div><div class="row" style="margin:0 0 6px"><div><div class="lbl">🔀 シャッフル</div><div class="hint">鳴らしている間、○小節ごとに見た目が次々かわる</div></div><div class="seg" id="shufSel"><button data-v="0">なし</button><button data-v="4">4小節</button><button data-v="8">8小節</button><button data-v="16">16小節</button></div></div><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- くわしい説明 -->
 <div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
@@ -1983,6 +2030,10 @@ function scheduleMeta() {
   if (isAcc) stepCounter++;
   queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1, resp: maneResp, muted: metBeatMuted && mode !== 'W' && mode !== 'V' && mode !== 'Y' });
   logTarget(nextTime, isAcc, subCounter - 1, { resp: maneResp, round: Math.floor(measure / 2), g, L });
+  if (SET.vibe && isAcc && navigator.vibrate && !(metBeatMuted && mode !== 'W')) {   // 📳 拍の頭でふるえる（Android）
+    const barHead = m.barStartSub.includes(curSub), ms = (nextTime - ctx.currentTime + (ctx.outputLatency || ctx.baseLatency || 0)) * 1000;
+    setTimeout(() => { if (playing) try { navigator.vibrate(barHead ? 55 : 28); } catch (e) {} }, Math.max(0, ms));
+  }
   nextTime += dur; curSub++;
   if (curSub >= m.total) { curSub = 0; measure++; }
 }
@@ -2112,6 +2163,7 @@ function start(noCount) {
   nextTime = ctx.currentTime + 0.08;
   if (syncS) syncEnd();
   if (fileOn()) { nextTime = fileStart(ctx.currentTime + 0.12); noCount = true; }
+  else if (ENS && !LEARN_MODES.includes(mode) && !songOnNow()) { nextTime = ensAlign(); noCount = true; }   // 👥 合奏：みんなの小節の頭から
   stopReq = false; stopAt = null; countInfo = null; blockReset(); noteCombo = 0;
   if (mode === 'Y') maneReset();
   if (mode === 'W' && quizStopBars) {   // クイズ：テンポを伝える刻み4つ（答えのヒントにならないように）
@@ -2235,6 +2287,7 @@ function drawSparks() {
 }
 const tapActive = () => SET.tapOn || mode === 'S' || mode === 'Y' || (mode === 'M' && !SET.blockAuto);   // 流れるノーツでは、いつでも叩ける
 /* 🎮 たたいた結果を、絵にも伝える（各見せ方は playFx を見て反応する） */
+let ENS = null;   // 👥 合奏モード（下で使う）
 let playFx = { t: -1e9, kind: null, err: 0, combo: 0, head: false, src: 'tap' };
 const playAge = () => (performance.now() - playFx.t) / 1000;   // 最後にたたいてから何秒
 function onTap(perfT) {
@@ -2260,7 +2313,7 @@ function judgeAt(t, src) {   // t：拍と比べる時刻（耳に届いた音�
     kind = Math.abs(err) <= win ? 'p' : err < 0 ? 'e' : 'l';
   }
   tapStats[kind]++; updateScore();
-  playHitSound(kind); hitBurst(kind);
+  if (src !== 'mic') playHitSound(kind); hitBurst(kind);
   if (mode === 'Y') maneOnTap(kind, kind === 'x' ? null : best);
   if (kind !== 'x') { best.res = kind; if (mode === 'M' && best.sc !== undefined) blockJudge(best.sc, kind); }
   if (kind === 'p') { noteCombo++; noteBest = Math.max(noteBest, noteCombo); } else { if (noteCombo > 0) noteMissT = performance.now(); noteCombo = 0; }
@@ -2335,7 +2388,7 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
   cx.textAlign = align; cx.textBaseline = base; cx.fillText(s, x, y);
 }
 
-let prevStage = 0, returnBanner = null, lastSongBar = -1;
+let prevStage = 0, returnBanner = null, lastSongBar = -1, shufBar = -1;
 function frame() {
   const now = audioNow();
   if (playing && stopAt !== null && now >= stopAt) stop();
@@ -2399,6 +2452,11 @@ function frame() {
     drawPolyStrip(ps, belowY + bandH, stripH);
   } else {
     const st = getState(now);
+    if (SET.shuffle && playing && st.has && !lessonOpen && viewsOpen().includes(mode)) {   // 🔀 シャッフル：○小節ごとに、ほかの見た目へ
+      const bi = st.measure * st.m.nBars + st.m.barOfGroup[st.g];
+      if (shufBar < 0 || bi < shufBar) shufBar = bi;
+      else if (bi - shufBar >= SET.shuffle) { shufBar = bi; const VO = viewsOpen().filter(k => k !== mode); swipeView(0, VO[Math.floor(Math.random() * VO.length)]); }
+    }
     if (st.songBar !== lastSongBar) { lastSongBar = st.songBar; updateBarRhythm(); }
     if (mode === 'A') drawRoll(st, now, sceneH);
     else if (mode === 'B') drawBounce(st, now, sceneH);
@@ -2456,6 +2514,12 @@ function frame() {
   if (ba.hidden === showBa) ba.hidden = !showBa;
   if (showBa) { const tp = Math.round(104 * K) + 'px'; if (ba.style.top !== tp) ba.style.top = tp; }
   if (!hide) drawTapFx(sceneH, capH, capFs);
+  if ((SET.tapOn || SET.micOn) && playing && noteCombo >= 2 && !hide) {   // 🔥 コンボ
+    const pop = 1 + 0.35 * Math.max(0, 1 - playAge() / 0.18), big = noteCombo >= 16 ? 1.3 : noteCombo >= 8 ? 1.15 : 1, fs = Math.max(16, 20 * K) * big * pop;
+    const col = noteCombo >= 16 ? '#f472b6' : noteCombo >= 8 ? '#fbbf24' : LIME;
+    cx.save(); cx.shadowColor = col; cx.shadowBlur = 16 * K;
+    txt(`${noteCombo >= 8 ? '🔥 ' : ''}${noteCombo} コンボ`, W - 14 * K, 76 * K, fs, col, 900, 'right'); cx.restore();
+  }
   if (playing && lastNote && lastNote.muted) { cx.fillStyle = 'rgba(2,6,23,0.65)'; rr(W / 2 - 150 * K, 54 * K, 300 * K, 34 * K, 17 * K); cx.fill(); txt('🔇 消音中 — 心の中でテンポを保とう', W / 2, 71 * K, Math.max(13, 14 * K), '#bef264', 900); }
   drawSparks();
   drawReturnBanner(sceneH);
@@ -9372,7 +9436,12 @@ function renderModes() {
         const b = document.createElement('button'); b.className = 'tab'; b.dataset.mode = k;
         b.innerHTML = `<span class="em">${MODE_INFO[k].em}</span><span>${MODE_INFO[k].name}</span><span class="mtags">${(MODE_TAGS[k] || []).map(t => `<span class="mtag ${t}">${TAGS[t]}</span>`).join('')}</span>`;
         if (tagFilter && !(MODE_TAGS[k] || []).includes(tagFilter)) b.classList.add('dim');
-        b.onclick = () => { setMode(k); closeModals(); }; return b;
+        b.onclick = () => { setMode(k); closeModals(); };
+        if (typeof viewUnlocked === 'function' && !viewUnlocked(k)) {   // ひみつの見た目：まだ出ていない
+          b.classList.add('locked'); b.innerHTML = `<span class="em">🔒</span><span>ひみつ</span><span class="mline">${SECRET_RULE[k] ? SECRET_RULE[k].need + 'で出てくる' : ''}</span>`;
+          b.onclick = () => toast('🔒 ひみつの見た目', SECRET_RULE[k] ? SECRET_RULE[k].need + 'で出てきます' : '');
+        }
+        return b;
       };
       grp.appendChild(mk()); if (sKeys.includes(k)) grid.appendChild(mk());
     });
@@ -9935,6 +10004,7 @@ function shareUrl() {
   if (tune && selected === tune.preset) q.set('tn', TUNES.indexOf(tune));
   if (mode === 'F') q.set('y', SET.poly.join('x'));
   if (songOnNow()) { q.set('q', song.text); q.set('qn', song.name); }
+  if (ENS) q.set('ens', Math.round(ENS.anchor));
   if (mode === 'X') q.set('x', [SET.tupSeq, SET.tupN, SET.tupBars, SET.tupBeats, SET.tupCmp ? 1 : 0].join('.'));
   return location.href.split('#')[0] + '#' + q.toString();
 }
@@ -9950,6 +10020,7 @@ function applyHash() {
   if (m && MODE_INFO[m]) setMode(m);
   const qs = q.get('q'); if (qs && parseSong(qs).bars.length) songSet({ name: (q.get('qn') || '共有された進行').slice(0, 40), text: qs });
   if (t >= 80 && t <= 300) setBpm(t);
+  const en = +q.get('ens'); if (en > 1.5e12 && typeof ensSet === 'function') { ensSet(en); setTimeout(() => toast('👥 合奏モードで開きました', '▶ スタートで、みんなと同じタイミングで鳴ります'), 600); }
 }
 $('#shareBtn').onclick = () => {
   const url = shareUrl();
@@ -9994,11 +10065,12 @@ cv.addEventListener('pointerdown', e => { if (cv.dataset.sigHit) return; const t
 /* 横スワイプで見せ方を切り替える（左へ＝次、右へ＝前）。学ぶ・あそぶの画面では切り替えない */
 let swipe0 = null, swipeTipT = 0;
 const VIEW_ORDER = MODE_ORDER.filter(k => MODE_INFO[k].g !== 'g4');
-function swipeView(d) {
-  const i = VIEW_ORDER.indexOf(mode); if (i < 0) return false;
-  const k = VIEW_ORDER[mod(i + d, VIEW_ORDER.length)]; setMode(k);
+const viewsOpen = () => VIEW_ORDER.filter(k => typeof viewUnlocked !== 'function' || viewUnlocked(k));   // ひみつの見た目は、出てきてから
+function swipeView(d, to) {
+  const VO = viewsOpen(), i = VO.indexOf(mode); if (i < 0) return false;
+  const k = to || VO[mod(i + d, VO.length)]; setMode(k);
   const tip = $('#swipeTip'), inf = MODE_INFO[k];
-  tip.innerHTML = `${inf.em || ''} ${inf.name}<small>${VIEW_ORDER.indexOf(k) + 1} / ${VIEW_ORDER.length}　← スワイプで切り替え →</small>`;
+  tip.innerHTML = `${inf.em || ''} ${inf.name}<small>${VO.indexOf(k) + 1} / ${VO.length}　← スワイプで切り替え →</small>`;
   tip.classList.add('on'); clearTimeout(swipeTipT); swipeTipT = setTimeout(() => tip.classList.remove('on'), 1100);
   return true;
 }
@@ -10074,6 +10146,7 @@ function openHome() {
   $('#homeLessonP').textContent = lp;
   $('#homeQuizP').textContent = Object.keys(QUIZ_SHORT).filter(k => quizBest[k] >= 0).map(k => `🏅 ${QUIZ_SHORT[k]} ${quizBest[k]}/10`).join('　');
   $('#homeAuto').checked = SET.homeAuto !== false;
+  if (typeof chal !== 'undefined') $('#homeRecP').textContent = `${REC.chal[chal.key] ? '✅ ' : '📅 '}今日のお題：${chal.txt}　🔥 ${recStreak()}日連続`;
   $('#home').classList.remove('hidden');
 }
 function closeHome() { $('#home').classList.add('hidden'); }
@@ -10084,6 +10157,8 @@ function homeGo(go) {
   if (go === 'lesson') { metroKeep('lesson', mode); lessonOpen = true; closeDrawer(); lessonApply(lessonStep >= 0 ? lessonStep : Math.max(0, Math.min(lessonProg.max, LESSON.length - 1))); }
   else if (go === 'free') { if (mode !== plainMode()) setMode(plainMode()); closeDrawer(); $('#modeCur').onclick(); }
   else if (go === 'quiz') { closeDrawer(); setMode('W'); }
+  else if (go === 'ens') { closeDrawer(); renderEns(); openModal('#shEns'); }
+  else if (go === 'rec') { closeDrawer(); renderRec(); openModal('#shRec'); }
   else if (go === 'build') { if (mode === 'W' || mode === 'F' || mode === 'X') setMode('L'); openDrawer('secBuild'); }
   else if (go === 'song') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secSong'); }
   else if (go === 'tup') { closeDrawer(); setMode('X'); }
@@ -10165,6 +10240,7 @@ const M_COMP = [['6/8', [3, 3]], ['9/8', [3, 3, 3]], ['12/8', [3, 3, 3, 3]], ['3
 const M_ODD = [['5/8', [2, 3]], ['5/8', [3, 2]], ['7/8', [2, 2, 3]], ['7/8', [3, 2, 2]], ['7/8', [2, 3, 2]], ['8/8', [3, 3, 2]], ['9/8', [2, 2, 2, 3]], ['10/8', [3, 3, 2, 2]], ['11/8', [2, 2, 3, 2, 2]]];
 function pickMeter(p) { if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V') setMode(lastMetaMode || 'MB'); selectPreset(p); if (!subList().some(x => x[0] === SET.msub)) { SET.msub = 1; subOn = false; } saveSet(); renderMetro(); }
 function renderMetro() {
+  if (typeof updatePlayChip === 'function') updatePlayChip();
   const m = makeMetaCached(selected), f = metF(m), cur = presetKey(selected);
   const mk = (box, list, sub) => { box.innerHTML = ''; list.forEach(([sig, g]) => { const p = mP(sig, g); box.appendChild(optB(presetKey(p) === cur && !songActive(), `${sig}<small>${sub(g)}</small>`, () => { pickMeter(p); closeModals(); })); }); };
   mk($('#gBasic'), M_BASIC, g => `♩ × ${g.length}`); mk($('#gComp'), M_COMP, g => `♩. × ${g.length}`); mk($('#gOdd'), M_ODD, g => g.join('+'));
@@ -10269,6 +10345,226 @@ document.querySelectorAll('#themeSel button').forEach(b => b.onclick = () => { S
 /* 選んだ拍子をおぼえておく（次に開いたときも同じ） */
 const _selPreset = selectPreset;
 selectPreset = function (p) { _selPreset(p); try { SET.mPreset = presetPlain(p); saveSet(); } catch (e) {} if (typeof renderMetro === 'function') renderMetro(); };
+
+/* =========================================================
+   🏆 きろく・今日のお題・ごほうび（この端末の中だけに保存）
+   ========================================================= */
+let REC = { days: {}, total: 0, odd: 0, best: 0, perfect: 0, views: [], badges: [], unl: [], chal: {}, chalCnt: 0 };
+try { Object.assign(REC, JSON.parse(localStorage.getItem('vm_rec') || '{}')); } catch (e) {}
+const recSave = () => { try { localStorage.setItem('vm_rec', JSON.stringify(REC)); } catch (e) {} };
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dayBefore = (d, n) => { const x = new Date(d); x.setDate(x.getDate() - n); return x; };
+function recStreak() {   // 何日続けて練習したか（1日1分以上）。今日まだなら、きのうまでで数える
+  const now = new Date(); let n = 0, i = (REC.days[dayKey(now)] || 0) >= 60 ? 0 : 1;
+  for (; ; i++) { if ((REC.days[dayKey(dayBefore(now, i))] || 0) >= 60) n++; else break; }
+  return n;
+}
+const fmtMin = s => s >= 3600 ? `${Math.floor(s / 3600)}時間${Math.floor(s % 3600 / 60)}分` : `${Math.floor(s / 60)}分`;
+const SECRET_RULE = { Z1: { need: '練習の合計 30分', ok: () => REC.total >= 1800 }, Z2: { need: '3日続けて練習', ok: () => recStreak() >= 3 } };
+const viewUnlocked = k => !MODE_INFO[k] || !MODE_INFO[k].secret || REC.unl.includes(k);
+const BADGES = [
+  ['m1', '🎵', 'はじめの1分', '合計1分 練習', r => r.total >= 60], ['m10', '⏱️', '10分', '合計10分', r => r.total >= 600],
+  ['m60', '🏅', '1時間', '合計60分', r => r.total >= 3600], ['m300', '🏆', '5時間', '合計5時間', r => r.total >= 18000],
+  ['s3', '🔥', '3日連続', '3日続けて練習', () => recStreak() >= 3], ['s7', '🌟', '7日連続', '7日続けて練習', () => recStreak() >= 7],
+  ['c10', '👏', 'コンボ10', 'ぴったり10回連続', r => r.best >= 10], ['c30', '💥', 'コンボ30', 'ぴったり30回連続', r => r.best >= 30], ['c50', '👑', 'コンボ50', 'ぴったり50回連続', r => r.best >= 50],
+  ['p100', '🎯', 'ぴったり100回', '合計100回', r => r.perfect >= 100], ['odd5', '🌀', '変拍子5分', '変拍子で合計5分', r => r.odd >= 300],
+  ['v10', '🎨', '見た目10種類', '10種類の見た目で鳴らした', r => r.views.length >= 10],
+  ['ch1', '📅', 'はじめてのお題', '今日のお題をクリア', r => r.chalCnt >= 1], ['ch5', '🗓️', 'お題5回', 'お題を5回クリア', r => r.chalCnt >= 5],
+];
+let toastT = 0, toastQ = [];
+function toast(t, sub) { toastQ.push([t, sub]); if (toastQ.length === 1) toastNext(); }
+function toastNext() {
+  const el = $('#toast'), it = toastQ[0]; if (!it) { el.hidden = true; return; }
+  el.innerHTML = `${it[0]}${it[1] ? `<small>${it[1]}</small>` : ''}`; el.hidden = false; el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+  clearTimeout(toastT); toastT = setTimeout(() => { toastQ.shift(); toastNext(); }, 2600);
+}
+function recCheck() {
+  BADGES.forEach(([id, em, nm, d, f]) => { if (!REC.badges.includes(id) && f(REC)) { REC.badges.push(id); toast(`${em} ごほうび「${nm}」`, d); recDot(true); } });
+  Object.entries(SECRET_RULE).forEach(([k, r]) => { if (!REC.unl.includes(k) && r.ok()) { REC.unl.push(k); toast(`${MODE_INFO[k].em} ひみつの見た目「${MODE_INFO[k].name}」が出てきた！`, '見せ方の一覧・横スワイプで使えます'); recDot(true); renderModes(); } });
+}
+const recDot = on => { const d = $('#recDot'); if (d) d.hidden = !on; };
+/* ----- 今日のお題（日付で決まる。だれでも同じ日は同じお題） ----- */
+const CHAL_METERS = [['4/4', 2, [72, 84, 96, 108, 120, 132]], ['3/4', 2, [76, 88, 100, 112, 126]], ['6/8', 3, [48, 56, 64, 72]], ['5/4', 2, [80, 96, 112]],
+  ['2,3', 1, [180, 220, 260]], ['2,2,3', 1, [200, 240, 280]], ['3,3,2', 1, [200, 240, 280]]];
+function chalToday() {
+  const k = dayKey(); let h = 7; for (const c of k) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const rnd = n => { h = (h * 1103515245 + 12345) >>> 0; return (h >>> 8) % n; };
+  const [mk, f, qs] = CHAL_METERS[rnd(CHAL_METERS.length)], q = qs[rnd(qs.length)], type = rnd(5) < 2 ? 'combo' : 'time';
+  const preset = PRESETS.find(x => x.sig === mk && (!x.bars || x.bars.length === 1)) || PRESETS.find(x => x.bars && x.bars.length === 1 && x.bars[0].join() === mk) || PRESETS[2];
+  const goal = type === 'combo' ? [8, 10, 12, 16][rnd(4)] : [120, 180, 240][rnd(3)];
+  const note = f === 3 ? '♩.' : f === 1 ? '♪' : '♩', meterName = preset.sig + (mk.includes(',') ? `（${mk.replace(/,/g, '+')}）` : '');
+  const txt = type === 'combo' ? `${meterName}・${note}=${q} で、ぴったり ${goal}回連続！` : `${meterName}・${note}=${q} で、${goal / 60}分 鳴らそう`;
+  return { key: k, type, preset, f, q, goal, txt, note };
+}
+let chal = chalToday();
+const chalMatch = () => presetKey(selected) === presetKey(chal.preset) && Math.abs(Math.round(bpm / chal.f) - chal.q) <= 3 && !LEARN_MODES.includes(mode);
+const chalProg = () => (REC.chalP && REC.chalP.key === chal.key ? REC.chalP.v : 0);
+function chalAdd(v, max) {
+  if (REC.chal[chal.key]) return;
+  REC.chalP = { key: chal.key, v: max ? Math.max(chalProg(), v) : chalProg() + v };
+  if (chalProg() >= chal.goal) { REC.chal[chal.key] = true; REC.chalCnt++; recSave(); toast('🎉 今日のお題クリア！', chal.txt); recCheck(); if (!$('#shRec').classList.contains('hidden')) renderRec(); }
+}
+function chalStart() {
+  closeModals(); if (LEARN_MODES.includes(mode)) setMode(lastMetaMode || 'MB');
+  songOff(); selectPreset(chal.preset); setBpm(chal.q * chal.f);
+  if (chal.type === 'combo' && !SET.tapOn) { SET.tapOn = true; saveSet(); renderMetro(); }
+  if (!playing) start();
+  toast(chal.type === 'combo' ? '👆 拍に合わせて画面をタップ！' : '▶ そのまま鳴らそう', chal.txt);
+}
+/* ----- 1秒ごとに数える ----- */
+setInterval(() => {
+  if (typeof chal !== 'undefined' && chal.key !== dayKey()) chal = chalToday();
+  if (!playing) return;
+  const k = dayKey(); REC.days[k] = (REC.days[k] || 0) + 1; REC.total++;
+  if (activeMeta && metF(activeMeta) === 1) REC.odd++;
+  if (VIEW_ORDER.includes(mode) && !REC.views.includes(mode)) REC.views.push(mode);
+  if (chal.type === 'time' && chalMatch()) chalAdd(1);
+  if (REC.total % 5 === 0) { recSave(); recCheck(); }
+}, 1000);
+function recTap(kind, combo) {
+  if (kind !== 'p') return;
+  REC.perfect++; if (combo > REC.best) REC.best = combo;
+  if (chal.type === 'combo' && chalMatch()) chalAdd(combo, true);
+  if (combo === 10 || combo === 30 || combo === 50) recCheck();
+}
+/* ----- きろくの画面 ----- */
+function renderRec() {
+  recDot(false);
+  const today = REC.days[dayKey()] || 0, done = !!REC.chal[chal.key], pr = Math.min(1, chalProg() / chal.goal);
+  const progTxt = chal.type === 'combo' ? `いちばん長い連続：${chalProg()} / ${chal.goal}回` : `${Math.floor(chalProg() / 60)}分${chalProg() % 60}秒 / ${chal.goal / 60}分`;
+  let cal = ''; const now = new Date(), start = dayBefore(now, 34 - ((now.getDay() + 6) % 7 === 6 ? 0 : 0));
+  for (let i = 34; i >= 0; i--) { const d = dayBefore(now, i), v = REC.days[dayKey(d)] || 0, lv = v >= 900 ? 'l3' : v >= 300 ? 'l2' : v >= 60 ? 'l1' : '';
+    cal += `<div class="${lv} ${i === 0 ? 'today' : ''}" title="${dayKey(d)}：${fmtMin(v)}">${d.getDate()}</div>`; }
+  const badges = BADGES.map(([id, em, nm, d]) => `<div class="rc-badge ${REC.badges.includes(id) ? '' : 'lock'}"><span class="e">${em}</span><b>${nm}</b><small>${d}</small></div>`).join('')
+    + Object.entries(SECRET_RULE).map(([k, r]) => { const u = REC.unl.includes(k); return `<div class="rc-badge secret ${u ? '' : 'lock'}"><span class="e">${u ? MODE_INFO[k].em : '🔒'}</span><b>${u ? MODE_INFO[k].name : 'ひみつの見た目'}</b><small>${u ? '見せ方で使える' : r.need}</small></div>`; }).join('');
+  $('#recBody').innerHTML = `
+    <div class="rc-chal ${done ? 'done' : ''}"><h4>${done ? '✅ 今日のお題　クリア！' : '📅 今日のお題'}</h4><div class="ct">${chal.txt}</div>
+      <div class="rc-bar"><i style="width:${Math.round(pr * 100)}%"></i></div><div class="hint">${done ? 'また明日、新しいお題が出ます' : progTxt}</div>
+      ${done ? '' : '<button class="btn main wide" id="chalGo" style="margin-top:8px">▶ このお題をはじめる</button>'}</div>
+    <div class="rc-stats"><div class="rc-stat"><b>${fmtMin(today)}</b><span>今日</span></div><div class="rc-stat"><b>${recStreak()}日</b><span>連続</span></div>
+      <div class="rc-stat"><b>${fmtMin(REC.total)}</b><span>合計</span></div><div class="rc-stat"><b>${REC.best}</b><span>最高コンボ</span></div></div>
+    <div class="lbl2">練習した日（1分以上で色がつく）</div><div class="rc-cal">${cal}</div>
+    <div class="lbl2">ごほうび（${REC.badges.length} / ${BADGES.length}）</div><div class="rc-badges">${badges}</div>
+    <div class="hint">記録はこの端末のブラウザの中だけに保存されます。</div>`;
+  const g = $('#chalGo'); if (g) g.onclick = chalStart;
+}
+$('#recBtn').onclick = () => { renderRec(); openModal('#shRec'); };
+/* ----- 🎮 たたいて遊ぶ ----- */
+bindSeg('#shufSel', () => SET.shuffle || 0, v => { SET.shuffle = +v; shufBar = -1; });
+bindSwitch('#vibeSw', () => !!SET.vibe, v => { SET.vibe = v; if (v && navigator.vibrate) try { navigator.vibrate(40); } catch (e) {} });
+function updatePlayChip() { const c = $('#playChip'); if (c) { c.classList.toggle('on', !!SET.tapOn); c.textContent = SET.tapOn ? '🎮 たたいて遊ぶ：ON' : '🎮 たたいて遊ぶ'; } }
+$('#playChip').onclick = () => {
+  SET.tapOn = !SET.tapOn; saveSet(); renderMetro(); updatePlayChip();
+  if (SET.tapOn) toast('👆 拍に合わせて、絵をタップ！', 'ぴったりだと絵がよろこぶ。続けるとコンボ！（もう一度押すとOFF）');
+};
+
+/* =========================================================
+   🎤 マイクでズレ判定（楽器・手拍子の音を聞いて、拍とくらべる）
+   ========================================================= */
+const MIC_WK = `class VmOnset extends AudioWorkletProcessor {
+  constructor() { super(); this.slow = 0.002; this.last = -1; this.min = 0.03; this.lvT = 0; this.peak = 0;
+    this.port.onmessage = e => { if (e.data.min) this.min = e.data.min; }; }
+  process(inp) {
+    const ch = inp[0] && inp[0][0]; if (!ch) return true;
+    let s = 0, pk = 0; for (let i = 0; i < ch.length; i++) { const v = ch[i]; s += v * v; const a = v < 0 ? -v : v; if (a > pk) pk = a; }
+    const e = Math.sqrt(s / ch.length), t0 = currentTime;
+    if (pk > this.peak) this.peak = pk;
+    if (e > this.min && e > this.slow * 3.2 && t0 - this.last > 0.1) {
+      const thr = Math.max(this.min * 0.8, this.slow * 3); let k = 0; for (; k < ch.length; k++) if ((ch[k] < 0 ? -ch[k] : ch[k]) > thr) break;
+      this.last = t0; this.port.postMessage({ t: t0 + k / sampleRate, e });
+    }
+    this.slow = this.slow * 0.992 + e * 0.008;
+    if (t0 - this.lvT > 0.05) { this.port.postMessage({ lv: this.peak }); this.peak = 0; this.lvT = t0; }
+    return true;
+  }
+}
+registerProcessor('vm-onset', VmOnset);`;
+let mic = null, micCal = null;
+const micLatDef = () => (ctx ? (ctx.outputLatency || ctx.baseLatency || 0.01) : 0.01) + 0.025;
+const MIC_SENS = { lo: 0.07, mid: 0.035, hi: 0.016 };
+async function micStart() {
+  initAudio(); if (ctx.state === 'suspended') await ctx.resume();
+  if (!navigator.mediaDevices || !ctx.audioWorklet) throw new Error('このブラウザではマイクが使えません');
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false } });
+  if (!micStart.loaded) {
+    try { await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([MIC_WK], { type: 'application/javascript' }))); }
+    catch (e) { await ctx.audioWorklet.addModule('data:application/javascript;charset=utf-8,' + encodeURIComponent(MIC_WK)); }
+    micStart.loaded = true;
+  }
+  const src = ctx.createMediaStreamSource(stream), node = new AudioWorkletNode(ctx, 'vm-onset'), z = ctx.createGain(); z.gain.value = 0;
+  src.connect(node); node.connect(z); z.connect(ctx.destination);
+  node.port.postMessage({ min: MIC_SENS[SET.micSens || 'mid'] });
+  node.port.onmessage = e => micMsg(e.data);
+  mic = { stream, src, node, z, lv: 0 };
+}
+function micStop() { if (!mic) return; try { mic.stream.getTracks().forEach(t => t.stop()); mic.src.disconnect(); mic.node.disconnect(); mic.z.disconnect(); } catch (e) {} mic = null; micCal = null; }
+function micMsg(d) {
+  if (d.lv !== undefined) { if (mic) mic.lv = d.lv; const m = $('#micLv'); if (m) m.style.width = Math.min(100, Math.round(Math.sqrt(d.lv) * 140)) + '%'; return; }
+  if (micCal) { micCalAdd(d.t); return; }
+  if (!playing || !SET.micOn) return;
+  judgeAt(d.t - (SET.micLat !== undefined ? SET.micLat : micLatDef()), 'mic');
+}
+/* マイクのおくれを合わせる：拍の頭に合わせて8回たたく → おくれの中央値 */
+function micCalStart() {
+  if (!mic) { toast('🎤 先にマイクをONにしてください'); return; }
+  micCal = [];
+  if (!playing) start();
+  $('#micCalMsg').textContent = '拍の頭に合わせて、手をたたいて（8回）…';
+}
+function micCalAdd(t) {
+  const heads = noteLog.filter(n => n.head); if (!heads.length) return;
+  let best = heads[0]; heads.forEach(n => { if (Math.abs(n.time - t) < Math.abs(best.time - t)) best = n; });
+  const d = t - best.time; if (d < -0.1 || d > 0.4) return;
+  micCal.push(d); $('#micCalMsg').textContent = `${micCal.length} / 8 回`;
+  if (micCal.length >= 8) {
+    const v = micCal.slice().sort((a, b) => a - b)[4]; SET.micLat = Math.round(v * 1000) / 1000; saveSet(); micCal = null;
+    $('#micCalMsg').textContent = `合わせました（マイクのおくれ ${Math.round(SET.micLat * 1000)} ミリ秒）`; toast('🎤 マイクを合わせました', `おくれ ${Math.round(SET.micLat * 1000)} ミリ秒`);
+  }
+}
+$('#micSw').onclick = async () => {
+  if (SET.micOn) { SET.micOn = false; micStop(); }
+  else {
+    try { await micStart(); SET.micOn = true; toast('🎤 マイクで判定：ON', '拍に合わせて楽器や手拍子を。イヤホンを使うと正確です'); }
+    catch (e) { SET.micOn = false; toast('🎤 マイクが使えませんでした', e && e.name === 'NotAllowedError' ? 'マイクの使用を許可してください' : (e && e.message) || ''); }
+  }
+  saveSet(); $('#micSw').classList.toggle('on', !!SET.micOn); $('#micBox').classList.toggle('off', !SET.micOn);
+};
+$('#micCal').onclick = micCalStart;
+bindSeg('#micSensSel', () => SET.micSens || 'mid', v => { SET.micSens = v; if (mic) mic.node.port.postMessage({ min: MIC_SENS[v] }); });
+SET.micOn = false;   // マイクは毎回、自分でONにする
+
+/* =========================================================
+   👥 みんなで合わせる（合奏モード）
+   同じURL（QRコード）を開いた端末どうしが、時計の「基準の時刻」から数えて同じタイミングで小節を始める
+   ========================================================= */
+function ensAlign() {   // start() から呼ぶ：次の「みんなの小節の頭」に合わせた nextTime を返す
+  const m = activeMeta, cyc = m.total * 60 / bpm * 1000, wall = Date.now(), now = ctx.currentTime;
+  const T = ENS.anchor + Math.ceil((wall + 300 - ENS.anchor) / cyc) * cyc;
+  return now + (T - wall) / 1000 - (ctx.outputLatency || ctx.baseLatency || 0) + (SET.ensAdj || 0) / 1000;
+}
+function ensSet(anchor) { ENS = anchor ? { anchor } : null; renderEns(); updateEnsBadge(); }
+function updateEnsBadge() { const b = $('#ensBadge'); if (b) b.hidden = !ENS; }
+function renderEns() {
+  const on = !!ENS, f = curF(), adj = SET.ensAdj || 0;
+  $('#ensBody').innerHTML = on ? `
+    <div class="rc-chal done"><h4>👥 合奏モード：ON</h4><div class="ct">${selected.sig || ''}・${fNote(f)}=${Math.round(bpm / f)}</div>
+      <div class="hint">▶ スタートを押すと、ほかの端末と同じ小節の頭から鳴ります（数秒以内に始まります）。テンポや拍子を変えたら、もう一度「部屋をつくる」で配りなおしてください。</div></div>
+    <div class="lbl2">ほかの人に配る</div>
+    <input class="share-url" id="ensUrl" readonly value="${shareUrl()}">
+    <div class="qr-wrap"><canvas id="ensQr" width="220" height="220"></canvas></div>
+    <div class="lbl2" style="margin-top:10px">少しずれるときの微調整（この端末だけ）</div>
+    <div class="row" style="justify-content:center"><span class="stepper"><button class="sq" data-ea="-20">«</button><button class="sq" data-ea="-5">−</button><span class="val" style="min-width:90px">${adj > 0 ? '+' : ''}${adj} ミリ秒</span><button class="sq" data-ea="5">＋</button><button class="sq" data-ea="20">»</button></span></div>
+    <div class="hint">ほかの人より早く聞こえるときは ＋、おそいときは −。端末の時計がずれていることがあります。</div>
+    <div class="btns" style="margin-top:10px"><button class="btn main wide" id="ensNew">↻ いまの設定で部屋をつくりなおす</button><button class="btn wide" id="ensOff">合奏モードをやめる</button></div>`
+  : `<div class="hint" style="margin-bottom:10px">部員みんなのスマホで、<b>同じテンポ・同じタイミング</b>でメトロノームを鳴らします。<br>① 先生（リーダー）が、テンポと拍子を決めて「部屋をつくる」<br>② 出てきたQRコードを、みんなのスマホのカメラで読む<br>③ それぞれ ▶ スタート（押す時間がちがっても、小節の頭がそろいます）</div>
+    <button class="btn main wide" id="ensNew">👥 いまの設定で部屋をつくる</button>
+    <div class="hint" style="margin-top:8px">※ 端末の時計を使って合わせるので、数十ミリ秒ずれることがあります。そのときは微調整してください。</div>`;
+  if (on) { try { drawQR($('#ensQr'), shareUrl()); } catch (e) {} }
+  const n = $('#ensNew'); if (n) n.onclick = () => { if (playing) stop(); ensSet(Date.now()); toast('👥 合奏の部屋をつくりました', 'QRコードをみんなに読んでもらおう'); };
+  const o = $('#ensOff'); if (o) o.onclick = () => { ensSet(null); history.replaceState(null, '', location.href.split('#')[0]); };
+  document.querySelectorAll('#ensBody [data-ea]').forEach(b => b.onclick = () => { SET.ensAdj = (SET.ensAdj || 0) + +b.dataset.ea; saveSet(); renderEns(); if (playing) { stop(); start(); } });
+}
+$('#ensBadge').onclick = () => { renderEns(); openModal('#shEns'); };
 
 renderModes(); renderPresets(); renderPolySel(); renderBuilder(); refreshPanels();
 if (SET.mPreset && !(location.hash && location.hash.length > 2)) { try { selected = presetFrom(SET.mPreset); activeMeta = makeMeta(selected); } catch (e) {} }
