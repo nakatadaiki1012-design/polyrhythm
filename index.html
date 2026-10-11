@@ -2379,7 +2379,7 @@ function perfTick(ts) {   // 毎フレームよぶ。true を返したら、こ�
   const d = perfQ.last ? ts - perfQ.last : 16.7; perfQ.last = ts;
   if (d > 0 && d < 250 && document.visibilityState === 'visible') {
     perfQ.ema += (d - perfQ.ema) * 0.08;
-    if (perfQ.ema > 23) { perfQ.slow += d; perfQ.fast = 0; } else if (perfQ.ema < 18.5) { perfQ.fast += d; perfQ.slow = 0; } else { perfQ.slow = perfQ.fast = 0; }
+    if (perfQ.ema > 20.5) { perfQ.slow += d; perfQ.fast = 0; } else if (perfQ.ema < 17.8) { perfQ.fast += d; perfQ.slow = 0; } else { perfQ.slow = perfQ.fast = 0; }
     const since = ts - perfQ.changed;
     if (perfQ.slow > 1200 && since > 1500 && perfQ.lv < PERF_LV.length - 1) perfSet(perfQ.lv + 1);
     else if (perfQ.fast > perfQ.upHold && since > perfQ.upHold && perfQ.lv > 0) perfSet(perfQ.lv - 1);
@@ -4448,7 +4448,7 @@ function drawAurora(st, now, ah) {
     cx.fillStyle = `rgba(241,245,255,${Math.min(1, 0.65 * tw * tw)})`; cx.fillRect(x - r * 1.6, y - r * 0.25, r * 3.2, r * 0.5); cx.fillRect(x - r * 0.25, y - r * 1.6, r * 0.5, r * 3.2);
   }
   // オーロラを半分の大きさのキャンバスに描く（やわらかくにじむ・湖にも映す）
-  const LW = Math.max(1, Math.round(W / 2)), LH = Math.max(1, Math.round(Hz / 2));
+  const LD = perfQ.lv >= 2 ? 3 : 2, LW = Math.max(1, Math.round(W / LD)), LH = Math.max(1, Math.round(Hz / LD));
   if (!auroraLayer || auroraLayer.width !== LW || auroraLayer.height !== LH) { auroraLayer = document.createElement('canvas'); auroraLayer.width = LW; auroraLayer.height = LH; }
   const L = auroraLayer.getContext('2d');
   L.setTransform(1, 0, 0, 1, 0, 0); L.clearRect(0, 0, LW, LH); L.setTransform(LW / W, 0, 0, LH / Hz, 0, 0); L.globalCompositeOperation = 'lighter';
@@ -4461,7 +4461,7 @@ function drawAurora(st, now, ah) {
     { y: 0.72, h: 0.42, amp: 0.05, k: 1.1, sp: 0.03, ph: 4.0, a: 0.55 },
   ];
   if (hype > 1) curtains.push({ y: 0.36, h: 0.4, amp: 0.05, k: 3.1, sp: 0.06, ph: 5.3, a: 0.6 * Math.min(1, hype - 1), pk: 1 });
-  const N = clamp(Math.round(W / 7), 40, 130), sw = W / N, sprG = auroraRaySpr('g'), sprP = auroraRaySpr('p'), sprY = auroraRaySpr('y');
+  const N = Math.round(clamp(Math.round(W / 9), 32, 90) * (perfQ.lv >= 2 ? 0.6 : perfQ.lv >= 1 ? 0.8 : 1)), sw = W / N, sprG = auroraRaySpr('g'), sprP = auroraRaySpr('p'), sprY = auroraRaySpr('y');
   const pinkA = 0.12 + 0.55 * pink + 0.25 * Math.min(hype, 2);
   curtains.forEach((c, ci) => {
     for (let i = -1; i <= N + 1; i++) {
