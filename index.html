@@ -1502,7 +1502,7 @@ let uiBpmDirty = false;
 /* =========================================================
    音響エンジン（ルックアヘッド・スケジューラー）
    ========================================================= */
-const SCHEDULE_AHEAD = 0.1;   // 秒
+let SCHEDULE_AHEAD = 0.1;   // 秒（重い端末では長めにして、音がとぎれないように）
 const LOOKAHEAD_MS = 25;      // ミリ秒
 
 function initAudio() {
@@ -2331,6 +2331,7 @@ function judgeAt(t, src) {   // t：拍と比べる時刻（耳に届いた音�
    Canvas
    ========================================================= */
 const cv = document.getElementById('cv'), cx = cv.getContext('2d');
+const renderDpr = () => clamp((cv.width / W) || 1, 0.6, 2);   // いまの画質（重いときは下がる）。絵のキャッシュもこれに合わせる
 /* 明るいモードの絵：画面の文字・線・うすい板の色を、明るい背景で読める色に置きかえる。
    夜空など、自分で暗い背景をかく見せ方（DARK_SCENES）は、そのままの色にする */
 const DARK_SCENES = new Set(['Z1', 'Z2', 'MB', 'MF', 'A', 'B', 'C', 'D', 'E', 'H', 'J', 'P', 'R', 'T', 'G', 'I', 'K', 'N', 'O', 'Q', 'S', 'U', 'L', 'M']);   // 自分で背景（夜空・部屋・舞台など）をかく見せ方
@@ -2358,11 +2359,36 @@ const rawFill = c => _fillDesc.set.call(cx, c);   // 置きかえをしないで
 { const P = CanvasRenderingContext2D.prototype, fd = _fillDesc, sd = Object.getOwnPropertyDescriptor(P, 'strokeStyle');
   try {
     Object.defineProperty(cx, 'fillStyle', { configurable: true, get() { return fd.get.call(this); }, set(v) { fd.set.call(this, canvasLight && typeof v === 'string' ? lightCol(v, false) : v); } });
+    const bd = Object.getOwnPropertyDescriptor(P, 'shadowBlur');
+    Object.defineProperty(cx, 'shadowBlur', { configurable: true, get() { return bd.get.call(this); }, set(v) { const q = PERF_LV[perfQ.lv]; bd.set.call(this, q.low ? 0 : v * (perfQ.lv === 0 ? 1 : perfQ.lv === 1 ? 0.6 : 0.35)); } });
     Object.defineProperty(cx, 'strokeStyle', { configurable: true, get() { return sd.get.call(this); }, set(v) { sd.set.call(this, canvasLight && typeof v === 'string' ? lightCol(v, false) : v); } });
   } catch (e) {} }
 let W = 300, H = 300, K = 1;
+/* ===== 処理落ちしないように：重いときは自動で画質を下げる（解像度 → ぼかし効果 → 30コマ）。軽くなったら少しずつ戻す ===== */
+const PERF_LV = [{ s: 1 }, { s: 0.85 }, { s: 0.72 }, { s: 0.62, low: true }, { s: 0.55, low: true, skip: true }];
+const perfQ = { lv: 0, ema: 16.7, last: 0, slow: 0, fast: 0, changed: 0, upHold: 6000, upAt: 0, tick: 0 };
+function perfSet(lv) {
+  const now = performance.now();
+  if (lv > perfQ.lv && now - perfQ.upAt < 15000) perfQ.upHold = Math.min(60000, perfQ.upHold * 2);   // 上げてすぐ重くなったら、次は上げるのを待つ
+  if (lv < perfQ.lv) perfQ.upAt = now;
+  perfQ.lv = lv; perfQ.changed = now; perfQ.slow = perfQ.fast = 0;
+  SCHEDULE_AHEAD = lv >= 2 ? 0.2 : lv >= 1 ? 0.14 : 0.1;
+  resize();
+}
+function perfTick(ts) {   // 毎フレームよぶ。true を返したら、このフレームは絵をかかない（30コマにする）
+  const d = perfQ.last ? ts - perfQ.last : 16.7; perfQ.last = ts;
+  if (d > 0 && d < 250 && document.visibilityState === 'visible') {
+    perfQ.ema += (d - perfQ.ema) * 0.08;
+    if (perfQ.ema > 23) { perfQ.slow += d; perfQ.fast = 0; } else if (perfQ.ema < 18.5) { perfQ.fast += d; perfQ.slow = 0; } else { perfQ.slow = perfQ.fast = 0; }
+    const since = ts - perfQ.changed;
+    if (perfQ.slow > 1200 && since > 1500 && perfQ.lv < PERF_LV.length - 1) perfSet(perfQ.lv + 1);
+    else if (perfQ.fast > perfQ.upHold && since > perfQ.upHold && perfQ.lv > 0) perfSet(perfQ.lv - 1);
+  }
+  perfQ.tick++;
+  return !!PERF_LV[perfQ.lv].skip && perfQ.tick % 2 === 1;
+}
 function resize() {
-  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.max(0.6, Math.min(window.devicePixelRatio || 1, 2) * (typeof perfQ === 'undefined' ? 1 : PERF_LV[perfQ.lv].s));
   W = Math.max(50, r.width); H = Math.max(50, r.height);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -2377,11 +2403,17 @@ function rr(x, y, w, h, r) {
   cx.arcTo(x + w, y, x + w, y + h, r); cx.arcTo(x + w, y + h, x, y + h, r);
   cx.arcTo(x, y + h, x, y, r); cx.arcTo(x, y, x + w, y, r); cx.closePath();
 }
+const textWCache = new Map();
+function textW(s) {   // 同じ文字・同じフォントの幅は、はかり直さない
+  const k = cx.font + '\u0001' + s; let w = textWCache.get(k);
+  if (w === undefined) { w = cx.measureText(s).width; if (textWCache.size > 4000) textWCache.clear(); textWCache.set(k, w); }
+  return w;
+}
 function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middle') {
   if (typeof s === 'string' && s.length > 1 && /パン|トマト/.test(s)) s = neutralTxt(s);
   cx.font = `${weight} ${size}px ${FONT}`;
   if (align === 'center') {   // せまい画面で、まん中そろえの文字が画面の外にはみ出さないよう、小さくする
-    const room = 2 * Math.min(x, W - x) - 28, w = cx.measureText(s).width;
+    const room = 2 * Math.min(x, W - x) - 28, w = textW(s);
     if (w > room && w > W * 0.6) cx.font = `${weight} ${Math.max(9, size * room / w)}px ${FONT}`;
   }
   if (canvasLight && typeof color === 'string') rawFill(lightCol(color, true)); else cx.fillStyle = color;
@@ -2389,7 +2421,8 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
 }
 
 let prevStage = 0, returnBanner = null, lastSongBar = -1, shufBar = -1;
-function frame() {
+function frame(ts) {
+  if (perfTick(ts || performance.now())) { requestAnimationFrame(frame); return; }
   const now = audioNow();
   if (playing && stopAt !== null && now >= stopAt) stop();
   if (playing) {
@@ -2572,7 +2605,7 @@ function drawScore(st, now, y0, h, opt = {}) {
   const parts = m.bars.map(bg => meterOf(bg).name), beatLabel = '＝ ' + (parts.every(p => p === parts[0]) ? parts[0] : parts.join(' → '));
   const lfs = Math.max(12, Math.min(15 * K, (h - rowH) * 0.42));
   cx.font = `900 ${lfs}px ${FONT}`;
-  let labR = beatOn ? cx.measureText(beatLabel).width + 14 * K : 0;
+  let labR = beatOn ? textW(beatLabel) + 14 * K : 0;
   const labL = beatOn ? (W < 640 ? 30 : 52) * K : 0;
   let fixed = 2 * pad + 18 * K + 26 * K + labL, T = 0;
   show.forEach((s, k) => { const bg = s.mm.bars[s.b]; fixed += (sigShown[k] ? tsw : 0) + (bg.length - 1) * ggap + (k ? bgap : 0); T += bg.reduce((a, v) => a + v, 0); });
@@ -2660,7 +2693,7 @@ function drawScore(st, now, y0, h, opt = {}) {
   cx.fillRect(rx, rTop, 1.6 * K, rBot - rTop); cx.fillRect(rx + 4 * K, rTop, 4.5 * K, rBot - rTop);
   if (beatOn && labR) txt(beatLabel, rx + 16 * K, beatY, lfs, '#334155', 900, 'left');
   if (!opt.still) {
-    const hf = Math.max(11, 10 * K); cx.font = `700 ${hf}px ${FONT}`; const hw = cx.measureText('拍子記号をタップすると説明').width;
+    const hf = Math.max(11, 10 * K); cx.font = `700 ${hf}px ${FONT}`; const hw = textW('拍子記号をタップすると説明');
     if (!sigTip && rx + 24 * K + labR + hw < W - pad - 12 * K) txt('拍子記号をタップすると説明', W - pad - 12 * K, y0 + h - 9 * K, hf, '#64748b', 700, 'right');
   }
 }
@@ -2675,7 +2708,7 @@ function drawSigTip() {
   const age = (performance.now() - sigTip.t) / 4500; if (age > 1) { sigTip = null; return; }
   const al = age < 0.85 ? 1 : 1 - (age - 0.85) / 0.15, lines = sigExplain(sigTip.sig), fs = Math.max(14, 15 * K);
   cx.font = `800 ${fs}px ${FONT}`;
-  const w = Math.max(...lines.map(l => cx.measureText(l).width)) + 32 * K, h = lines.length * fs * 1.5 + 22 * K;
+  const w = Math.max(...lines.map(l => textW(l))) + 32 * K, h = lines.length * fs * 1.5 + 22 * K;
   const x = clamp(sigTip.x - w * 0.2, 8 * K, W - w - 8 * K), y = sigTip.y - h - 10 * K;
   cx.globalAlpha = al;
   rr(x, y, w, h, 12 * K); cx.fillStyle = 'rgba(11,18,34,0.97)'; cx.fill(); cx.strokeStyle = LIME; cx.lineWidth = 2 * K; cx.stroke();
@@ -2691,16 +2724,16 @@ function drawCaption(y0, h, fs) {
   const maxW = W - 2 * 14 * K - 44;   // 右はしの「？」ボタンのぶんをあける
   let t = !ptOn() && MODE_MLINE[mode] ? MODE_MLINE[mode] : neutralTxt(info.line), f = fs;
   cx.font = `700 ${f}px ${FONT}`;
-  if (cx.measureText(t).width > maxW) t = !ptOn() && MODE_MLINE[mode] ? MODE_MLINE[mode] : neutralTxt(info.short);
-  let w = (cx.font = `700 ${f}px ${FONT}`, cx.measureText(t).width);
-  if (w > maxW) { f = Math.max(14, f * maxW / w); cx.font = `700 ${f}px ${FONT}`; w = cx.measureText(t).width; }
+  if (textW(t) > maxW) t = !ptOn() && MODE_MLINE[mode] ? MODE_MLINE[mode] : neutralTxt(info.short);
+  let w = (cx.font = `700 ${f}px ${FONT}`, textW(t));
+  if (w > maxW) { f = Math.max(14, f * maxW / w); cx.font = `700 ${f}px ${FONT}`; w = textW(t); }
   if (w > maxW) {   // 1行に入らないときは、切らずに2行にする（「、」「。」「＝」などの区切りで分ける）
     const f2 = Math.min(f, h / 2.35); cx.font = `700 ${f2}px ${FONT}`;
     let best = Math.round(t.length / 2), bd = 99;
     for (let i = 2; i < t.length - 2; i++) if ('、。・＝，,）) '.includes(t[i - 1])) { const d = Math.abs(i - t.length / 2); if (d < bd) { bd = d; best = i; } }
     let a = t.slice(0, best).trim(), b = t.slice(best).trim();
-    while (cx.measureText(b).width > maxW && b.length > 4) b = b.slice(0, -2) + '…';
-    while (cx.measureText(a).width > maxW && a.length > 4) a = a.slice(0, -2) + '…';
+    while (textW(b) > maxW && b.length > 4) b = b.slice(0, -2) + '…';
+    while (textW(a) > maxW && a.length > 4) a = a.slice(0, -2) + '…';
     txt(a, (W - 44) / 2, y0 + h / 2 - f2 * 0.6, f2, '#e2e8f0', 700); txt(b, (W - 44) / 2, y0 + h / 2 + f2 * 0.6, f2, '#e2e8f0', 700);
     return;
   }
@@ -2738,7 +2771,7 @@ function drawHeader(st) {
   const m = st.m, pad = 14 * K; let x = pad; const y = pad + 16 * K;
   const fs = (m.nBars > 1 ? (W < 520 ? 16 : 21) : 26) * K;
   cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${fs}px ${FONT}`;
-  const put = (s, c, gapAfter) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + gapAfter; };
+  const put = (s, c, gapAfter) => { cx.fillStyle = c; cx.fillText(s, x, y); x += textW(s) + gapAfter; };
   const simpleH = SET.simpleView && !ptOn() && m.nBars === 1 && metF(m) !== 1 && !songOnNow() && !pendingMeta;   // シンプル表示の 4/4 などは「4/4」だけ
   m.bars.forEach((bg, b) => {
     if (b) put('→', '#475569', 8 * K);
@@ -2760,14 +2793,14 @@ function drawHeader(st) {
     const endNow = !SET.songLoop && sCur >= 0 && mod(sCur, sL) >= song.to;
     const cb = sCur >= 0 ? song.bars[mod(sCur, sL)] : null, t1 = (cb && cb.mark ? `［${cb.mark}］` : '') + meterText(m, true) + '　', t2 = endNow ? 'この小節でおわり' : (nb.mark ? `次：［${nb.mark}］` : '次：') + (same ? '同じ' : songBarLabel(nx)) + (nb.t ? `　${tempoStr(nb.t)}` : ''), fs2 = Math.max(13, 13.5 * K);
     txt(t1, pad, y + 24 * K, fs2, '#e2e8f0', 800, 'left'); cx.font = `800 ${fs2}px ${FONT}`;
-    txt(t2, pad + cx.measureText(t1).width, y + 24 * K, fs2, endNow ? '#fda4af' : same ? '#94a3b8' : LIME, 900, 'left');
+    txt(t2, pad + textW(t1), y + 24 * K, fs2, endNow ? '#fda4af' : same ? '#94a3b8' : LIME, 900, 'left');
   } else if (!simpleH) {   // 何拍子か（例：5/8 ＝ 2拍子（短い拍＋長い拍））
     const fs2 = Math.max(13, 13.5 * K), maxW = W - 2 * pad - (isQuarter(m) ? 170 : 110) * K;
     let t = meterText(m) + (ptOn() || m.preset.tune || m.preset.cat === 'custom' ? '　' + m.preset.note : '');
     cx.font = `800 ${fs2}px ${FONT}`;
-    if (cx.measureText(t).width > maxW) t = meterText(m);
-    if (cx.measureText(t).width > maxW) t = meterText(m, true) + '　' + m.preset.note;
-    if (cx.measureText(t).width > maxW) t = meterText(m, true);
+    if (textW(t) > maxW) t = meterText(m);
+    if (textW(t) > maxW) t = meterText(m, true) + '　' + m.preset.note;
+    if (textW(t) > maxW) t = meterText(m, true);
     txt(t, pad, y + 24 * K, fs2, '#e2e8f0', 800, 'left');
   }
   const ramp = SET.rampOn && playing, qt = metF(m) === 2, tm = tempoText(qt, ramp, metF(m) === 3);
@@ -2778,7 +2811,7 @@ function drawHeader(st) {
     const mt = (tm[1] && !simpleH ? tm[1] + '・' : '') + (sCur >= 0 ? `${mod(sCur, sL) + 1} / ${sL} 小節目` : `${st.measure * m.nBars + m.barOfGroup[st.g] + 1} 小節目`), mfs = Math.max(13, 12 * K);
     txt(mt, W - pad, y + 24 * K, mfs, '#a3b1c6', 600, 'right');
     cx.font = `600 ${mfs}px ${FONT}`;
-    const lx = W - pad - cx.measureText(mt).width - 12 * K, age = barHeadAge(audioNow(), m), q = age < 0.7 ? 1 - age / 0.7 : 0;   // 小節の頭のランプ
+    const lx = W - pad - textW(mt) - 12 * K, age = barHeadAge(audioNow(), m), q = age < 0.7 ? 1 - age / 0.7 : 0;   // 小節の頭のランプ
     cx.fillStyle = q > 0 ? hexA(LIME, 0.4 + 0.6 * q) : 'rgba(100,116,139,0.5)'; cx.beginPath(); cx.arc(lx, y + 24 * K, 5 * K, 0, Math.PI * 2); cx.fill();
     if (q > 0) { cx.strokeStyle = hexA(LIME, q); cx.lineWidth = 2 * K; cx.beginPath(); cx.arc(lx, y + 24 * K, 5 * K + (1 - q) * 14 * K, 0, Math.PI * 2); cx.stroke(); }
   }
@@ -2830,7 +2863,7 @@ function drawBand(y0, h, stage, hide) {
     txt('練習', x, cy, 11 * K, '#64748b', 800, 'left'); x += 32 * K;
     STAGE_NAMES.forEach((s, i) => {
       cx.font = `800 ${10.5 * K}px ${FONT}`;
-      const w = cx.measureText(s).width + 12 * K, on = playing && i === stage;
+      const w = textW(s) + 12 * K, on = playing && i === stage;
       rr(x, cy - 9 * K, w, 18 * K, 9 * K);
       cx.fillStyle = on ? (i === 3 ? '#f472b6' : LIME) : 'rgba(51,65,85,0.6)'; cx.fill();
       txt(s, x + w / 2, cy + 0.5, 10.5 * K, on ? '#0f172a' : '#94a3b8', 800);
@@ -2918,7 +2951,7 @@ const rollCv = {};
 function rollCache(key, w, h, paint) {
   let e = rollCv.bg;
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); paint(g); e = rollCv.bg = { key, c };
   }
@@ -3278,7 +3311,7 @@ function rollRows(y0, y1) {   // ゆか板の継ぎ目の高さ（奥ほどせ�
 // 重い背景は、画面の大きさごとにオフスクリーンにかいておく（名前ごとに1枚）
 const bounceCaches = {};
 function bounceCache(name, w, h, keyExtra, paint) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2), key = [w, h, K, dpr, keyExtra].join('|');
+  const dpr = renderDpr(), key = [w, h, K, dpr, keyExtra].join('|');
   let c = bounceCaches[name];
   if (!c || c._key !== key) {
     c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.max(1, Math.round(h * dpr)); c._key = key;
@@ -3598,7 +3631,7 @@ const orbitCv = {};
 function orbitCache(key, w, h, paint) {
   let e = orbitCv.bg;
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); paint(g); e = orbitCv.bg = { key, c };
   }
@@ -3766,7 +3799,7 @@ const rocketCv = {};
 function rocketCache(name, key, w, h, paint) {   // 重い絵は大きさが変わったときだけ描きなおす
   let e = rocketCv[name];
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); paint(g);
     e = rocketCv[name] = { key, c };
@@ -4807,7 +4840,7 @@ function stairsSkyPaint(g, w, h) {
 // 石の質感（細かい粒）のパターン
 let stairsStone = null;
 function stairsStonePattern() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2), key = K + '|' + dpr;
+  const dpr = renderDpr(), key = K + '|' + dpr;
   if (stairsStone && stairsStone._key === key) return stairsStone.pat;
   const s = Math.round(128 * K), c = document.createElement('canvas'); c.width = Math.round(s * dpr); c.height = Math.round(s * dpr);
   const g = c.getContext('2d'); g.scale(dpr, dpr);
@@ -5351,7 +5384,7 @@ const hash01 = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return
 /* --- 電車：背景（空・町・砂利）はオフスクリーンにキャッシュ --- */
 let trainSkyC = null, trainSkyKey = '', trainCityC = null, trainCityKey = '', trainBalC = null, trainBalKey = '';
 function trainMakeC(w, h, fn) {
-  const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+  const dpr = renderDpr(), c = document.createElement('canvas');
   c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.max(1, Math.round(h * dpr));
   const g = c.getContext('2d'); g.scale(dpr, dpr); fn(g); return c;
 }
@@ -5855,7 +5888,7 @@ function emblemReset() { emblemBase = -1; }
 // 紋章：ベルベットの上に置いた金属の盤（真ちゅうのふち・ろくろ目の鋼・ギョーシェ彫り）。重いのでキャッシュする
 let emblemPlate = null, emblemPlateKey = '';
 function emblemPlateGet(ah, cxC, cyC, R) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = renderDpr();
   const key = [W, ah, K, R, cxC, cyC, dpr].join('|');
   if (emblemPlate && emblemPlateKey === key) return emblemPlate;
   const mk = () => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(W * dpr)); c.height = Math.max(1, Math.ceil(ah * dpr)); const g = c.getContext('2d'); g.scale(dpr, dpr); return [c, g]; };
@@ -6158,7 +6191,7 @@ const FW = {
 let fwBgCache = null, fwCityCache = null, fwLayer = null;
 const fwSprites = {};
 function fwCanvas(w, h) {
-  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w * d)); c.height = Math.max(1, Math.ceil(h * d));
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { c, g, d, w, h };
 }
@@ -6629,7 +6662,7 @@ function gearsScrew(g, x, y, r) {   // オフスクリーン用：板を止め�
 function gearsBg(ah) {   // つや消しの金属の背板（ヘアライン仕上げ）をキャッシュ
   const key = W + 'x' + ah + 'x' + K;
   if (gearsBgKey !== key || !gearsBgC) {
-    const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+    const dpr = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(W * dpr)); c.height = Math.max(1, Math.round(ah * dpr));
     const g = c.getContext('2d'); g.scale(dpr, dpr);
     let gr = g.createLinearGradient(0, 0, 0, ah); gr.addColorStop(0, '#30353d'); gr.addColorStop(0.55, '#22262d'); gr.addColorStop(1, '#14171c');
@@ -7054,7 +7087,7 @@ function drawGears(st, now, ah) {
     cx.shadowColor = 'rgba(0,0,0,0.85)'; cx.shadowBlur = 3 * K; cx.shadowOffsetY = 1 * K;
     if (vert) txt('拍の歯車', xt - gt.rt * 0.75, yt + gt.rt * 0.95, nfs, '#f3e2b0', 800, 'right');
     else txt('拍の歯車', xt, tY, nfs, '#f3e2b0', 800);
-    const ql = '小節の歯車（歯1つ＝1小節）'; cx.font = `800 ${nfs}px ${FONT}`; const qw = cx.measureText(ql).width;
+    const ql = '小節の歯車（歯1つ＝1小節）'; cx.font = `800 ${nfs}px ${FONT}`; const qw = textW(ql);
     if (Math.cos(psi) > 0.5 && xq + gq.rt + 10 * K + qw < W - 8 * K) txt(ql, xq + gq.rt + 10 * K, yq, nfs, '#d9f99d', 800, 'left');   // 外側（右）に
     else if (Math.cos(psi) < -0.5 && xq - gq.rt - 10 * K - qw > 8 * K) txt(ql, xq - gq.rt - 10 * K, yq, nfs, '#d9f99d', 800, 'right');
     else {   // 上か下に（画面からはみ出さないよう、左右をおさめる）
@@ -7429,7 +7462,7 @@ let dominoBgC = null, dominoBgKey = '';
 function dominoBg(ah, gy, yH) {   // 壁とテーブル（板は横向きなので、流れても動いて見えない）
   const key = W + 'x' + ah + 'x' + K + 'x' + Math.round(gy) + 'x' + Math.round(yH);
   if (dominoBgKey !== key || !dominoBgC) {
-    const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+    const dpr = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(W * dpr)); c.height = Math.max(1, Math.round(ah * dpr));
     const g = c.getContext('2d'); g.scale(dpr, dpr);
     // 壁
@@ -7949,7 +7982,7 @@ let dropsBg = null;
 function dropsBackground(top, waterY, ah) {
   const key = [W, ah, K, top, waterY].join();
   if (dropsBg && dropsBg.key === key) return dropsBg.c;
-  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
   // 奥の壁（左上から光）
@@ -8274,7 +8307,7 @@ let jellyBg = null;
 function jellyBackground(plateY, ah) {
   const key = [W, ah, K, plateY].join();
   if (jellyBg && jellyBg.key === key) return jellyBg.c;
-  const tY = plateY - 24 * K, d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const tY = plateY - 24 * K, d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
   // かべ（左上からのあたたかい光）
@@ -8309,7 +8342,7 @@ let jellyDeco = null, jellyTapAt = { t: -1, gi: 0 };
 function jellyDecoGet(plateY, ah) {
   const key = [W, ah, K, plateY].join();
   if (jellyDeco && jellyDeco.key === key) return jellyDeco.c;
-  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
   const tY = plateY - 24 * K;
@@ -8606,7 +8639,7 @@ const pendulumCv = {};
 function pendulumCache(key, w, h, paint) {
   let e = pendulumCv.bg;
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); paint(g); e = pendulumCv.bg = { key, c };
   }
@@ -8798,7 +8831,7 @@ function pendulumRR(c, x, y, w, h, r) {   // 角丸の四角（別のキャン�
 let noteCombo = 0, noteBest = 0, noteMissT = 0;
 // ノーツ：奥へのびる光沢のあるレーン（遠近）・つやのある玉・レーザーの判定ライン・ステージの照明
 let notesStage = null, notesStageKey = '', notesSpr = {}, notesSprKey = '';
-function notesDpr() { return Math.min(window.devicePixelRatio || 1, 2); }
+function notesDpr() { return renderDpr(); }
 // つやのある玉の絵（左上から光）を1つ作っておき、大きさを変えて使う
 function notesBall(col, R0, kind) {
   const dpr = notesDpr(), key = R0 + '|' + dpr;
@@ -9121,7 +9154,7 @@ function flowersLeaf() {
 function flowersBackground(top, front, ah) {
   const key = [W, ah, K, top, front].join();
   if (flowersBg && flowersBg.key === key) return flowersBg;
-  const hz = top + (front - top) * 0.2, d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const hz = top + (front - top) * 0.2, d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.ceil(W * d); c.height = Math.ceil(ah * d);
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0);
   // 朝の空
@@ -9367,7 +9400,7 @@ function drawFlowers(st, now, ah) {
 // カエル：背景（空と水・岸の草むら）のキャッシュ
 let frogBg = null, frogBank = null;
 function frogCanvas(w, h) {
-  const d = Math.min(2, window.devicePixelRatio || 1), c = document.createElement('canvas');
+  const d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w * d)); c.height = Math.max(1, Math.ceil(h * d));
   const g = c.getContext('2d'); g.setTransform(d, 0, 0, d, 0, 0); return { c, g };
 }
@@ -9743,7 +9776,7 @@ let karakuriBgC = null, karakuriBgKey = '';
 function karakuriBg(ah, top, pad, alt) {   // 壁と木のボード（穴あき）をキャッシュ。2小節目はくるみ材
   const key = W + 'x' + ah + 'x' + K + 'x' + top + 'x' + alt;
   if (karakuriBgKey !== key || !karakuriBgC) {
-    const dpr = window.devicePixelRatio || 1, c = document.createElement('canvas');
+    const dpr = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(W * dpr)); c.height = Math.max(1, Math.round(ah * dpr));
     const g = c.getContext('2d'); g.scale(dpr, dpr);
     let gr = g.createLinearGradient(0, 0, 0, ah); gr.addColorStop(0, '#1d1a17'); gr.addColorStop(1, '#0f0d0b');
@@ -10013,7 +10046,7 @@ function blockJudge(sc, kind) {   // タップ判定のたびによばれる
 }
 // ブロック積み：木の机の上に置いた木箱（トレー）に、ペンキぬりの積み木を積む。背景・箱・積み木の絵はキャッシュ
 let blocksBg = null, blocksBgKey = '', blocksSpr = {}, blocksSprKey = '';
-function blocksDpr() { return Math.min(window.devicePixelRatio || 1, 2); }
+function blocksDpr() { return renderDpr(); }
 // 木目の線（g：描く先）
 function blocksGrain(g, x, y, w, h, seed, a, step) {
   for (let i = 0; i < h / step; i++) {
@@ -10447,7 +10480,7 @@ const metroBallCv = {};
 function metroBallCache(name, key, w, h, paint) {   // 重い背景は画面の大きさごとに1回だけ描いておく
   let e = metroBallCv[name];
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); paint(g);
     e = metroBallCv[name] = { key, c };
@@ -10658,7 +10691,7 @@ const metroPendCv = {};
 function metroPendCache(name, key, x, y, w, h, paint) {   // 動かない部分は、大きさが変わったときだけ描き直す
   let e = metroPendCv[name];
   if (!e || e.key !== key) {
-    const d = Math.min(window.devicePixelRatio || 1, 2), c = document.createElement('canvas');
+    const d = renderDpr(), c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w * d)); c.height = Math.max(1, Math.round(h * d));
     const g = c.getContext('2d'); g.scale(d, d); g.translate(-x, -y); paint(g);
     e = metroPendCv[name] = { key, c, x, y, w, h };
@@ -11227,7 +11260,7 @@ function drawBuddy(x, yF, R, col, o) {
 function maneBubble(x, y, text, col, age, R) {   // 「パン！」「トマト！」のふきだし
   if (age < 0 || age > 0.45) return;
   const pop = 1 + 0.35 * Math.max(0, 1 - age * 8), a = age < 0.3 ? 1 : 1 - (age - 0.3) / 0.15, fs = R * 0.42 * pop;
-  cx.globalAlpha = a; cx.font = `900 ${fs}px ${FONT}`; const w = cx.measureText(text).width + fs * 0.8, h = fs * 1.5;
+  cx.globalAlpha = a; cx.font = `900 ${fs}px ${FONT}`; const w = textW(text) + fs * 0.8, h = fs * 1.5;
   cx.fillStyle = '#ffffff'; rr(x - w / 2, y - h / 2, w, h, h / 2); cx.fill(); cx.strokeStyle = col; cx.lineWidth = 3 * K; cx.stroke();
   txt(text, x, y + 1, fs, col === '#fbbf24' ? '#b45309' : '#0e7490', 900); cx.globalAlpha = 1;
 }
@@ -11657,7 +11690,7 @@ function drawPolyHeader(ps) {
   const pad = 14 * K, y = pad + 16 * K;
   cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${26 * K}px ${FONT}`;
   let x = pad;
-  const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
+  const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += textW(s) + g; };
   put('ポリリズム', '#e2e8f0', 12 * K); put(String(ps.a), PA, 6 * K); put('対', '#64748b', 6 * K); put(String(ps.b), PB, 0);
   txt(`同じ時間を ${ps.a} つと ${ps.b} つに分ける`, pad, y + 24 * K, Math.max(13, 13 * K), '#a3b1c6', 600, 'left');
   const ramp = SET.rampOn && playing;
@@ -11701,10 +11734,10 @@ function drawTup(ts, now, ah) {
   const curIdx = tupQuiz ? 0 : Math.floor(Math.max(0, ts.barIdx) / SET.tupBars) % seq.length;
   const nextN = tupQuiz ? n : tupNAt(ts.barIdx + 1), willChange = ts.has && nextN !== n && ts.beat === ts.beats - 1;
   cx.font = `900 ${chipFs}px ${FONT}`;
-  const cw = seq.map(v => Math.max(chipFs * 1.9, cx.measureText(String(v)).width + chipFs * 1.2)), arrow = chipFs * 1.2;
+  const cw = seq.map(v => Math.max(chipFs * 1.9, textW(String(v)) + chipFs * 1.2)), arrow = chipFs * 1.2;
   let tw = cw.reduce((a, v) => a + v, 0) + arrow * (seq.length - 1);
   const label = tupQuiz ? '答え：' : seq.length > 1 ? '順番：' : '連符：';
-  cx.font = `800 ${chipFs}px ${FONT}`; const lw = cx.measureText(label).width + 6 * K;
+  cx.font = `800 ${chipFs}px ${FONT}`; const lw = textW(label) + 6 * K;
   let x = (W - tw - lw) / 2;
   txt(label, x, cy0, chipFs, '#94a3b8', 800, 'left'); x += lw;
   seq.forEach((v, i) => {
@@ -11805,10 +11838,10 @@ function drawTup(ts, now, ah) {
 function drawTupHeader(ts) {
   const pad = 14 * K, y = pad + 16 * K, n = ts.n, col = TUPC[n] || '#e2e8f0';
   cx.textBaseline = 'middle'; cx.textAlign = 'left'; cx.font = `800 ${26 * K}px ${FONT}`;
-  let x = pad; const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += cx.measureText(s).width + g; };
+  let x = pad; const put = (s, c, g) => { cx.fillStyle = c; cx.fillText(s, x, y); x += textW(s) + g; };
   put(`${ts.beats}/4`, '#e2e8f0', 12 * K); put(tupName(n), col, 0);
   let sub = n === 2 ? `1拍を 2 つに分ける ＝ ふつうの8分音符（${tupWord(2)}）` : `1拍を ${n} つに等しく分ける（${tupWord(n)}）`;
-  if (n === 3) { cx.font = `800 ${Math.max(13, 13.5 * K)}px ${FONT}`; const s2 = sub + '・6/8 の拍と同じ分け方'; if (cx.measureText(s2).width < W - 2 * pad - 170 * K) sub = s2; }
+  if (n === 3) { cx.font = `800 ${Math.max(13, 13.5 * K)}px ${FONT}`; const s2 = sub + '・6/8 の拍と同じ分け方'; if (textW(s2) < W - 2 * pad - 170 * K) sub = s2; }
   txt(sub, pad, y + 24 * K, Math.max(13, 13.5 * K), '#e2e8f0', 800, 'left');
   const ramp = SET.rampOn && playing, tm = tempoText(true, ramp);
   txt(tm[0], W - pad, y, 18 * K, ramp ? LIME : '#67e8f9', 800, 'right');
@@ -12319,7 +12352,8 @@ function setMode(md) {
   if (info) $('#vView').textContent = info.name;
   if (md !== 'W' && md !== 'F' && md !== 'X' && md !== 'V' && md !== 'Y') { SET.mMode = md; saveSet(); }
   renderPresets(); renderPolySel(); updateBarRhythm(); if (typeof renderSongMap === 'function') renderSongMap();
-  if (!lsOpen() && !LEARN_MODES.includes(md) && metroSnap && metroSnap.by === 'mode') metroBack(false);   // 学ぶ・あそぶから、ふつうの見せ方にもどった
+  if (!lsOpen() && !LEARN_MODES.includes(md) && metroSnap && metroSnap.by === 'mode') metroBack(false);
+  if (typeof perfQ !== 'undefined' && was !== md) { perfQ.upHold = 3000; perfQ.fast = perfQ.slow = 0; perfQ.upAt = 0; }   // 見た目を変えたら、画質はまた早めに戻せるように   // 学ぶ・あそぶから、ふつうの見せ方にもどった
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
 /* モードの一覧：はじめは「まずはこれ」の6つだけ。ほかは「ほかのモードも見る」で出す */
