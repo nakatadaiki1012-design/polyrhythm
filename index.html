@@ -6203,37 +6203,54 @@ function emblemStar(x, y, r, col, a) {
   cx.fill(); cx.globalAlpha = 1;
 }
 /* @@BEGIN drawEmblem */
+let emblemRec = {}, emblemLast = -1, emblemTL0 = null;
 function drawEmblem(st, now, ah) {
   const m = st.m, T = m.total, key = presetKey(m.preset);
   const meas = st.has ? st.measure : 0;
-  if (key !== emblemKey || emblemBase > meas) { emblemKey = key; emblemBase = 0; }
-  if (emblemBase < 0) emblemBase = meas;
+  // 拍子が変わっても模様は消さない：これまでの周ごとに「そのときの拍子」と回転角を記録して、積み重ねる
+  const tl0 = tl[0] || null;
+  if (emblemTL0 !== tl0 || emblemBase > meas || (!st.has && key !== emblemKey)) { emblemKey = key; emblemBase = 0; emblemRec = {}; emblemLast = -1; emblemTL0 = tl0; }
+  emblemKey = key;
+  if (emblemBase < 0) { emblemBase = meas; emblemRec = {}; emblemLast = -1; }
+  const metaOfRound = n => { for (let i = tl.length - 1; i >= 0; i--) if (tl[i].ms0 <= n) return tl[i].meta; return m; };
+  if (emblemLast < emblemBase - 1) { emblemLast = emblemBase - 1; }
+  for (let n = emblemLast + 1; n <= meas; n++) {
+    const pr = emblemRec[n - 1], mm = n === meas ? m : metaOfRound(n);
+    emblemRec[n] = { m: mm, off: pr ? pr.off + 2 * Math.PI / (3 * pr.m.total) : 0 };
+    if (emblemRec[n - 8 * 40]) delete emblemRec[n - 8 * 40];
+  }
+  emblemLast = Math.max(emblemLast, meas);
+  const cur = emblemRec[meas]; cur.m = m;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) * 0.5;
   const R = Math.max(40, Math.min(W * 0.35, (ah - top) * 0.385));
-  const rot = 2 * Math.PI / (3 * T), maxL = 3 * T;            // 1周ごとに回す角度／一周するまでの枚数
+  // 「ひとめぐり」の周数もなめらかに：拍子が変わった直後は前の拍子の値から移る
+  let maxL = 3 * T;
+  if (st.changed && st.prevMeta && st.segAge < 0.8) { const q = st.segAge / 0.8, e = q * q * (3 - 2 * q); maxL = 3 * (st.prevMeta.total + (T - st.prevMeta.total) * e); }
   const depth = [1, 0.6, 0.36];
-  const pt = (c, n) => {                                       // 位置 c（8分音符）・n 枚目の点
-    const g = m.subToGroup[mod(c, T)], k = mod(c, T) - m.starts[g];
-    const a = -Math.PI / 2 + 2 * Math.PI * c / T + n * rot, r = R * depth[k];
+  const ptM = (mm, off, c) => {                                // 位置 c（8分音符）・その周の点
+    const TT = mm.total, g = mm.subToGroup[mod(c, TT)], k = mod(c, TT) - mm.starts[g];
+    const a = -Math.PI / 2 + 2 * Math.PI * c / TT + off, r = R * depth[k];
     return [cxC + Math.cos(a) * r, cyC + Math.sin(a) * r];
   };
+  const pt = (c, n) => ptM(emblemRec[n].m, emblemRec[n].off, c);
   const hue = n => (n * 47 + 170) % 360;
   const plate = emblemPlateGet(ah, cxC, cyC, R);
   // 金属の盤（外側の円と目盛りのみぞも彫ってある）
   cx.drawImage(plate.bg, 0, 0, W, ah);
 
   // これまでの模様（古いものほどうすく）：鋼に焼きついた光の線
-  const first = Math.max(emblemBase, meas - maxL);
+  const first = Math.max(emblemBase, meas - Math.ceil(maxL));
   cx.save(); cx.globalCompositeOperation = 'lighter'; cx.lineJoin = 'round'; cx.lineCap = 'round';
   for (let n = first; n < meas; n++) {
-    const age = (meas - n) / maxL, al = 0.16 + 0.5 * (1 - age);
+    const rm = emblemRec[n].m, RT = rm.total, age = Math.min(1, (meas - n) / maxL), al = (0.16 + 0.5 * (1 - age)) * clamp(maxL - (meas - n) + 0.3, 0, 1);
+    if (al <= 0.003) continue;
     cx.beginPath();
-    for (let c = 0; c <= T; c++) { const p = pt(c, n); c ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1]); }
+    for (let c = 0; c <= RT; c++) { const p = pt(c, n); c ? cx.lineTo(p[0], p[1]) : cx.moveTo(p[0], p[1]); }
     cx.strokeStyle = `hsla(${hue(n)},90%,55%,${al * 0.22})`; cx.lineWidth = 6 * K; cx.stroke();
     cx.strokeStyle = `hsla(${hue(n)},90%,66%,${al})`; cx.lineWidth = 1.6 * K; cx.stroke();
     cx.fillStyle = `hsla(${hue(n)},95%,72%,${al})`;
-    for (let g = 0; g < m.groups.length; g++) {               // 頭の点
-      const p = pt(m.starts[g], n);
+    for (let g = 0; g < rm.groups.length; g++) {              // 頭の点
+      const p = pt(rm.starts[g], n);
       cx.beginPath(); cx.arc(p[0], p[1], 3 * K, 0, Math.PI * 2); cx.fill();
     }
   }
@@ -6268,9 +6285,10 @@ function drawEmblem(st, now, ah) {
   // 頭の点を打った瞬間の光
   cx.save(); cx.globalCompositeOperation = 'lighter';
   for (const a of accents) {
-    if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.6) continue;
-    const q = age / 0.6, p = pt(m.starts[a.g], n), c = COLORS[m.groups[a.g]];
+    const am = a.meta, rec = !am || am === m || am.shape === m.shape ? cur : (emblemRec[meas - 1] && emblemRec[meas - 1].m.shape === am.shape ? emblemRec[meas - 1] : null);
+    if (!rec || a.g >= rec.m.groups.length) continue;
+    const q = age / 0.6, p = ptM(rec.m, rec.off, rec.m.starts[a.g]), c = COLORS[rec.m.groups[a.g]];
     emblemGlow(p[0], p[1], (30 + 40 * q) * K, c, 0.7 * (1 - q));
     cx.strokeStyle = hexA(c, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
     cx.beginPath(); cx.arc(p[0], p[1], 12 * K + q * 46 * K, 0, Math.PI * 2); cx.stroke();
@@ -6281,7 +6299,7 @@ function drawEmblem(st, now, ah) {
     }
   }
   // 円のみぞを走る光（尾をひく）とペン先
-  const ra = -Math.PI / 2 + 2 * Math.PI * pos / T + n * rot, Rr = R * 1.07;
+  const ra = -Math.PI / 2 + 2 * Math.PI * pos / T + cur.off, Rr = R * 1.07;
   cx.lineCap = 'round';
   for (let i = 0; i < 6; i++) {
     cx.strokeStyle = `rgba(255,236,190,${0.32 * (1 - i / 6)})`; cx.lineWidth = (4 - i * 0.4) * K;
@@ -6368,7 +6386,7 @@ function drawEmblem(st, now, ah) {
   cx.restore();
 
   // 説明
-  const done = meas - emblemBase, left = Math.max(0, maxL - done);
+  const done = meas - emblemBase, left = Math.max(0, Math.round(maxL) - done);
   const tx = W - 14 * K, sh = (s, y, sz, c, w) => { txt(s, tx + 1, y + 1, sz, 'rgba(0,0,0,0.7)', w, 'right'); txt(s, tx, y, sz, c, w, 'right'); };
   sh(`模様 ${done + 1} 枚目`, top + 4 * K, 13 * K, '#f1f5f9', 800);
   sh(left > 0 ? `あと ${left} 周で模様がひとめぐり` : '模様がひとめぐりしました！', top + 22 * K, 11 * K, left > 0 ? '#cbd5e1' : LIME, 700);
@@ -6572,15 +6590,16 @@ function drawFireworks(st, now, ah) {
   }
 
   // 花火の場所：まとまりの位置で横に並べる（毎小節同じ場所）
+  // （その刻みを打った時点の拍子で場所を決める：拍子が変わっても、すでに上がった花火は動かない）
   const spot = p => {
-    const c = mod(p, T), g = m.subToGroup[c], L = m.groups[g];
-    const x = W * 0.12 + (W * 0.76) * ((m.starts[g] + L / 2) / T) + (hash01(Math.floor(p / T) * 7 + g) - 0.5) * W * 0.04;
+    const ta = tlAt(p), mm = ta.m, TT = mm.total, g = ta.g, L = mm.groups[g];
+    const x = W * 0.12 + (W * 0.76) * ((mm.starts[g] + L / 2) / TT) + (hash01(ta.cyc * 7 + g + (ta.seg && ta.seg.i ? ta.seg.i * 3 : 0)) - 0.5) * W * 0.04;
     const y = horizon * (L === 3 ? 0.3 : 0.44) + (hash01(g * 13 + 1) - 0.5) * horizon * 0.06;
-    return { x, y, g, L, bar: m.barStartSub.includes(m.starts[g]) };
+    return { x, y, g, L, head: ta.head, bar: mm.barStartSub.includes(mm.starts[g]) };
   };
 
   // 空の明るさ（直前の大きな花火）
-  const lastHead = (() => { for (let p = Math.floor(S); p > S - 8; p--) if (m.starts.includes(mod(p, T))) return p; return null; })();
+  const lastHead = (() => { for (let p = Math.floor(S); p > S - 8 && p >= 0; p--) if (tlAt(p).head) return p; return null; })();
   let flash = 0, flashCol = '#ffffff', flashX = W / 2;
   if (st.has && lastHead !== null) {
     const age = (S - lastHead) * dur, sp = spot(lastHead);
@@ -6603,8 +6622,7 @@ function drawFireworks(st, now, ah) {
     const pMin = Math.floor(S - 4 / dur) - 1, pMax = Math.ceil(S + rise / dur) + 1;
     for (let p = pMin; p <= pMax; p++) {
       if (p < 0) continue;
-      const cc = mod(p, T), head = m.starts.includes(cc), dt = (S - p) * dur;   // dt：開いてからの時間（マイナスは開く前）
-      const sp = spot(p);
+      const sp = spot(p), head = sp.head, dt = (S - p) * dur;   // dt：開いてからの時間（マイナスは開く前）
       if (head && dt < 0 && dt > -rise) {                       // 打ち上げ中の玉：火の粉の尾を引いてのぼる
         const q = 1 + dt / rise, pos = qq => { const e = 1 - Math.pow(1 - qq, 2.2); return { x: sp.x + (hash01(p) - 0.5) * 10 * K + Math.sin(qq * 9 + p) * 1.5 * K * (1 - qq), y: horizon - (horizon - sp.y) * e }; };
         const P = pos(q);
@@ -8285,11 +8303,20 @@ function drawDrops(st, now, ah) {
   const top = 112 * K, waterY = top + (ah - top) * 0.56, depth = (ah - top) * 0.36;
   const S = has ? st.sc + st.frac : -0.5;
   const span = Math.min(W * 0.86, W - 40 * K), x0 = (W - span) / 2, step = span / N;
-  const xOf = i => x0 + (i + 0.5) * step;
-  const info = j => { const i = mod(j, N), g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+  // 拍子が変わったら、ノズルの並びを前の並びから広げ／縮めてなめらかに移す
+  const Nold = st.changed && st.prevMeta ? st.prevMeta.total : N;
+  const me = st.changed && st.prevMeta ? (q => q * q * (3 - 2 * q))(clamp(st.segAge / 0.6, 0, 1)) : 1;
+  const fracC = i => me >= 1 ? (i + 0.5) / N : (i < Nold ? (i + 0.5) / Nold : 1) * (1 - me) + (i + 0.5) / N * me;
+  const edgeC = i => me >= 1 ? i / N : (i <= Nold ? i / Nold : 1) * (1 - me) + i / N * me;
+  const slotA = i => me >= 1 || i < Nold ? 1 : me;
+  const xOf = i => x0 + span * fracC(i);
+  const info = i => { const g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i), cur: true, N }; };
+  const infoJ = j => { const ta = tlAt(Math.max(0, j)), mm = ta.m, g = ta.g, L = mm.groups[g], k = ta.n - mm.starts[g];
+    return { i: ta.n, g, L, k, head: k === 0, bar: k === 0 && mm.barStartSub.includes(ta.n), cur: mm.shape === m.shape, N: mm.total }; };
+  const xJ = d => d.cur ? xOf(d.i) : x0 + span * (d.i + 0.5) / d.N;
   const Tf = Math.min(0.7, Math.max(0.35, dur * 1.8));                 // しずくが落ちるのにかかる時間（秒）
   const dropTop = top + 6 * K;
-  const szOf = d => Math.min(step * 0.16, 16 * K) * (d.head ? (d.L === 3 ? 1 : 0.82) : 0.48) + 2 * K;
+  const szOf = d => Math.min(span / d.N * 0.16, 16 * K) * (d.head ? (d.L === 3 ? 1 : 0.82) : 0.48) + 2 * K;
 
   // 背景と水（キャッシュ）
   cx.drawImage(dropsBackground(top, waterY, ah), 0, 0, W, ah);
@@ -8344,18 +8371,18 @@ function drawDrops(st, now, ah) {
   // まとまりの帯（水の中に沈んだ光るタイル）と言葉
   const bandY = waterY + depth * 0.82;
   m.groups.forEach((L, g) => {
-    const a = x0 + m.starts[g] * step, b = a + L * step, cur = has && g === st.g, col = COLORS[L];
+    const a = x0 + span * edgeC(m.starts[g]), b = x0 + span * edgeC(m.starts[g] + L), cur = has && g === st.g, col = COLORS[L];
     cx.save();
     if (cur) { cx.shadowColor = col; cx.shadowBlur = 14 * K; }
     const tg = cx.createLinearGradient(0, bandY, 0, bandY + 7 * K);
     tg.addColorStop(0, hexA(shade(col, 0.35), cur ? 0.9 : 0.32)); tg.addColorStop(1, hexA(shade(col, -0.3), cur ? 0.8 : 0.25));
     cx.fillStyle = tg; rr(a + 3 * K, bandY, b - a - 6 * K, 7 * K, 3.5 * K); cx.fill(); cx.restore();
     cx.fillStyle = `rgba(255,255,255,${cur ? 0.45 : 0.15})`; cx.fillRect(a + 6 * K, bandY + 1 * K, b - a - 12 * K, 1 * K);
-    txt(pw(L), (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, step * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
+    txt(pw(L), (a + b) / 2, bandY + 20 * K, Math.max(12, Math.min(14 * K, (b - a) / L * 0.5)), hexA(col, cur ? 1 : 0.7), 800);
   });
   m.barStartSub.forEach((bs, b) => {
     if (m.nBars < 2 || b === 0) return;
-    const x = x0 + bs * step; cx.strokeStyle = 'rgba(226,232,240,0.4)'; cx.setLineDash([4 * K, 5 * K]); cx.lineWidth = 1.5 * K;
+    const x = x0 + span * edgeC(bs); cx.strokeStyle = 'rgba(226,232,240,0.4)'; cx.setLineDash([4 * K, 5 * K]); cx.lineWidth = 1.5 * K;
     cx.beginPath(); cx.moveTo(x, top); cx.lineTo(x, ah - 4 * K); cx.stroke(); cx.setLineDash([]);
   });
 
@@ -8367,12 +8394,13 @@ function drawDrops(st, now, ah) {
   for (const ex of [x0 - 12 * K, x0 + span + 12 * K]) { cx.fillStyle = metalGrad(0, pipeY - pr * 1.5, 0, pipeY + pr * 1.5, 'steel'); rr(ex - 3 * K, pipeY - pr * 1.5, 6 * K, pr * 3, 1.5 * K); cx.fill(); }
   for (let i = 0; i < N; i++) {
     const d = info(i), x = xOf(i), nw = (d.head ? 3.4 : 2.4) * K;
+    cx.save(); cx.globalAlpha = slotA(i);
     cx.fillStyle = metalGrad(x - nw, 0, x + nw, 0, 'chrome');
     cx.beginPath(); cx.moveTo(x - nw, pipeY); cx.lineTo(x + nw, pipeY); cx.lineTo(x + nw * 0.6, dropTop - 1 * K); cx.lineTo(x - nw * 0.6, dropTop - 1 * K); cx.closePath(); cx.fill();
     const lc = d.head ? COLORS[d.L] : '#94a3b8';
     cx.fillStyle = hexA(lc, d.head ? 0.95 : 0.55);
     if (d.head) { cx.shadowColor = lc; cx.shadowBlur = 6 * K; }
-    cx.fillRect(x - nw * 0.85, pipeY + pr * 0.9, nw * 1.7, 1.8 * K); cx.shadowBlur = 0;
+    cx.fillRect(x - nw * 0.85, pipeY + pr * 0.9, nw * 1.7, 1.8 * K); cx.shadowBlur = 0; cx.restore();
   }
 
   // 波紋（これまでに落ちたしずく）：明るい山と暗い谷
@@ -8381,10 +8409,10 @@ function drawDrops(st, now, ah) {
   const back = Math.ceil(3.2 / dur) + 1;
   for (let j = Math.floor(S); j >= Math.max(0, Math.floor(S) - back); j--) {
     if (!has) break;
-    const d = info(j), age = (S - j) * dur, life = d.head ? (d.L === 3 ? 3.0 : 2.0) : 1.0;
+    const d = infoJ(j), age = (S - j) * dur, life = d.head ? (d.L === 3 ? 3.0 : 2.0) : 1.0;
     if (age > life) continue;
-    const q = age / life, x = xOf(d.i), col = d.bar ? '#a3e635' : d.head ? COLORS[d.L] : '#e0f2fe';
-    const vmax = d.head ? (d.L === 3 ? 1.5 : 1.15) * step : 0.6 * step, rings = d.head ? 3 : 1;
+    const q = age / life, x = xJ(d), pstep = span / d.N, col = d.bar ? '#a3e635' : d.head ? COLORS[d.L] : '#e0f2fe';
+    const vmax = d.head ? (d.L === 3 ? 1.5 : 1.15) * pstep : 0.6 * pstep, rings = d.head ? 3 : 1;
     for (let r = 0; r < rings; r++) {
       const rad = (age - r * 0.12) * vmax * 2.2 + 3 * K; if (age - r * 0.12 < 0) continue;
       const a = (1 - q) * (d.head ? 0.85 : 0.6) * (1 - r * 0.25), lw = (d.head ? 2.6 : 1.4) * K * (1 - q * 0.6);
@@ -8401,9 +8429,9 @@ function drawDrops(st, now, ah) {
 
   // しぶき（拍の頭で、水が王冠のようにはねる。そのあと真ん中から水柱）
   if (has) {
-    const j = Math.floor(S), d = info(j), age = (S - j) * dur;
+    const j = Math.floor(S), d = infoJ(j), age = (S - j) * dur;
     if (d.head && age < 0.45) {
-      const x = xOf(d.i), n = d.L === 3 ? 9 : 7, hgt = (d.L === 3 ? 46 : 32) * K, col = d.bar ? '#d9f99d' : '#e0f2fe', t = age / 0.45;
+      const x = xJ(d), n = d.L === 3 ? 9 : 7, hgt = (d.L === 3 ? 46 : 32) * K, col = d.bar ? '#d9f99d' : '#e0f2fe', t = age / 0.45;
       const sz = szOf(d), rc = sz * (1.2 + 2.2 * t), hc = hgt * 0.42 * Math.sin(Math.PI * Math.min(1, t * 1.6)) * (1 - t * 0.3);
       if (hc > 1) {   // 王冠の壁
         const tg = cx.createLinearGradient(0, waterY - hc, 0, waterY);
@@ -8436,7 +8464,7 @@ function drawDrops(st, now, ah) {
         cx.fillStyle = hexA('#ffffff', 1 - t); cx.beginPath(); cx.arc(px - r * 0.3, py - r * 0.3, r * 0.45, 0, Math.PI * 2); cx.fill();
       }
     } else if (!d.head && age < 0.3) {   // 刻み：小さな水柱
-      const x = xOf(d.i), tt = age / 0.3, jh = 12 * K * Math.sin(Math.PI * tt);
+      const x = xJ(d), tt = age / 0.3, jh = 12 * K * Math.sin(Math.PI * tt);
       cx.fillStyle = `rgba(224,242,254,${0.6 * (1 - tt)})`;
       cx.beginPath(); cx.moveTo(x - 3 * K, waterY); cx.quadraticCurveTo(x, waterY - jh * 0.5, x, waterY - jh); cx.quadraticCurveTo(x, waterY - jh * 0.5, x + 3 * K, waterY); cx.fill();
       cx.beginPath(); cx.arc(x, waterY - jh - 2 * K, 1.6 * K, 0, Math.PI * 2); cx.fill();
@@ -8444,7 +8472,7 @@ function drawDrops(st, now, ah) {
   }
   // 🎮 たたいた反応（いちばん近い刻みのしずくの場所で）
   if (tp.on && has) {
-    const jn = Math.round(S - tp.age / dur), xn = xOf(info(jn).i), wy = waterY + 2 * K;
+    const jn = Math.round(S - tp.age / dur), xn = xJ(infoJ(jn)), wy = waterY + 2 * K;
     cx.save(); cx.globalCompositeOperation = 'lighter'; cx.lineCap = 'round';
     if (tp.k === 'p' && tp.age < 1) {   // ぴったり：金色の王冠と、金の波紋
       const q = tp.age / 1, boost = 1 + 0.2 * Math.min(3, tp.fest);
@@ -8493,14 +8521,14 @@ function drawDrops(st, now, ah) {
   }
   // ノズルの先でふくらむしずく と 落ちてくるしずく：ちょうど刻みの瞬間に水面に着く
   for (let j = Math.max(0, Math.floor(S) + 1); j <= Math.floor(S) + N + Math.ceil(Tf / dur) + 1; j++) {
-    const tl = (j - S) * dur, d = info(j), x = xOf(d.i), sz = szOf(d), col = d.head ? COLORS[d.L] : '#bae6fd';
-    if (tl > Tf) {   // まだノズルの先：だんだんふくらむ
-      const gw = clamp(1 - (tl - Tf) / (N * dur * 0.9), 0, 1);
-      if (gw > 0.05 && tl - Tf < N * dur) { const bs = sz * (0.35 + 0.55 * gw); dropsDrop(x, dropTop + bs * 0.4, bs, col, -0.4 * (1 - gw), 0.95); }
+    const tlj = (j - S) * dur, d = infoJ(j), x = xJ(d), sz = szOf(d), col = d.head ? COLORS[d.L] : '#bae6fd';
+    if (tlj > Tf) {   // まだノズルの先：だんだんふくらむ
+      const gw = clamp(1 - (tlj - Tf) / (N * dur * 0.9), 0, 1);
+      if (d.cur && gw > 0.05 && tlj - Tf < N * dur) { const bs = sz * (0.35 + 0.55 * gw); dropsDrop(x, dropTop + bs * 0.4, bs, col, -0.4 * (1 - gw), 0.95); }
       continue;
     }
-    if (tl < 0) continue;
-    const p = 1 - tl / Tf, y = dropTop + (waterY - dropTop) * p * p;
+    if (tlj < 0) continue;
+    const p = 1 - tlj / Tf, y = dropTop + (waterY - dropTop) * p * p;
     // 速さの筋（モーションブラー）
     const v = (waterY - dropTop) * 2 * p / Tf * 0.04;
     if (v > 2 * K) {
@@ -8601,11 +8629,26 @@ function jellyDecoGet(plateY, ah) {
 function drawJelly(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, has = st.has;
   const top = 116 * K, plateY = ah - Math.max(30 * K, (ah - top) * 0.12);
-  const span0 = Math.min(W * 0.9, W - 30 * K), gap = Math.min(18 * K, span0 * 0.03);
-  const unit = Math.min((span0 - gap * (G - 1)) / N, (plateY - top) * 0.2);                // 1拍ぶんのはば
-  const span = unit * N + gap * (G - 1), x0 = (W - span) / 2;
-  const jh = L => Math.min((plateY - top) * 0.45, unit * (L === 3 ? 1.7 : 1.45));        // ゼリーの高さ
-  const box = g => { const L = m.groups[g], x = x0 + m.starts[g] * unit + g * gap; return { x, w: L * unit, L, cxx: x + L * unit / 2, h: jh(L) }; };
+  const span0 = Math.min(W * 0.9, W - 30 * K);
+  const layout = mm => {
+    const GG = mm.groups.length, NN = mm.total, gap = Math.min(18 * K, span0 * 0.03);
+    const unit = Math.min((span0 - gap * (GG - 1)) / NN, (plateY - top) * 0.2);              // 1拍ぶんのはば
+    const span = unit * NN + gap * (GG - 1), x0 = (W - span) / 2;
+    const jh = L => Math.min((plateY - top) * 0.45, unit * (L === 3 ? 1.7 : 1.45));        // ゼリーの高さ
+    return { unit, box: g => { const L = mm.groups[g], x = x0 + mm.starts[g] * unit + g * gap; return { x, w: L * unit, L, cxx: x + L * unit / 2, h: jh(L) }; } };
+  };
+  const lay = layout(m), unit = lay.unit, box = lay.box;
+  // 拍子が変わったら、ゼリーの数・大きさ・場所を前の並びからなめらかに移す（増える分はふくらみ、減る分はしぼむ）
+  const chg = st.changed && st.prevMeta && st.segAge < 0.7, pm = chg ? st.prevMeta : null;
+  const me = chg ? (q => q * q * (3 - 2 * q))(clamp(st.segAge / 0.7, 0, 1)) : 1;
+  const olay = chg ? layout(pm) : null, Gold = chg ? pm.groups.length : G;
+  const ents = [];
+  for (let gi = 0; gi < Math.max(G, Gold); gi++) {
+    const nb = gi < G ? box(gi) : null, ob = chg && gi < Gold ? olay.box(gi) : null;
+    if (nb && !ob) ents.push({ gi, b: Object.assign({}, nb, chg ? { w: nb.w * me, h: nb.h * me } : {}), gone: false });
+    else if (nb) { const t = me, mx = (p, q) => p + (q - p) * t; ents.push({ gi, b: { x: mx(ob.x, nb.x), w: mx(ob.w, nb.w), cxx: mx(ob.cxx, nb.cxx), h: mx(ob.h, nb.h), L: t < 0.5 ? ob.L : nb.L }, gone: false }); }
+    else ents.push({ gi, b: Object.assign({}, ob, { w: ob.w * (1 - me), h: ob.h * (1 - me) }), gone: true });
+  }
   const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0, L = m.groups[g];
   const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
 
@@ -8631,8 +8674,8 @@ function drawJelly(st, now, ah) {
     cx.restore();
   }
   // 皿（白い陶器）
-  for (let gi = 0; gi < G; gi++) {
-    const b = box(gi), rx = b.w * 0.6, ry = 8 * K;
+  for (const en of ents) {
+    const gi = en.gi, b = en.b, rx = b.w * 0.6, ry = 8 * K;
     softShadow(b.cxx + 5 * K, plateY + 7 * K, rx * 1.05, ry * 1.4, 0.55);
     let pg = cx.createLinearGradient(b.cxx - rx, plateY - ry, b.cxx + rx, plateY + ry);
     pg.addColorStop(0, '#ffffff'); pg.addColorStop(0.5, '#e5e7eb'); pg.addColorStop(1, '#9ca3af');
@@ -8644,7 +8687,7 @@ function drawJelly(st, now, ah) {
     cx.fillStyle = pg; cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx * 0.74, ry * 0.62, 0, 0, Math.PI * 2); cx.fill();
     cx.strokeStyle = 'rgba(255,255,255,0.9)'; cx.lineWidth = 1.2 * K;
     cx.beginPath(); cx.ellipse(b.cxx, plateY + 4 * K, rx * 0.97, ry * 0.94, 0, Math.PI * 1.05, Math.PI * 1.6); cx.stroke();
-    txt(pw(b.L), b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(shade(COLORS[b.L], 0.2), has && gi === g ? 1 : 0.7), 800);
+    txt(pw(b.L), b.cxx, plateY + 22 * K, Math.max(12, 13 * K), hexA(shade(COLORS[b.L], 0.2), has && gi === g && !en.gone ? 1 : 0.7), 800);
   }
   // それぞれのゼリーのゆれ：最後にサクランボが乗った時刻からの経過時間で決める
   const lastHit = gi => {   // 秒
@@ -8654,8 +8697,9 @@ function drawJelly(st, now, ah) {
     let t = ageH; for (let i = 1; i <= back; i++) t += m.groups[mod(g - i, G)] * dur;
     return t;
   };
-  for (let gi = 0; gi < G; gi++) {
-    const b = box(gi), col = COLORS[b.L], act = has && gi === g, t = lastHit(gi);
+  const boxes = [];
+  for (const en of ents) {
+    const gi = en.gi, b = en.b, col = COLORS[b.L], act = has && gi === g && !en.gone, t = en.gone ? 99 : lastHit(gi);
     const big = b.L === 3 ? 1 : 0.7, tau = (b.L === 3 ? 0.9 : 0.55), om = 2 * Math.PI * (b.L === 3 ? 3.2 : 4.2);
     let sy = 1 - 0.32 * big * Math.exp(-t / tau) * Math.cos(om * t);                       // 縦ののび縮み
     if (act && kCur > 0) sy -= 0.07 * Math.exp(-ageS / 0.1) * Math.cos(30 * ageS);           // 刻みの「ぷるっ」
@@ -8727,9 +8771,9 @@ function drawJelly(st, now, ah) {
     cx.closePath(); cx.fill();
     cx.fillStyle = 'rgba(255,255,255,0.9)'; cx.beginPath(); cx.ellipse(xb - topW * 0.2 + sh, yb - h * 0.98, w * 0.05, h * 0.025 + 1, -0.2, 0, Math.PI * 2); cx.fill();
     cx.fillStyle = 'rgba(255,255,255,0.25)'; cx.beginPath(); cx.ellipse(xb + w * 0.32 + sh * 0.3, yb - h * 0.35, w * 0.025, h * 0.16, 0.1, 0, Math.PI * 2); cx.fill();
-    if (m.barStartGroup.includes(gi)) shadeSphere(xb + w / 2 - 6 * K, yb - 6 * K, 4.5 * K, LIME, 'gloss');   // 小節の頭の目印（ライムのキャンディ）
+    if (!en.gone && m.barStartGroup.includes(gi)) shadeSphere(xb + w / 2 - 6 * K, yb - 6 * K, 4.5 * K, LIME, 'gloss');   // 小節の頭の目印（ライムのキャンディ）
     // 🎮 光の反応（加算）
-    if (gi === tgi || f3 > 0) {
+    if ((gi === tgi && !en.gone) || f3 > 0) {
       cx.save(); cx.globalCompositeOperation = 'lighter';
       if (f3 > 0) {   // コンボ16〜：どのゼリーも中から光って、きらきら
         emblemDot(xb + sh * 0.5, yb - h * 0.45, Math.max(w, h) * 1.4, col, 0.3 * f3, 0);
@@ -8748,10 +8792,10 @@ function drawJelly(st, now, ah) {
       cx.restore();
     }
     b.topY = yb - h * 1.04; b.topX = xb + sh;
-    box[gi] = b;
+    if (!en.gone) boxes[gi] = b;
   }
   // サクランボ：ゼリー g から次のゼリーへ、拍の長さをかけて跳ぶ
-  const bA = box[g] || box(g), gn = (g + 1) % G, bB = box[gn] || box(gn);
+  const bA = boxes[g] || box(g), gn = (g + 1) % G, bB = boxes[gn] || box(gn);
   const u = has ? clamp((kCur + st.frac) / L, 0, 1) : 0;
   // はじめの少しの間はゼリーに乗ったまま（つぶれてから跳ぶ）
   const fly = clamp((u - 0.12) / 0.88, 0, 1);
@@ -9441,7 +9485,15 @@ function drawFlowers(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has, B = m.nBars;
   const top = 112 * K, front = ah - Math.max(30 * K, (ah - top) * 0.1);
   const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0, ageS = has ? st.frac * dur : 9;
-  const barNow = has ? st.measure * B + m.barOfGroup[g] : -1;           // 何番目の小節か（0から）
+  // 列＝小節。前の列は、その小節を鳴らしたときの拍子のまま残す（拍子が変わっても並びが変わらない）
+  const curB = has ? m.barOfGroup[g] : 0;
+  const cs = has ? st.sc - (st.sub - m.barStartSub[curB]) : 0;          // いまの小節の最初の刻みの通し番号
+  const rowOf = d => {
+    if (d === 0 || !has) return { m, b: curB };
+    let s0 = cs, r = null;
+    for (let i = 0; i < d; i++) { if (s0 <= 0) return null; const ta = tlAt(s0 - 1); if (!ta) return null; r = { m: ta.m, b: ta.bar }; s0 = (s0 - 1) - (ta.n - ta.m.barStartSub[ta.bar]); }
+    return r;
+  };
   const barStartT = has ? (st.sub - m.barStartSub[m.barOfGroup[g]] + st.frac) * dur : 9;
   const shift = has ? clamp(barStartT / 0.45, 0, 1) : 1, sh = 1 - Math.pow(1 - shift, 3);  // 列が奥へ下がる動き
   const rows = 3, span = Math.min(W * 0.9, W - 30 * K);
@@ -9476,8 +9528,9 @@ function drawFlowers(st, now, ah) {
 
   let barFlash = 0;
   for (let d = rows; d >= 0; d--) {
-    const bi = barNow - d; if (has && bi < 0) continue; if (!has && d > 0) continue;
-    const b = mod(bi < 0 ? 0 : bi, B), gs = m.bars[b], Nb = gs.reduce((a, v) => a + v, 0), g0 = m.barStartGroup[b];
+    if (!has && d > 0) continue;
+    const rw = rowOf(d); if (!rw) continue;
+    const mm = rw.m, b = rw.b, gs = mm.bars[b], Nb = gs.reduce((a, v) => a + v, 0), g0 = mm.barStartGroup[b];
     const y = d === 0 ? front : rowY(d), sc = d === 0 ? 1 : rowS(d), al = d === 0 ? 1 : clamp(1 - (d - 1 + sh) * 0.22, 0.15, 1);
         const w = span * (0.6 + 0.4 * sc), x0 = (W - w) / 2, u = w / Nb;
     // 畑のうね（土）
@@ -9799,7 +9852,8 @@ function drawFrog(st, now, ah) {
   const sx = j => ax + (j - cam) * u;
   const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0, headSc = has ? st.sc - kCur : 0;
   const ageH = has ? (kCur + st.frac) * dur : 9, ageS = has ? st.frac * dur : 9;
-  const info = j => { const i = mod(j, N), gi = m.subToGroup[i], Lg = m.groups[gi], k = i - m.starts[gi]; return { gi, Lg, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+  // 葉の並びは、その刻みを鳴らす拍子で決める（拍子が変わっても、すでに見えている葉は動かない。先の葉は次の拍子で並ぶ）
+  const info = j => { const ta = tlAt(Math.max(0, j)), mm = ta.m, gi = ta.g, Lg = mm.groups[gi], k = ta.n - mm.starts[gi]; return { gi, Lg, k, head: k === 0, bar: k === 0 && mm.barStartSub.includes(ta.n) }; };
 
   // 空と水（キャッシュ）＋岸（カメラに合わせてゆっくり流れる）
   cx.drawImage(frogBackground(waterY, ah), 0, 0, W, ah);
