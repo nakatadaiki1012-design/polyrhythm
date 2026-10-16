@@ -8539,10 +8539,26 @@ function drawDancer(st, now, ah) {
   const headNow = has && gp < 0.999 && kCur === 0;                          // 拍の頭の刻みのあいだ（光る・きらめく）
   // 姿勢：背すじはまっすぐ。アラベスクのときだけ、少し前へ
   const araNow = araUp;
-  const lean = dSpr('ln', (has ? 0.015 + 0.13 * araNow * (L === 3 ? 1 : 0.7) + 0.03 * prep : 0.01), 70, 16.7) + tp.dir * 0.16 * env + 0.05 * tWob - 0.04 * tJoy;
-  const T = 0.34 * hB, shx = hxp + Math.sin(lean) * T, shy = hyp - Math.cos(lean) * T;
-  const headR = 0.08 * hB, hl = dSpr('hl', lean, 60, 15.5);   // 頭は首をのばして、うなずかない（体より少しおくれてついてくる）
+  // せぼね：こし（骨盤）と胸を別々にかたむける。アラベスクでは骨盤が前へたおれ、胸は起きたまま（背中がそる）。腕を上げると胸がふっと上がる
+  const armUpPrev = clamp(((dancerM.aA === undefined ? 0.35 : dancerM.aA) - 2.1) / 0.6, 0, 1);
+  const leanP = dSpr('lnP', has ? 0.02 + 0.22 * araNow * (L === 3 ? 1 : 0.75) + 0.03 * prep : 0.01, 70, 16.7) + tp.dir * 0.16 * env + 0.05 * tWob - 0.04 * tJoy;
+  const leanC = dSpr('lnC', has ? 0.01 + 0.07 * araNow - 0.07 * armUpPrev + 0.02 * prep : 0.0, 60, 15.5) + tp.dir * 0.12 * env + 0.04 * tWob - 0.07 * tJoy;
+  const lean = leanC, T = 0.34 * hB;
+  const spA = t => { const u2 = clamp((t - 0.18) / 0.6, 0, 1); return leanP + (leanC - leanP) * u2 * u2 * (3 - 2 * u2); };
+  const SPN = 24, spX = [0], spY = [0];   // t＝0（こし）から 1.1 まで、せぼねの点を積み上げる
+  for (let i = 1; i <= SPN; i++) { const t0 = (i - 1) / SPN * 1.1, t1 = i / SPN * 1.1, th = spA((t0 + t1) / 2); spX.push(spX[i - 1] + Math.sin(th) * T * (t1 - t0)); spY.push(spY[i - 1] - Math.cos(th) * T * (t1 - t0)); }
+  const spineAt = t => {
+    if (t <= 0) return [hxp + Math.sin(leanP) * T * t, hyp - Math.cos(leanP) * T * t, leanP];
+    const f2 = clamp(t / 1.1, 0, 1) * SPN, i = Math.min(SPN - 1, Math.floor(f2)), w = f2 - i;
+    return [hxp + spX[i] + (spX[i + 1] - spX[i]) * w, hyp + spY[i] + (spY[i + 1] - spY[i]) * w, spA(t)];
+  };
+  const [shx, shy] = spineAt(1);
+  // 頭：首をのばして、腕を上げるとあごを少し上げ、プリエでは少し下を見る（エポールマン）
+  const headR = 0.08 * hB, hl = dSpr('hl', lean, 60, 15.5);
+  const headTilt = dSpr('hT', has ? -0.16 * armUpPrev + 0.1 * prep - 0.04 * araNow : 0.05, 50, 14), headAng = lean + headTilt;
   const hdx = shx + Math.sin(lean) * (0.085 * hB + headR) + (lean - hl) * 0.3 * hB, hdy = shy - Math.cos(lean) * (0.085 * hB + headR);
+  // ピルエットの「スポット」：顔は前を向いたまま体だけ回り、最後に頭がくるっと追いつく
+  const headSpin = (() => { if (!spinOn) return 1; const x = sm(0.08, 0.6, gp), fr = x < 0.62 ? 0.12 * x / 0.62 : 0.12 + 0.88 * sm(0.62, 0.92, x), c = Math.cos(2 * Math.PI * fr); return (c < 0 ? -1 : 1) * (0.55 + 0.45 * Math.abs(c)); })();
   // 腕（ポール・ド・ブラ）：拍のグループごとの形へ、ゆっくり流れるようにつながる
   //   小節の頭＝アラベスク（前の腕は前上、うしろの腕はうしろ）／長い拍＝アン・オー（両腕を頭の上に）／短い拍＝ア・ラ・スゴンド（横にひらく）
   const poseOf = (Lx, bar) => bar ? [2.05, -1.95] : Lx === 3 ? [2.8, 2.55] : [1.75, -1.6];
@@ -8556,7 +8572,9 @@ function drawDancer(st, now, ah) {
   if (spinOn) { const w1 = sm(0.02, 0.16, gp) * (1 - sm(0.62, 0.9, gp)); aA += (1.5 - aA) * w1; aB += (1.3 - aB) * w1; }   // ピルエットの間は、腕を胸の前でまるく（アン・ナヴァン）
   if (tJoy > 0) { aA += (2.9 - aA) * tJoy * 0.85; aB += (2.7 - aB) * tJoy * 0.75; }   // 両うでを高く（アン・オー）
   if (tWob) { aA += 0.4 * tWob; aB -= 0.35 * tWob; }   // バランスをとろうと、うでがゆれる
+  const tgA = aA, tgB = aB;
   aA = dSpr('aA', aA, 70, 16.7); aB = dSpr('aB', aB, 62, 15.7);   // ばねでなめらかに（はねかえらない）
+  const bendA = dSpr('bA', clamp(0.6 - 1.4 * (tgA - aA), -0.35, 1.3), 45, 12), bendB = dSpr('bB', clamp(0.6 - 1.4 * (tgB - aB), -0.35, 1.3), 45, 12);   // 手首は、腕の動きより少しおくれてやわらかくしなる
   const dancerSk = dSpr('sk', 0.1 * araNow + 0.06 * prep, 60, 15.5);
   const al = 0.37 * hB, lw = 0.072 * hB, aw = 0.045 * hB;
   const legPts = (an, rel, free) => {
@@ -8576,25 +8594,25 @@ function drawDancer(st, now, ah) {
     drawDancerLimb([[hxp, hyp], [p[0], p[1]], [p[2], p[3]]], [[0, 0.056 * hb, 0.052 * hb], [0.2, 0.048 * hb, 0.05 * hb], [0.42, 0.031 * hb, 0.033 * hb], [0.5, 0.026 * hb, 0.029 * hb], [0.6, 0.038 * hb, 0.025 * hb], [0.68, 0.041 * hb, 0.023 * hb], [0.86, 0.021 * hb, 0.018 * hb], [1, 0.013 * hb, 0.013 * hb]], c, 0.9, figRefl);
     drawDancerShoe(p[2], p[3], p[4], p[5], 0.016 * hb, sh, figRefl);
   };
-  const drawArm = (p, c) => {   // かた（まるみ）→ 二の腕 → ひじ → 前腕 → 手首 → 手（指をそろえて、少し曲げる）
+  const drawArm = (p, c, bend = 0.6) => {   // かた（まるみ）→ 二の腕 → ひじ → 前腕 → 手首 → 手（指をそろえて、少し曲げる）
     const hb = hB;
     drawDancerLimb([[shx, shy], [p[0], p[1]], [p[2], p[3]]], [[0, 0.03 * hb, 0.03 * hb], [0.12, 0.026 * hb, 0.024 * hb], [0.45, 0.018 * hb, 0.017 * hb], [0.52, 0.016 * hb, 0.016 * hb], [0.7, 0.017 * hb, 0.016 * hb], [1, 0.0105 * hb, 0.0095 * hb]], c, 0.7, figRefl);
     const vx = p[2] - p[0], vy = p[3] - p[1], vl = Math.hypot(vx, vy) || 1, ux = vx / vl, uy = vy / vl, nx = -uy, ny = ux, hl = 0.075 * hb, hw = 0.013 * hb;
     const H = (t, o, bend) => [p[2] + ux * hl * t + nx * (o * hw + bend * hl * t * t * 0.35), p[3] + uy * hl * t + ny * (o * hw + bend * hl * t * t * 0.35)];
-    const bend = 0.6;   // 指先は、手のひら側へ少し曲げる
     const q = [H(0, 0.8, 0), H(0.35, 1.0, bend), H(0.8, 0.55, bend), H(1, 0.05, bend), H(0.85, -0.45, bend), H(0.4, -0.85, bend), H(0, -0.8, 0)];
     cx.beginPath(); cx.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length - 1; i++) cx.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2); cx.lineTo(q[q.length - 1][0], q[q.length - 1][1]); cx.closePath();
     cx.fillStyle = c; cx.fill();
     if (!figRefl) { const th = H(0.32, -1.25, 0.2); cx.strokeStyle = c; cx.lineWidth = hw * 0.75; cx.lineCap = 'round'; cx.beginPath(); { const a = H(0.12, -0.8, 0); cx.moveTo(a[0], a[1]); } cx.lineTo(th[0], th[1]); cx.stroke(); }   // 親指
   };
-  const spinC = Math.cos(spinA), spinSx = Math.abs(spinC) < 0.14 ? (spinC < 0 ? -0.14 : 0.14) : spinC;   // 回転：横の幅をちぢめて、裏がえる
+  const spinC = Math.cos(spinA), spinSx = spinA ? (spinC < 0 ? -1 : 1) * (0.32 + 0.68 * Math.abs(spinC)) : 1;   // 正面を向いても、体には幅がある   // 回転：横の幅をちぢめて、裏がえる
   const figure = refl => { if (spinSx === 1) return figure0(refl); cx.save(); cx.translate(hxp, 0); cx.scale(spinSx, 1); cx.translate(-hxp, 0); figure0(refl); cx.restore(); };
   const figure0 = (refl) => {
     figRefl = refl; const dk = refl ? -0.1 : -0.22;
-    drawArm(armB, shade(SKIN, dk)); drawLeg(legW, shade(TIGHT, dk), shade(SHOE, dk));
+    drawArm(armB, shade(SKIN, dk), bendB); drawLeg(legW, shade(TIGHT, dk), shade(SHOE, dk));
     drawLeg(legS, TIGHT, SHOE);
     // 胴（横から見た形：胸・腰のくびれ・おしり）
-    const ca = Math.cos(lean), sa = Math.sin(lean), P = (t, o) => [hxp + sa * T * t + ca * o * hB, hyp - ca * T * t + sa * o * hB];
+    const ca = Math.cos(lean), sa = Math.sin(lean), P = (t, o) => { const q = spineAt(t); return [q[0] + Math.cos(q[2]) * o * hB, q[1] + Math.sin(q[2]) * o * hB]; };
+    const hca = Math.cos(headAng), hsa = Math.sin(headAng);
     // 胴：うしろ（おしり・せなかのS字）と前（おなか・胸）の輪郭。むねから上は肌、胴は衣装（チュチュと同じ色のボディス）
     const back = [[-0.06, -0.066], [0.1, -0.07], [0.3, -0.042], [0.45, -0.037], [0.66, -0.054], [0.86, -0.052], [1.02, -0.034]];
     const front = [[1.02, 0.03], [0.93, 0.046], [0.82, 0.07], [0.72, 0.062], [0.5, 0.035], [0.32, 0.036], [0.12, 0.054], [-0.06, 0.058]];
@@ -8664,8 +8682,9 @@ function drawDancer(st, now, ah) {
     cx.moveTo(b0[0], b0[1]); cx.lineTo(b1[0], b1[1]); cx.lineTo(b2[0], b2[1]); cx.lineTo(b3[0], b3[1]); cx.closePath(); cx.fill();   // 腰の帯
     // 首（長く、細く）と頭（横顔：ひたい・鼻・くちびる・あご。目・まゆ・耳。髪はひっつめて、おだんご）
     drawDancerLimb([[shx + sa * 0.0 * hB, shy], [hdx - sa * headR * 0.2 + ca * headR * 0.05, hdy + ca * headR * 0.55]], [[0, 0.03 * hB, 0.026 * hB], [0.5, 0.021 * hB, 0.02 * hB], [1, 0.022 * hB, 0.021 * hB]], shade(SKIN, -0.04), 0.6, refl);
+    if (headSpin !== 1 && spinSx !== 1) { cx.save(); cx.translate(hdx, 0); cx.scale(headSpin / spinSx, 1); cx.translate(-hdx, 0); }   // 頭だけ、体とちがう向き
     {
-      const r = headR * 1.02, Hd = (x, y) => [hdx + (x * ca - y * sa) * r, hdy + (x * sa + y * ca) * r];   // 頭の向き（前＝＋x）に回した点
+      const r = headR * 1.02, Hd = (x, y) => [hdx + (x * hca - y * hsa) * r, hdy + (x * hsa + y * hca) * r];   // 頭の向き（前＝＋x）に回した点
       // 頭の後ろとあご（肌）
       const hg = cx.createRadialGradient(Hd(0.35, -0.35)[0], Hd(0.35, -0.35)[1], r * 0.1, hdx, hdy, r * 1.15);
       hg.addColorStop(0, shade(SKIN, 0.22)); hg.addColorStop(0.7, SKIN); hg.addColorStop(1, shade(SKIN, -0.25));
@@ -8674,7 +8693,7 @@ function drawDancer(st, now, ah) {
       for (let i = 1; i < face.length; i++) { const a = face[i], b = face[(i + 1) % face.length]; cx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
       cx.closePath(); cx.fillStyle = refl ? SKIN : hg; cx.fill();
       if (!refl) {
-        cx.fillStyle = 'rgba(244,114,138,0.22)'; { const q = Hd(0.5, 0.3); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.22, r * 0.14, lean, 0, Math.PI * 2); cx.fill(); }   // ほお
+        cx.fillStyle = 'rgba(244,114,138,0.22)'; { const q = Hd(0.5, 0.3); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.22, r * 0.14, headAng, 0, Math.PI * 2); cx.fill(); }   // ほお
         cx.fillStyle = '#c2667a'; { const a = Hd(0.86, 0.4), b = Hd(0.83, 0.47), c = Hd(0.86, 0.53); cx.beginPath(); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(Hd(0.95, 0.44)[0], Hd(0.95, 0.44)[1], b[0], b[1]); cx.quadraticCurveTo(Hd(0.94, 0.52)[0], Hd(0.94, 0.52)[1], c[0], c[1]); cx.lineTo(Hd(0.78, 0.47)[0], Hd(0.78, 0.47)[1]); cx.closePath(); cx.fill(); }   // くちびる
         // 目（ふせ目のまつげ）とまゆ
         cx.strokeStyle = '#2a1712'; cx.lineCap = 'round'; cx.lineWidth = Math.max(0.9, r * 0.09);
@@ -8684,7 +8703,7 @@ function drawDancer(st, now, ah) {
         cx.beginPath(); { const a = Hd(0.42, -0.32), b = Hd(0.74, -0.3); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(Hd(0.6, -0.42)[0], Hd(0.6, -0.42)[1], b[0], b[1]); } cx.stroke();
         cx.strokeStyle = 'rgba(150,80,60,0.35)'; cx.lineWidth = Math.max(0.7, r * 0.05);   // 鼻のわき
         cx.beginPath(); { const a = Hd(0.88, 0.18), b = Hd(0.84, 0.26); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); } cx.stroke();
-        cx.fillStyle = shade(SKIN, -0.12); { const q = Hd(-0.05, 0.12); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.13, r * 0.2, lean, 0, Math.PI * 2); cx.fill(); }   // 耳
+        cx.fillStyle = shade(SKIN, -0.12); { const q = Hd(-0.05, 0.12); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.13, r * 0.2, headAng, 0, Math.PI * 2); cx.fill(); }   // 耳
       }
       // 髪：ひたいの生えぎわから頭の上・うしろをおおい、耳の上を通って、うなじへ
       const hair = [[0.62, -0.62], [0.35, -0.95], [-0.2, -1.06], [-0.78, -0.72], [-1.02, -0.05], [-0.8, 0.5], [-0.42, 0.72], [-0.22, 0.42], [-0.12, -0.02], [0.18, -0.12], [0.5, -0.45]].map(q => Hd(q[0], q[1]));
@@ -8694,17 +8713,18 @@ function drawDancer(st, now, ah) {
       { const g2 = cx.createLinearGradient(Hd(0, -1)[0], Hd(0, -1)[1], Hd(-0.6, 0.6)[0], Hd(-0.6, 0.6)[1]); g2.addColorStop(0, '#5a3626'); g2.addColorStop(0.5, '#2e1a12'); g2.addColorStop(1, '#1a0e09'); cx.fillStyle = refl ? '#2e1a12' : g2; cx.fill(); }
       if (!refl) { cx.strokeStyle = 'rgba(255,214,180,0.22)'; cx.lineWidth = Math.max(0.6, r * 0.05); for (let i = 0; i < 3; i++) { cx.beginPath(); const a = Hd(0.5 - i * 0.12, -0.6 - i * 0.08), b = Hd(-0.5 - i * 0.1, -0.7 + i * 0.12), c = Hd(-0.1, -1.0 + i * 0.05); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(c[0], c[1], b[0], b[1]); cx.stroke(); } }   // 髪のすじ（つや）
     }
-    const bun = [hdx - headR * 0.92 * ca + headR * 0.5 * sa, hdy - headR * 0.5 * ca - headR * 0.92 * sa];
+    const bun = [hdx - headR * 0.92 * hca + headR * 0.5 * hsa, hdy - headR * 0.5 * hca - headR * 0.92 * hsa];
     const bg2 = cx.createRadialGradient(bun[0] - headR * 0.15, bun[1] - headR * 0.15, 0, bun[0], bun[1], headR * 0.5);
     bg2.addColorStop(0, '#6a432d'); bg2.addColorStop(1, '#1d110b');
     cx.fillStyle = refl ? '#2e1a12' : bg2; cx.beginPath(); cx.arc(bun[0], bun[1], headR * 0.44, 0, Math.PI * 2); cx.fill();
     if (!refl) { cx.strokeStyle = 'rgba(255,214,180,0.25)'; cx.lineWidth = Math.max(0.6, headR * 0.06); cx.beginPath(); cx.arc(bun[0], bun[1], headR * 0.28, -2.4, 0.3); cx.stroke(); }   // おだんごの巻き
     if (!refl) {   // 髪かざり（小さな真珠の輪）と、胸元のきらめき
       cx.fillStyle = 'rgba(255,246,230,0.9)';
-      for (let i = 0; i < 5; i++) { const an = Math.PI * (1.05 + 0.13 * i) + lean, px = hdx - headR * 0.08 + Math.cos(an) * headR * 0.98, py = hdy - headR * 0.08 + Math.sin(an) * headR * 0.98; cx.beginPath(); cx.arc(px, py, Math.max(0.8, headR * 0.09), 0, Math.PI * 2); cx.fill(); }
+      for (let i = 0; i < 5; i++) { const an = Math.PI * (1.05 + 0.13 * i) + headAng, px = hdx - headR * 0.08 + Math.cos(an) * headR * 0.98, py = hdy - headR * 0.08 + Math.sin(an) * headR * 0.98; cx.beginPath(); cx.arc(px, py, Math.max(0.8, headR * 0.09), 0, Math.PI * 2); cx.fill(); }
       for (let i = 0; i < 3; i++) { const q = P(0.62 + 0.12 * i, 0.02 - 0.03 * i), tw = Math.pow(Math.max(0, Math.sin(now * 2.3 + i * 2.1)), 8); if (tw > 0.05) drawCharBallGlint(q[0], q[1], 4 * K * tw, tw * 0.9, '#fff4e0'); }
     }
-    drawArm(armA, SKIN);
+    if (headSpin !== 1 && spinSx !== 1) cx.restore();
+    drawArm(armA, SKIN, bendA);
   };
   // 床への映りこみ（下へ行くほどうすく：帯に分けてかく）
   for (const [y0, y1, al2] of [[0, 0.22, 0.2], [0.22, 0.45, 0.12], [0.45, 0.75, 0.05]]) {
@@ -9010,8 +9030,8 @@ function drawDominoScene(st, now, ah, kk) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   const top = 112 * K, gy = ah - Math.max(48 * K, ah * 0.13);
   const Hmax = Math.max(40, gy - top - 24 * K);
-  // 本物のドミノに近い形：高さは間かくの1.5〜2.3倍、厚みは間かくの0.35倍くらい
-  const uT = Math.max(12, Math.min(W * 0.82 / ((narrow ? 1.05 : 1.55) * N / m.nBars + 1.2), Hmax / 2.4, 70 * K));   // ドミノの間隔（スマホは少し大きく）
+  // 本物のドミノに近い形：高さは間かくの1.3〜1.9倍、厚みは間かくの0.22倍くらい（すき間がしっかり見える）
+  const uT = Math.max(12, Math.min(W * 0.82 / ((narrow ? 1.05 : 1.55) * N / m.nBars + 1.2), Hmax / 2.0, 80 * K));   // ドミノの間隔（スマホは少し大きく）
   const pnw = performance.now();   // 拍子が変わっても、間隔はなめらかに変わる（並んだドミノの位置は連続）
   if (!dominoU || dominoUW !== W || pnw - dominoUt > 600) dominoU = uT; else dominoU += (uT - dominoU) * (1 - Math.exp(-(pnw - dominoUt) / 1000 / 0.3));
   dominoUt = pnw; dominoUW = W;
@@ -9019,10 +9039,10 @@ function drawDominoScene(st, now, ah, kk) {
   const info = j => {   // j番めの刻みのドミノ（過去も先も、その時の拍子で）
     let r = tcache.get(j); if (r) return r;
     const ta = has ? tlAt(j) : null, mm = ta ? ta.m : m, sj = ta ? ta.n : mod(j, N), g = mm.subToGroup[sj], L = mm.groups[g], k = sj - mm.starts[g], head = k === 0;
-    r = { g, L, k, head, bar: head && mm.barStartSub.includes(sj), h: u * (head ? (L === 3 ? 2.3 : 1.9) : 1.45), step: ta ? ta.step : 0, blen: mm.total / mm.nBars };
+    r = { g, L, k, head, bar: head && mm.barStartSub.includes(sj), h: u * (head ? (L === 3 ? 1.9 : 1.62) : 1.32), step: ta ? ta.step : 0, blen: mm.total / mm.nBars };
     tcache.set(j, r); return r;
   };
-  const w = Math.max(5, Math.min(u * 0.36, 26 * K));                                      // ドミノの厚み
+  const w = Math.max(4, Math.min(u * 0.22, 18 * K));                                      // ドミノの厚み（本物は間かくの1/4くらい）
   const S = has ? st.sc + st.frac : -0.6, k0 = has ? st.sc : 0;
   const ax = W * 0.6, sx = j => ax + (j - S) * u;
   const ageS = has ? st.frac * dur : 9;
@@ -9032,7 +9052,7 @@ function drawDominoScene(st, now, ah, kk) {
   const ang = j => angs[j] !== undefined ? angs[j] : 0;
   // 奥行き（ななめ上から見る）
   const Dp = u * 1.15, ox = Dp * 0.44, oy = -Dp * 0.32;
-  const yH = Math.max(top - 20 * K, Math.min(gy - u * 2.3 - 40 * K, top + (gy - top) * 0.3));
+  const yH = Math.max(top - 20 * K, Math.min(gy - u * 1.9 - 40 * K, top + (gy - top) * 0.3));
 
   // 壁とテーブル
   dominoBg(ah, gy, yH);
