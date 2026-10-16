@@ -1306,7 +1306,7 @@ function neutralTxt(t) {
 const MODE_MLINE = { Z1: '拍の頭でエンジン点火。小節の頭でブースター切りはなし', Z2: '拍の頭でオーロラが光る。小節の頭で流れ星', A: '角が床に「コトッ」とつく瞬間に音。とがった角＝拍の頭', B: '大きいボールは拍ごとに跳ぶ。着地の瞬間＝拍の頭', C: '光の球が1周＝1小節。色の境目を通る瞬間＝拍の頭',
   D: '指揮の図形。打点で跳ね返る瞬間＝拍の頭', E: '刻みでぴょん、拍の頭で次の段へ', G: '車両の継ぎ目がレールの継ぎ目を通るとガタン！＝拍の頭。1両＝1拍',
   H: '外側の大きな点＝拍の頭、内側の点＝刻み。小節ごとに模様が育つ', I: '大きな花火＝拍の頭、小さな火花＝刻み', J: '刻み→拍→小節の3つの歯車。かみ合うときだけ次の歯車が回る',
-  K: '1拍で1歩。拍の頭でつま先に立つ（ピケ）。長い拍はゆったり大きく', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節で1段、どんどん積み上がる',
+  K: '1拍で1歩。長い拍は、くるっと1回転', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節で1段、どんどん積み上がる',
   N: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', O: '1拍＝1回の投げ。手に落ちる瞬間＝拍の頭', P: 'しずくが水面に落ちる瞬間に音。大きな波紋＝拍の頭',
   Q: 'サクランボが乗った瞬間にゼリーがぷるん＝拍の頭', R: '振り子が鐘に当たる瞬間＝拍の頭', S: '大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）',
   T: '拍の頭で花が開き、刻みごとに花びらがふえる', U: 'ハスの葉に着地する瞬間＝拍の頭' };
@@ -8382,6 +8382,57 @@ function drawDancerSpot(x, fy, floorY, spread, pulse, col) {
   cx.restore();
 }
 const drawDancerS = { t: 0, play: 0 };
+// 人の形：骨（点の列）にそって、太さの変わる手足を、なめらかな輪郭でかく
+//   prof = [[t, うしろ側の半分の太さ, 前側の半分の太さ], ...]（t＝0〜1：骨の長さにそった位置）
+function drawDancerLimb(chain, prof, col, lit, refl) {
+  const segL = []; let tot = 0;
+  for (let i = 1; i < chain.length; i++) { const l = Math.hypot(chain[i][0] - chain[i - 1][0], chain[i][1] - chain[i - 1][1]) || 1e-3; segL.push(l); tot += l; }
+  const at = t => {   // 骨の上の位置と、なめらかな向き
+    let d = clamp(t, 0, 1) * tot, i = 0; while (i < segL.length - 1 && d > segL[i]) { d -= segL[i]; i++; }
+    const a = chain[i], b = chain[i + 1], u = d / segL[i], x = a[0] + (b[0] - a[0]) * u, y = a[1] + (b[1] - a[1]) * u;
+    const dirOf = j => { const p0 = chain[j], p1 = chain[j + 1]; const l = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1e-3; return [(p1[0] - p0[0]) / l, (p1[1] - p0[1]) / l]; };
+    let dv = dirOf(i);
+    const jw = 0.35;   // 関節の近くでは、となりの骨の向きとまぜる（ひざ・ひじがかくっと折れない）
+    if (u < jw && i > 0) { const q = dirOf(i - 1), w = 0.5 * (1 - u / jw); dv = [dv[0] * (1 - w) + q[0] * w, dv[1] * (1 - w) + q[1] * w]; }
+    if (u > 1 - jw && i < segL.length - 1) { const q = dirOf(i + 1), w = 0.5 * (1 - (1 - u) / jw); dv = [dv[0] * (1 - w) + q[0] * w, dv[1] * (1 - w) + q[1] * w]; }
+    const l = Math.hypot(dv[0], dv[1]) || 1; return [x, y, dv[0] / l, dv[1] / l];
+  };
+  const wAt = t => { let i = 0; while (i < prof.length - 2 && t > prof[i + 1][0]) i++; const a = prof[i], b = prof[i + 1], u = clamp((t - a[0]) / (b[0] - a[0] || 1), 0, 1), e = u * u * (3 - 2 * u); return [a[1] + (b[1] - a[1]) * e, a[2] + (b[2] - a[2]) * e]; };
+  const N = 16, L = [], Rr = [];
+  for (let k = 0; k <= N; k++) { const t = k / N, [x, y, dx, dy] = at(t), [wb, wf] = wAt(t), nx = -dy, ny = dx; L.push([x + nx * wb, y + ny * wb]); Rr.push([x - nx * wf, y - ny * wf]); }
+  const path = (A, B) => {
+    cx.beginPath(); cx.moveTo(A[0][0], A[0][1]);
+    for (let k = 1; k < A.length - 1; k++) cx.quadraticCurveTo(A[k][0], A[k][1], (A[k][0] + A[k + 1][0]) / 2, (A[k][1] + A[k + 1][1]) / 2);
+    cx.lineTo(A[A.length - 1][0], A[A.length - 1][1]);
+    const e = at(1); cx.quadraticCurveTo(e[0] + e[2] * 1.5, e[1] + e[3] * 1.5, B[B.length - 1][0], B[B.length - 1][1]);   // 先は少しまるく
+    for (let k = B.length - 2; k > 0; k--) cx.quadraticCurveTo(B[k][0], B[k][1], (B[k][0] + B[k - 1][0]) / 2, (B[k][1] + B[k - 1][1]) / 2);
+    cx.lineTo(B[0][0], B[0][1]); cx.closePath();
+  };
+  path(L, Rr); cx.fillStyle = col; cx.fill();
+  if (refl) return;
+  // 光：前側（スポットライト側）にやわらかいつや、うしろ側にかげ
+  const M = Rr.map((p, k) => { const c = at(k / N); return [c[0] + (p[0] - c[0]) * 0.15, c[1] + (p[1] - c[1]) * 0.15]; });
+  const Rr2 = Rr.map((p, k) => { const c = at(k / N); return [c[0] + (p[0] - c[0]) * 0.82, c[1] + (p[1] - c[1]) * 0.82]; });
+  cx.globalAlpha *= lit; path(Rr2, M); cx.fillStyle = 'rgba(255,236,220,0.55)'; cx.fill(); cx.globalAlpha /= lit;
+  cx.strokeStyle = 'rgba(40,10,20,0.28)'; cx.lineWidth = Math.max(0.8, 1.2 * K); cx.lineJoin = 'round';
+  cx.beginPath(); cx.moveTo(L[0][0], L[0][1]); for (let k = 1; k < L.length; k++) cx.lineTo(L[k][0], L[k][1]); cx.stroke();
+}
+// トウシューズ：足首からつま先（サテンのつや・平らなつま先・足首に交差するリボン）
+function drawDancerShoe(ax0, ay0, tx, ty, w, col, refl) {
+  const dx = tx - ax0, dy = ty - ay0, d = Math.hypot(dx, dy) || 1e-3, ux = dx / d, uy = dy / d, nx = -uy, ny = ux;
+  const P2 = (t, o) => [ax0 + ux * d * t + nx * o * w, ay0 + uy * d * t + ny * o * w];
+  const pts = [P2(-0.1, 1.0), P2(0.35, 1.05), P2(0.8, 0.62), P2(1.02, 0.42), P2(1.02, -0.42), P2(0.75, -0.7), P2(0.3, -0.95), P2(-0.1, -0.9)];
+  cx.beginPath(); cx.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; cx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+  cx.closePath();
+  if (refl) { cx.fillStyle = col; cx.fill(); return; }
+  const g = cx.createLinearGradient(P2(0.4, 1)[0], P2(0.4, 1)[1], P2(0.4, -1)[0], P2(0.4, -1)[1]);
+  g.addColorStop(0, shade(col, -0.25)); g.addColorStop(0.55, col); g.addColorStop(0.8, shade(col, 0.35)); g.addColorStop(1, shade(col, -0.1));
+  cx.fillStyle = g; cx.fill();
+  cx.strokeStyle = 'rgba(120,60,60,0.35)'; cx.lineWidth = Math.max(0.6, 0.8 * K); cx.beginPath(); { const a = P2(0.78, 0.6), b = P2(0.78, -0.6); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(P2(0.9, 0)[0], P2(0.9, 0)[1], b[0], b[1]); } cx.stroke();   // つま先の箱の線
+  cx.strokeStyle = hexA(shade(col, -0.12), 0.95); cx.lineWidth = Math.max(0.8, w * 0.32); cx.lineCap = 'round';   // リボン（足首で交差）
+  cx.beginPath(); { const a = P2(0.15, 1.0), b = P2(-0.55, -0.85), c = P2(0.15, -0.95), e = P2(-0.55, 0.9); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.moveTo(c[0], c[1]); cx.lineTo(e[0], e[1]); } cx.stroke();
+}
 function drawDancer(st, now, ah) {
   { const pn = performance.now(); dancerM.dt = clamp((pn - dancerM.t) / 1000, 0.001, 0.05); dancerM.t = pn; }
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
@@ -8518,32 +8569,62 @@ function drawDancer(st, now, ah) {
   };
   const armPts = ang => { const hx2 = shx + Math.sin(ang) * al * 0.965, hy2 = shy + Math.cos(ang) * al * 0.965; const kk = ikLimb(shx, shy, hx2, hy2, al, -1); return [kk.kx, kk.ky, kk.fx, kk.fy]; };
   const legW = (() => { const pF = legPts(ankW, 1, true), pG = legPts(ankW, 1, false), w = has ? clamp((fy - 0.07 * hB - ankW[1]) / (0.05 * Lt), 0, 1) : 0; return pG.map((v, i) => v + (pF[i] - v) * w); })(), legS = legPts(ankS, relS), armB = armPts(aB), armA = armPts(aA);
-  const SKIN = '#e7b493', TIGHT = '#d9a08a', SHOE = '#efc1b4', SUIT = '#1c2130';
-  const drawLeg = (p, c, sh) => {
-    dancerSeg(hxp, hyp, p[0], p[1], lw * 1.25, lw * 0.85, c);
-    dancerSeg(p[0], p[1], p[2], p[3], lw * 0.85, lw * 0.5, c);
-    dancerSeg(p[2], p[3], p[4], p[5], lw * 0.5, lw * 0.28, sh, 0.4);   // バレエシューズ
+  const SKIN = '#ecbc9c', TIGHT = '#e7b49e', SHOE = '#f3c9c0', SUIT = '#1c2130';
+  let figRefl = false;
+  const drawLeg = (p, c, sh) => {   // 太もも（前がふっくら）→ ひざ（細く）→ ふくらはぎ（うしろがふくらむ）→ 足首（細く）→ トウシューズ
+    const hb = hB;
+    drawDancerLimb([[hxp, hyp], [p[0], p[1]], [p[2], p[3]]], [[0, 0.056 * hb, 0.052 * hb], [0.2, 0.048 * hb, 0.05 * hb], [0.42, 0.031 * hb, 0.033 * hb], [0.5, 0.026 * hb, 0.029 * hb], [0.6, 0.038 * hb, 0.025 * hb], [0.68, 0.041 * hb, 0.023 * hb], [0.86, 0.021 * hb, 0.018 * hb], [1, 0.013 * hb, 0.013 * hb]], c, 0.9, figRefl);
+    drawDancerShoe(p[2], p[3], p[4], p[5], 0.016 * hb, sh, figRefl);
   };
-  const drawArm = (p, c) => {
-    dancerSeg(shx, shy, p[0], p[1], aw * 1.1, aw * 0.8, c);
-    dancerSeg(p[0], p[1], p[2], p[3], aw * 0.8, aw * 0.55, c);
-    cx.fillStyle = c; cx.beginPath(); cx.ellipse(p[2] + (p[2] - p[0]) * 0.12, p[3] + (p[3] - p[1]) * 0.12, aw * 0.42, aw * 0.3, Math.atan2(p[3] - p[1], p[2] - p[0]), 0, Math.PI * 2); cx.fill();
+  const drawArm = (p, c) => {   // かた（まるみ）→ 二の腕 → ひじ → 前腕 → 手首 → 手（指をそろえて、少し曲げる）
+    const hb = hB;
+    drawDancerLimb([[shx, shy], [p[0], p[1]], [p[2], p[3]]], [[0, 0.03 * hb, 0.03 * hb], [0.12, 0.026 * hb, 0.024 * hb], [0.45, 0.018 * hb, 0.017 * hb], [0.52, 0.016 * hb, 0.016 * hb], [0.7, 0.017 * hb, 0.016 * hb], [1, 0.0105 * hb, 0.0095 * hb]], c, 0.7, figRefl);
+    const vx = p[2] - p[0], vy = p[3] - p[1], vl = Math.hypot(vx, vy) || 1, ux = vx / vl, uy = vy / vl, nx = -uy, ny = ux, hl = 0.075 * hb, hw = 0.013 * hb;
+    const H = (t, o, bend) => [p[2] + ux * hl * t + nx * (o * hw + bend * hl * t * t * 0.35), p[3] + uy * hl * t + ny * (o * hw + bend * hl * t * t * 0.35)];
+    const bend = 0.6;   // 指先は、手のひら側へ少し曲げる
+    const q = [H(0, 0.8, 0), H(0.35, 1.0, bend), H(0.8, 0.55, bend), H(1, 0.05, bend), H(0.85, -0.45, bend), H(0.4, -0.85, bend), H(0, -0.8, 0)];
+    cx.beginPath(); cx.moveTo(q[0][0], q[0][1]); for (let i = 1; i < q.length - 1; i++) cx.quadraticCurveTo(q[i][0], q[i][1], (q[i][0] + q[i + 1][0]) / 2, (q[i][1] + q[i + 1][1]) / 2); cx.lineTo(q[q.length - 1][0], q[q.length - 1][1]); cx.closePath();
+    cx.fillStyle = c; cx.fill();
+    if (!figRefl) { const th = H(0.32, -1.25, 0.2); cx.strokeStyle = c; cx.lineWidth = hw * 0.75; cx.lineCap = 'round'; cx.beginPath(); { const a = H(0.12, -0.8, 0); cx.moveTo(a[0], a[1]); } cx.lineTo(th[0], th[1]); cx.stroke(); }   // 親指
   };
   const spinC = Math.cos(spinA), spinSx = Math.abs(spinC) < 0.14 ? (spinC < 0 ? -0.14 : 0.14) : spinC;   // 回転：横の幅をちぢめて、裏がえる
   const figure = refl => { if (spinSx === 1) return figure0(refl); cx.save(); cx.translate(hxp, 0); cx.scale(spinSx, 1); cx.translate(-hxp, 0); figure0(refl); cx.restore(); };
   const figure0 = (refl) => {
-    const dk = refl ? -0.1 : -0.28;
+    figRefl = refl; const dk = refl ? -0.1 : -0.22;
     drawArm(armB, shade(SKIN, dk)); drawLeg(legW, shade(TIGHT, dk), shade(SHOE, dk));
     drawLeg(legS, TIGHT, SHOE);
     // 胴（横から見た形：胸・腰のくびれ・おしり）
     const ca = Math.cos(lean), sa = Math.sin(lean), P = (t, o) => [hxp + sa * T * t + ca * o * hB, hyp - ca * T * t + sa * o * hB];
-    const pts = [[-0.05, -0.07], [0.42, -0.05], [0.82, -0.06], [1.03, -0.045], [1.03, 0.04], [0.8, 0.075], [0.45, 0.045], [-0.05, 0.065]];
-    cx.beginPath(); { const p0 = P(...pts[0]); cx.moveTo(p0[0], p0[1]); }
-    for (let i = 1; i <= pts.length; i++) { const a = P(...pts[(i) % pts.length]), b = P(...pts[(i + 1) % pts.length]); i % 2 ? cx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2) : cx.lineTo(a[0], a[1]); }
-    cx.closePath();
-    const bk = P(0.5, -0.07), fr = P(0.5, 0.08), tg = cx.createLinearGradient(bk[0], bk[1], fr[0], fr[1]);
-    tg.addColorStop(0, '#3a4258'); tg.addColorStop(0.45, SUIT); tg.addColorStop(1, '#0a0c12');
-    cx.fillStyle = tg; cx.fill();
+    // 胴：うしろ（おしり・せなかのS字）と前（おなか・胸）の輪郭。むねから上は肌、胴は衣装（チュチュと同じ色のボディス）
+    const back = [[-0.06, -0.066], [0.1, -0.07], [0.3, -0.042], [0.45, -0.037], [0.66, -0.054], [0.86, -0.052], [1.02, -0.034]];
+    const front = [[1.02, 0.03], [0.93, 0.046], [0.82, 0.07], [0.72, 0.062], [0.5, 0.035], [0.32, 0.036], [0.12, 0.054], [-0.06, 0.058]];
+    const torsoPath = (b, f) => {
+      const all = b.concat(f).map(q => P(q[0], q[1]));
+      cx.beginPath(); cx.moveTo(all[0][0], all[0][1]);
+      for (let i = 1; i < all.length - 1; i++) cx.quadraticCurveTo(all[i][0], all[i][1], (all[i][0] + all[i + 1][0]) / 2, (all[i][1] + all[i + 1][1]) / 2);
+      cx.lineTo(all[all.length - 1][0], all[all.length - 1][1]); cx.closePath();
+    };
+    torsoPath(back, front);
+    { const bk = P(0.6, -0.07), fr = P(0.6, 0.08), tg = cx.createLinearGradient(bk[0], bk[1], fr[0], fr[1]); tg.addColorStop(0, shade(SKIN, refl ? -0.1 : -0.18)); tg.addColorStop(0.6, SKIN); tg.addColorStop(1, shade(SKIN, -0.05)); cx.fillStyle = tg; cx.fill(); }
+    // ボディス（胸の上で、まっすぐでなく少しカーブしたえりぐり）
+    cx.save(); torsoPath(back, front); cx.clip();
+    { const nb = P(0.84, -0.09), nm = P(0.9, 0), nf = P(0.82, 0.1), lb = P(-0.1, -0.12), lf = P(-0.1, 0.12);
+      cx.beginPath(); cx.moveTo(lb[0], lb[1]); cx.lineTo(nb[0], nb[1]); cx.quadraticCurveTo(nm[0], nm[1], nf[0], nf[1]); cx.lineTo(lf[0], lf[1]); cx.closePath();
+      const bk = P(0.5, -0.08), fr = P(0.5, 0.09), bg = cx.createLinearGradient(bk[0], bk[1], fr[0], fr[1]);
+      bg.addColorStop(0, shade(col, -0.55)); bg.addColorStop(0.55, shade(col, -0.2)); bg.addColorStop(0.85, shade(col, 0.15)); bg.addColorStop(1, shade(col, -0.3));
+      cx.fillStyle = bg; cx.fill();
+      if (!refl) {   // ぬい目（プリンセス・ライン）と、えりぐりのふち
+        cx.strokeStyle = hexA(shade(col, 0.5), 0.35); cx.lineWidth = Math.max(0.6, 0.8 * K);
+        cx.beginPath(); { const a = P(0.12, 0.02), b = P(0.5, 0.0), c = P(0.8, 0.035); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(b[0], b[1], c[0], c[1]); } cx.stroke();
+        cx.strokeStyle = hexA(shade(col, 0.7), 0.7); cx.lineWidth = Math.max(0.8, 1.1 * K);
+        cx.beginPath(); cx.moveTo(nb[0], nb[1]); cx.quadraticCurveTo(nm[0], nm[1], nf[0], nf[1]); cx.stroke();
+      }
+    }
+    cx.restore();
+    if (!refl) {   // せなかの、うすいかげ（背骨のライン）
+      cx.strokeStyle = 'rgba(60,20,30,0.25)'; cx.lineWidth = Math.max(0.8, 1.2 * K); cx.beginPath();
+      { const a = P(0.86, -0.056), b = P(1.0, -0.04); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); } cx.stroke();
+    }
     // スカート（いまのグループの色。拍の頭で光って、ふわっとひろがる）
     const fl2 = 1 + dancerSk, w0 = P(0.18, -0.065), w1 = P(0.18, 0.06);
     const hb = P(-0.06 - 0.04 * dancerSk, -0.36 * fl2), hf = P(-0.02 - 0.04 * dancerSk, 0.36 * fl2), hm = P(-0.13, 0);   // チュチュ（横に平たくひろがる）
@@ -8581,17 +8662,43 @@ function drawDancer(st, now, ah) {
     if (spinSx !== 1) cx.restore();
     cx.fillStyle = shade(col, -0.25); cx.beginPath(); const b0 = P(0.2, -0.068), b1 = P(0.2, 0.062), b2 = P(0.13, 0.064), b3 = P(0.13, -0.07);
     cx.moveTo(b0[0], b0[1]); cx.lineTo(b1[0], b1[1]); cx.lineTo(b2[0], b2[1]); cx.lineTo(b3[0], b3[1]); cx.closePath(); cx.fill();   // 腰の帯
-    // 首と頭（髪はおだんご）
-    dancerSeg(shx + sa * 0.01 * hB, shy - ca * 0.01 * hB, hdx - sa * headR * 0.6, hdy + ca * headR * 0.6, headR * 0.62, headR * 0.55, SKIN, 0.2);
-    const hg = cx.createRadialGradient(hdx - headR * 0.3, hdy - headR * 0.35, headR * 0.1, hdx, hdy, headR * 1.05);
-    hg.addColorStop(0, shade(SKIN, 0.25)); hg.addColorStop(1, shade(SKIN, -0.3));
-    cx.fillStyle = hg; cx.beginPath(); cx.ellipse(hdx + headR * 0.05, hdy, headR * 0.95, headR * 1.05, lean, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = '#2b1a12'; cx.beginPath(); cx.arc(hdx - headR * 0.08, hdy - headR * 0.08, headR * 1.02, Math.PI * 0.72 + lean, Math.PI * 1.9 + lean); cx.closePath(); cx.fill();
-    const bun = [hdx - headR * 0.85 * ca + headR * 0.45 * sa, hdy - headR * 0.45 * ca - headR * 0.85 * sa];
-    const bg2 = cx.createRadialGradient(bun[0] - headR * 0.15, bun[1] - headR * 0.15, 0, bun[0], bun[1], headR * 0.48);
-    bg2.addColorStop(0, '#5a3a28'); bg2.addColorStop(1, '#1d110b');
-    cx.fillStyle = bg2; cx.beginPath(); cx.arc(bun[0], bun[1], headR * 0.46, 0, Math.PI * 2); cx.fill();
-    cx.fillStyle = 'rgba(255,220,190,0.25)'; cx.beginPath(); cx.ellipse(hdx - headR * 0.25, hdy - headR * 0.7, headR * 0.35, headR * 0.12, -0.3, 0, Math.PI * 2); cx.fill();   // 髪のつや
+    // 首（長く、細く）と頭（横顔：ひたい・鼻・くちびる・あご。目・まゆ・耳。髪はひっつめて、おだんご）
+    drawDancerLimb([[shx + sa * 0.0 * hB, shy], [hdx - sa * headR * 0.2 + ca * headR * 0.05, hdy + ca * headR * 0.55]], [[0, 0.03 * hB, 0.026 * hB], [0.5, 0.021 * hB, 0.02 * hB], [1, 0.022 * hB, 0.021 * hB]], shade(SKIN, -0.04), 0.6, refl);
+    {
+      const r = headR * 1.02, Hd = (x, y) => [hdx + (x * ca - y * sa) * r, hdy + (x * sa + y * ca) * r];   // 頭の向き（前＝＋x）に回した点
+      // 頭の後ろとあご（肌）
+      const hg = cx.createRadialGradient(Hd(0.35, -0.35)[0], Hd(0.35, -0.35)[1], r * 0.1, hdx, hdy, r * 1.15);
+      hg.addColorStop(0, shade(SKIN, 0.22)); hg.addColorStop(0.7, SKIN); hg.addColorStop(1, shade(SKIN, -0.25));
+      const face = [[-0.15, 0.95], [-0.7, 0.55], [-0.95, 0.0], [-0.75, -0.6], [-0.1, -0.98], [0.45, -0.85], [0.72, -0.5], [0.8, -0.22], [0.86, -0.08], [1.08, 0.2], [1.06, 0.26], [0.86, 0.31], [0.9, 0.4], [0.84, 0.47], [0.89, 0.55], [0.8, 0.66], [0.84, 0.8], [0.62, 0.95], [0.3, 1.0]].map(q => Hd(q[0], q[1]));
+      cx.beginPath(); cx.moveTo(face[0][0], face[0][1]);
+      for (let i = 1; i < face.length; i++) { const a = face[i], b = face[(i + 1) % face.length]; cx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+      cx.closePath(); cx.fillStyle = refl ? SKIN : hg; cx.fill();
+      if (!refl) {
+        cx.fillStyle = 'rgba(244,114,138,0.22)'; { const q = Hd(0.5, 0.3); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.22, r * 0.14, lean, 0, Math.PI * 2); cx.fill(); }   // ほお
+        cx.fillStyle = '#c2667a'; { const a = Hd(0.86, 0.4), b = Hd(0.83, 0.47), c = Hd(0.86, 0.53); cx.beginPath(); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(Hd(0.95, 0.44)[0], Hd(0.95, 0.44)[1], b[0], b[1]); cx.quadraticCurveTo(Hd(0.94, 0.52)[0], Hd(0.94, 0.52)[1], c[0], c[1]); cx.lineTo(Hd(0.78, 0.47)[0], Hd(0.78, 0.47)[1]); cx.closePath(); cx.fill(); }   // くちびる
+        // 目（ふせ目のまつげ）とまゆ
+        cx.strokeStyle = '#2a1712'; cx.lineCap = 'round'; cx.lineWidth = Math.max(0.9, r * 0.09);
+        cx.beginPath(); { const a = Hd(0.47, -0.1), b = Hd(0.7, -0.06); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(Hd(0.6, -0.02)[0], Hd(0.6, -0.02)[1], b[0], b[1]); } cx.stroke();
+        cx.lineWidth = Math.max(0.7, r * 0.05); cx.beginPath(); { const a = Hd(0.66, -0.07), b = Hd(0.76, -0.14); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); } cx.stroke();   // まつげ
+        cx.strokeStyle = 'rgba(60,32,22,0.8)'; cx.lineWidth = Math.max(0.8, r * 0.07);
+        cx.beginPath(); { const a = Hd(0.42, -0.32), b = Hd(0.74, -0.3); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(Hd(0.6, -0.42)[0], Hd(0.6, -0.42)[1], b[0], b[1]); } cx.stroke();
+        cx.strokeStyle = 'rgba(150,80,60,0.35)'; cx.lineWidth = Math.max(0.7, r * 0.05);   // 鼻のわき
+        cx.beginPath(); { const a = Hd(0.88, 0.18), b = Hd(0.84, 0.26); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); } cx.stroke();
+        cx.fillStyle = shade(SKIN, -0.12); { const q = Hd(-0.05, 0.12); cx.beginPath(); cx.ellipse(q[0], q[1], r * 0.13, r * 0.2, lean, 0, Math.PI * 2); cx.fill(); }   // 耳
+      }
+      // 髪：ひたいの生えぎわから頭の上・うしろをおおい、耳の上を通って、うなじへ
+      const hair = [[0.62, -0.62], [0.35, -0.95], [-0.2, -1.06], [-0.78, -0.72], [-1.02, -0.05], [-0.8, 0.5], [-0.42, 0.72], [-0.22, 0.42], [-0.12, -0.02], [0.18, -0.12], [0.5, -0.45]].map(q => Hd(q[0], q[1]));
+      cx.beginPath(); cx.moveTo(hair[0][0], hair[0][1]);
+      for (let i = 1; i < hair.length; i++) { const a = hair[i], b = hair[(i + 1) % hair.length]; cx.quadraticCurveTo(a[0], a[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); }
+      cx.closePath();
+      { const g2 = cx.createLinearGradient(Hd(0, -1)[0], Hd(0, -1)[1], Hd(-0.6, 0.6)[0], Hd(-0.6, 0.6)[1]); g2.addColorStop(0, '#5a3626'); g2.addColorStop(0.5, '#2e1a12'); g2.addColorStop(1, '#1a0e09'); cx.fillStyle = refl ? '#2e1a12' : g2; cx.fill(); }
+      if (!refl) { cx.strokeStyle = 'rgba(255,214,180,0.22)'; cx.lineWidth = Math.max(0.6, r * 0.05); for (let i = 0; i < 3; i++) { cx.beginPath(); const a = Hd(0.5 - i * 0.12, -0.6 - i * 0.08), b = Hd(-0.5 - i * 0.1, -0.7 + i * 0.12), c = Hd(-0.1, -1.0 + i * 0.05); cx.moveTo(a[0], a[1]); cx.quadraticCurveTo(c[0], c[1], b[0], b[1]); cx.stroke(); } }   // 髪のすじ（つや）
+    }
+    const bun = [hdx - headR * 0.92 * ca + headR * 0.5 * sa, hdy - headR * 0.5 * ca - headR * 0.92 * sa];
+    const bg2 = cx.createRadialGradient(bun[0] - headR * 0.15, bun[1] - headR * 0.15, 0, bun[0], bun[1], headR * 0.5);
+    bg2.addColorStop(0, '#6a432d'); bg2.addColorStop(1, '#1d110b');
+    cx.fillStyle = refl ? '#2e1a12' : bg2; cx.beginPath(); cx.arc(bun[0], bun[1], headR * 0.44, 0, Math.PI * 2); cx.fill();
+    if (!refl) { cx.strokeStyle = 'rgba(255,214,180,0.25)'; cx.lineWidth = Math.max(0.6, headR * 0.06); cx.beginPath(); cx.arc(bun[0], bun[1], headR * 0.28, -2.4, 0.3); cx.stroke(); }   // おだんごの巻き
     if (!refl) {   // 髪かざり（小さな真珠の輪）と、胸元のきらめき
       cx.fillStyle = 'rgba(255,246,230,0.9)';
       for (let i = 0; i < 5; i++) { const an = Math.PI * (1.05 + 0.13 * i) + lean, px = hdx - headR * 0.08 + Math.cos(an) * headR * 0.98, py = hdy - headR * 0.08 + Math.sin(an) * headR * 0.98; cx.beginPath(); cx.arc(px, py, Math.max(0.8, headR * 0.09), 0, Math.PI * 2); cx.fill(); }
