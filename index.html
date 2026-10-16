@@ -3432,19 +3432,20 @@ function drawBounceAtmosPaint(g, w, h, backY, frontY) {
 /* @@BEGIN drawBounce */
 function drawBounce(st, now, ah) {
   const m = st.m, G = m.groups.length;
-  const u = W / Math.max(12, Math.min(m.total, 10) * 1.6);
+  const uOf = mm => W / Math.max(12, Math.min(mm.total, 10) * 1.6);
+  let u = uOf(m);
+  if (st.changed && st.prevMeta) { const t0 = clamp(st.segAge / 0.7, 0, 1), e0 = t0 * t0 * (3 - 2 * t0); u = uOf(st.prevMeta) * (1 - e0) + u * e0; }   // 拍子が変わったら、横のはばをなめらかに変える
   const top = 112 * K, avail = Math.max(120, ah - top), tileH = Math.min(avail * 0.1, 36 * K);
   const frontY = ah - tileH - 8 * K, backY = frontY - avail * 0.28;
   const hMax = Math.max(30, backY - top - 42 * K);
   const hBig = L => hMax * (L / 3) ** 2;          // 大きいボール：h ∝ T²
   const hSmall = avail * 0.1;                      // 小さいボール：刻みごと
-  const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
-  const Lk = k => m.groups[mod(k, G)];
   const bigY = (L, q) => { const g = q / L; return backY - 4 * hBig(L) * g * (1 - g); };
   const smallY = q => { const f = q - Math.floor(q); return frontY - 4 * hSmall * f * (1 - f); };
-  const S = Math.max(0, st.step), len = Lk(S);
+  const len = m.groups[st.has ? st.g : 0];
   const qNow = st.has ? clamp(st.pos - m.starts[st.g], 0, len - 0.0001) : 0;
-  const ballU = X(S) + qNow, cam = ballU - (W * 0.35) / u;
+  const gStart0 = st.has ? st.sc - (st.sub - m.starts[st.g]) : 0;   // いまのグループの先頭の「通しの刻み番号」（世界の横位置）
+  const ballU = gStart0 + qNow, cam = ballU - (W * 0.35) / u;
   const sx = xu => (xu - cam) * u;
   const faceY = frontY + 2 * K;
   const rBig = clamp(ah * 0.055, 12, 64), rSmall = rBig * 0.5;
@@ -3488,13 +3489,22 @@ function drawBounce(st, now, ah) {
   // 🎮 ぴったりが続くと：かべに電球のガーランド（4〜）、色のスポットライト（16〜）
   if (fest > 0.01) drawBounceParty(now, fest, top, backY, tp);
 
-  for (let k = S - 10; k <= S + 16; k++) {
-    const x0 = sx(X(k)), L = Lk(k), w = L * u, gi = mod(k, G);
+  // グループの並び（拍子が変わっても、通しの刻み番号でつなぐので、過去のグループはそのまま）
+  const grp = [{ s: gStart0, L: len, a: tlAt(gStart0) }];
+  {
+    const lo = tl.length ? tl[0].sc0 : 0;
+    let s = gStart0;
+    for (let i = 0; i < 10 && s - 1 >= Math.max(0, lo); i++) { const a = tlAt(s - 1); if (!a) break; s = s - 1 - (a.n - a.m.starts[a.g]); grp.unshift({ s, L: a.m.groups[a.g], a: tlAt(s) }); }
+    s = gStart0 + len;
+    for (let i = 0; i < 16; i++) { const a = tlAt(s); if (!a) break; const L2 = a.m.groups[a.g]; grp.push({ s, L: L2, a }); s += L2; }
+  }
+  for (const gr of grp) {
+    const x0 = sx(gr.s), L = gr.L, w = L * u, aa = gr.a;
     if (x0 > W || x0 + w < 0) continue;
-    const col = COLORS[L], cur = k === S && st.has;
+    const col = COLORS[L], cur = gr.s === gStart0 && st.has, k = gr.s;
     // 小節線
-    if (m.barStartGroup.includes(gi)) {
-      const bi = m.barOfGroup[gi], n = Math.floor(k / G) * m.nBars + bi + 1;
+    if (aa && aa.gl === 0) {
+      const n = (aa.seg.ms0 + aa.cyc) * aa.m.nBars + aa.bar + 1;
       cx.strokeStyle = 'rgba(203,213,225,0.28)'; cx.lineWidth = 1.5 * K; cx.setLineDash([4 * K, 6 * K]);
       const ly = top - 6 * K;
       cx.beginPath(); cx.moveTo(x0, frontY + tileH); cx.lineTo(x0, ly); cx.stroke(); cx.setLineDash([]);
@@ -3545,9 +3555,8 @@ function drawBounce(st, now, ah) {
 
   // 大きいボールの着地（ほこりが舞う＋床の波紋）
   for (const a of accents) {
-    if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.5) continue;
-    const q = age / 0.5, xa = sx(X(a.step));
+    const q = age / 0.5, xa = sx(a.sc);
     for (let i = 0; i < 8; i++) {
       const dir = i < 4 ? -1 : 1, sp = (i % 4 + 1) / 4;
       const x = xa + dir * q * (18 + 30 * sp) * K, y = backY - Math.sin(q * Math.PI) * (8 + 18 * sp) * K;
@@ -3559,7 +3568,7 @@ function drawBounce(st, now, ah) {
   // 小さいボールの着地（すべての8分音符）
   const tN = lastNote ? now - lastNote.time : 9;
   if (st.has && tN >= 0 && tN < 0.3) {
-    const xs = sx(X(S) + lastNote.sub - m.starts[st.g]), q = tN / 0.3;
+    const xs = sx(lastNote.sc), q = tN / 0.3;
     cx.strokeStyle = hexA(lastNote.isAcc ? LIME : '#ffffff', (1 - q) * 0.7); cx.lineWidth = 1.5 * K;
     cx.beginPath(); cx.ellipse(xs, frontY, 6 * K + q * 26 * K, 2 * K + q * 6 * K, 0, 0, Math.PI * 2); cx.stroke();
   }
@@ -3620,12 +3629,12 @@ function drawBounce(st, now, ah) {
     } else if (tp.w) drawCharBallBurst('B', bx - tp.dir * rSmall, frontY - 2 * K, 6, { kind: 'puff', cols: [tp.dir < 0 ? '#93c5fd' : '#fca5a5'], sp: 40, a0: -Math.PI, a1: 0, g: -20, life: 0.7, size: 5 });
     else if (tp.x) drawCharBallBurst('B', bx, frontY - 2 * K, 3, { kind: 'puff', cols: ['#cbd5e1'], sp: 25, a0: -Math.PI, a1: 0, g: -10, life: 0.5, size: 4 });
   }
-  ball(bx + wobX, byB, backY, rBig, sqB, '#d9f99d', LIME, i => { const q2 = qNow - i * 0.07; return q2 < 0 ? null : [sx(X(S) + q2), bigY(len, q2)]; }, fxB);
+  ball(bx + wobX, byB, backY, rBig, sqB, '#d9f99d', LIME, i => { const q2 = qNow - i * 0.07; return q2 < 0 ? null : [sx(gStart0 + q2), bigY(len, q2)]; }, fxB);
   // 小さいボール（手前）
   let sqS = [1, 1];
   if (st.has && tN >= 0 && tN < 0.08) { const q = 1 - tN / 0.08, a = lastNote.isAcc ? 0.35 : 0.22; sqS = [1 + a * 0.9 * q * q, 1 - a * q * q]; }
   sqS = [sqS[0] / wob, sqS[1] * wob];
-  ball(bx - wobX * 0.6, smallY(qNow), frontY, rSmall, sqS, '#fde68a', '#f472b6', i => { const q2 = qNow - i * 0.06; return Math.floor(q2) !== Math.floor(qNow) ? null : [sx(X(S) + q2), smallY(q2)]; }, fxB && { joy: fxB.joy, worry: fxB.worry, look: fxB.look, gold: (fxB.gold || 0) * 0.7 });
+  ball(bx - wobX * 0.6, smallY(qNow), frontY, rSmall, sqS, '#fde68a', '#f472b6', i => { const q2 = qNow - i * 0.06; return Math.floor(q2) !== Math.floor(qNow) ? null : [sx(gStart0 + q2), smallY(q2)]; }, fxB && { joy: fxB.joy, worry: fxB.worry, look: fxB.look, gold: (fxB.gold || 0) * 0.7 });
   drawCharBallConfetti('B', fest, 0, W, top - 20 * K, frontY - 40 * K);
   drawCharBallParticles('B');
 }
@@ -4098,12 +4107,67 @@ function rocketLamp(x, y, r, col, lv, on, u, gold) {
 /* 🚀 ロケット：拍の頭でエンジンが火をふき、8小節で発射台から宇宙へ（くり返す）。
    刻み＝姿勢をととのえる小さな噴射。小節の頭＝ブースター／段の切りはなし */
 const ROCKET_NB = 8;
+/* 拍子が変わっても止まらない「通しの小節数」と「さっきまでの拍」 */
+const drawRocketBarsMap = new WeakMap();
+function drawRocketBarsAt(seg, loc) {   // この区間の loc 番目の刻みまでに始まった小節の数
+  const m = seg.meta, cyc = Math.floor(loc / m.total), n = loc - cyc * m.total; let bi = 0;
+  for (let i = 0; i < m.nBars; i++) if (m.barStartSub[i] <= n) bi = i;
+  return cyc * m.nBars + bi;
+}
+function drawRocketBars0(seg) {   // この区間の前までに過ぎた小節の数
+  if (!seg) return 0;
+  let v = drawRocketBarsMap.get(seg); if (v !== undefined) return v;
+  v = seg.prev ? drawRocketBars0(seg.prev) + drawRocketBarsAt(seg.prev, seg.sc0 - seg.prev.sc0) : 0;
+  drawRocketBarsMap.set(seg, v); return v;
+}
+function drawRocketBarInfo(st, b) {
+  const m = b.m, dur = 60 / bpm;
+  if (b.g < 0) return { B: 0, bar: 0, age: 9, len: 1 };
+  const bi = m.barOfGroup[b.g], bs = m.barStartSub[bi], be = bi + 1 < m.nBars ? m.barStartSub[bi + 1] : m.total;
+  const seg = st.seg || tlSeg(st.sc);
+  const bar = seg ? drawRocketBars0(seg) + Math.floor(Math.max(0, st.sc - seg.sc0) / m.total) * m.nBars + bi : (st.measure || 0) * m.nBars + bi;
+  return { B: bar + clamp((st.pos - bs) / (be - bs), 0, 1), bar, age: (st.pos - bs) * dur, len: (be - bs) * dur };
+}
+// さっきまでの「拍の頭」と「刻み」（拍子が変わる前のものもそのまま）。B：その拍の頭の通し小節位置
+function drawRocketEvents(st, b, maxAge) {
+  const ev = [], dur = 60 / bpm;
+  if (b.g < 0) return ev;
+  const cur = st.sc + st.frac, elapsed = cur * dur + 0.02, seg0 = st.seg || tlSeg(st.sc);
+  let jh = st.sc - (st.sub - b.m.starts[b.g]);
+  for (let j = 0; j < 48 && jh >= 0; j++) {
+    const a = tlAt(jh); if (!a) break;
+    const m = a.m, g = a.g, L = m.groups[g], len = L * dur, start = (cur - jh) * dur;
+    if (start > maxAge || start > elapsed) break;
+    const quiet = SET.msub === 1 && metF(m) !== 2 ? 0.5 : 1, bi = a.bar, loc = jh - a.seg.sc0;
+    const bs = m.barStartSub[bi], be = bi + 1 < m.nBars ? m.barStartSub[bi + 1] : m.total;
+    const B = drawRocketBars0(a.seg) + Math.floor(loc / m.total) * m.nBars + bi + (a.n - bs) / (be - bs);
+    ev.push({ age: start, head: true, bar: a.barHead, g, lv: accOf(m)[g], muted: j === 0 && b.muted, id: jh, B });
+    rocketSubOffs(m, L).forEach((o, k) => { const ag = start - o * len; if (ag >= 0) ev.push({ age: ag, head: false, g, w: quiet, side: (jh + k) % 2 ? 1 : -1, id: jh * 7 + k + 1 }); });
+    jh -= 1; if (jh < 0) break;
+    const a2 = tlAt(jh); if (!a2) break;
+    jh -= a2.n - a2.m.starts[a2.g];
+  }
+  return ev;
+}
+// 拍子が変わった直後のなめらかな切りかわり（t：0→1、pm：前の拍子）
+function drawRocketMorph(st) {
+  if (!st.changed || !st.prevMeta) return { t: 1, pm: null };
+  const u = clamp(st.segAge / 0.55, 0, 1); if (u >= 1) return { t: 1, pm: null };
+  return { t: u * u * (3 - 2 * u), pm: st.prevMeta };
+}
+function drawRocketLampX(mm, gi, x0, x1) { return x0 + (x1 - x0) * (mm.starts[gi] + mm.groups[gi] / 2) / mm.total; }
+// 新しい拍子のランプ gi のいまの位置（前の拍子の位置からスライド）と見えかた
+function drawRocketLampPos(mo, m, gi, xNew, x0, x1) {
+  if (!mo.pm) return { x: xNew, a: 1 };
+  const Gp = mo.pm.groups.length, xo = drawRocketLampX(mo.pm, Math.min(gi, Gp - 1), x0, x1);
+  return { x: xo + (xNew - xo) * mo.t, a: gi < Gp ? 1 : mo.t };
+}
 function drawRocket(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, acc = accOf(m), pn = performance.now() / 1000, live = b.g >= 0;
   const top = 62 * K, hudH = clamp(ah * 0.2, 74, 112 * K), hudY = ah - hudH - 6 * K, avail = hudY - top;
-  const BI = rocketBarInfo(st, b), cyc = live ? mod(BI.B, ROCKET_NB) : 0, p = cyc / ROCKET_NB, cBar = live ? Math.floor(cyc) : 0;
+  const BI = drawRocketBarInfo(st, b), cyc = live ? mod(BI.B, ROCKET_NB) : 0, p = cyc / ROCKET_NB, cBar = live ? Math.floor(cyc) : 0;
   const hype = rocketHype('rocket'), tap = rocketTap();
-  const ev = live ? rocketEvents(st, b, 2.6) : [];
+  const ev = live ? drawRocketEvents(st, b, 2.6) : [];
   // いまの勢い
   let burst = 0, push = 0, subP = 0, subSide = 1;
   ev.forEach(e => {
@@ -4281,7 +4345,7 @@ function drawRocket(st, now, ah) {
   // 発射台のけむり（手前）
   if (groundOn && live) {
     ev.forEach(e => {
-      if (!e.head || e.age > 2.4 || cyc - e.age / Math.max(0.3, BI.len) > 1.1) return;
+      if (!e.head || e.age > 2.4 || cyc - (BI.B - e.B) > 1.1) return;
       for (let i = 0; i < 4; i++) {
         const dir = i % 2 ? 1 : -1, h1 = hash01(e.id * 5 + i), sz = bw * (2 + 4 * Math.pow(e.age, 0.5)) * (0.8 + 0.5 * h1);
         const x = rx + dir * bw * (1 + 9 * Math.pow(e.age, 0.55) * (0.5 + h1)), y = yP + sGnd - sz * 0.3 - e.age * 10 * K;
@@ -4335,15 +4399,26 @@ function drawRocket(st, now, ah) {
   const msg = !live ? 'READY' : cBar === 0 ? 'LIFTOFF' : sep >= 0 && sep < 1.2 ? (cBar === 1 ? 'BOOSTER SEP' : `STAGE ${cBar + 1} IGN`) : hype > 2 ? 'MAX THRUST' : vac > 0.5 ? 'ORBIT' : `STAGE ${cBar + 1}`;
   cx.textAlign = 'right'; cx.fillStyle = hype > 1 || (sep >= 0 && sep < 1.2) ? '#fde68a' : 'rgba(165,243,252,0.85)'; cx.fillText(msg, hx + hw - 14 * K, ty);
   // 拍のランプ（タップの場所も兼ねる）
-  const G = m.groups.length, ly = hudY + hudH * 0.56, lr = clamp(Math.min(W / (G * 3.6), hudH * 0.15), 7, 16 * K);
+  const G = m.groups.length, ly = hudY + hudH * 0.56, lr = clamp(Math.min(W / (G * 3.6), hudH * 0.15), 7, 16 * K), mo = drawRocketMorph(st);
   cx.save(); cx.globalAlpha = 0; const pos = metDotRow(m, ly, W * 0.1, W * 0.9, b, lr); cx.restore();
+  if (mo.pm) {   // 前の拍子で多かったランプは、さいごのランプへ寄ってきえる
+    const pm = mo.pm, pa = accOf(pm), last = pos[G - 1].x;
+    for (let gi = G; gi < pm.groups.length; gi++) {
+      const xo = drawRocketLampX(pm, gi, W * 0.1, W * 0.9), lvp = pa[gi];
+      cx.globalAlpha = 1 - mo.t; rocketLamp(xo + (last - xo) * mo.t, ly, lr * 0.7, metCol(pm, gi, lvp), lvp, 0, -1, 0); cx.globalAlpha = 1;
+    }
+  }
   m.groups.forEach((L, gi) => {
-    const { x } = pos[gi], lv = acc[gi], col = metCol(m, gi, lv), cur = b.g === gi && !b.muted, on = cur ? Math.max(0, 1 - b.age / 0.25) : 0;
+    const lp = drawRocketLampPos(mo, m, gi, pos[gi].x, W * 0.1, W * 0.9), x = lp.x;
+    if (metDots[gi]) metDots[gi].x = x;
+    const lv = acc[gi], col = metCol(m, gi, lv), cur = b.g === gi && !b.muted, on = cur ? Math.max(0, 1 - b.age / 0.25) : 0;
     const pr = lr * (lv === 3 ? 1 : lv === 2 ? 0.86 : lv === 1 ? 0.7 : 0.6);
+    cx.globalAlpha = lp.a;
     rocketLamp(x, ly, pr, col, lv, on, b.g === gi ? clamp(b.age / b.len, 0, 1) : -1, hype);
     if (cur && tap && tap.k === 'p' && tap.a < 0.5) { cx.strokeStyle = `rgba(253,224,71,${1 - tap.a / 0.5})`; cx.lineWidth = 2.5 * K; cx.beginPath(); cx.arc(x, ly, pr * (1.6 + tap.a * 2), 0, Math.PI * 2); cx.stroke(); }
     txt(['', '弱', '中', '強'][lv] || '', x, ly + lr * 1.75, Math.max(9, 10 * K), on > 0 ? '#e2e8f0' : '#7c8aa0', 700);
     if (metF(m) !== 2) txt(String(L), x, ly - lr * 1.65, Math.max(10, 11 * K), hexA(col, 0.9), 900);
+    cx.globalAlpha = 1;
   });
 }
 /* @@END drawRocket */
@@ -4463,8 +4538,8 @@ function auroraScene(top, Hz, shoreY, ah) {
 function drawAurora(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, acc = accOf(m), pn = performance.now() / 1000, live = b.g >= 0;
   const top = 62 * K, Hz = Math.round(top + (ah - top) * 0.6), shoreY = Math.round(Hz + (ah - Hz) * 0.6), SH = Hz - top;
-  const BI = rocketBarInfo(st, b), hype = rocketHype('aurora'), tap = rocketTap();
-  const ev = live ? rocketEvents(st, b, 1.5) : [];
+  const BI = drawRocketBarInfo(st, b), hype = rocketHype('aurora'), tap = rocketTap();
+  const ev = live ? drawRocketEvents(st, b, 1.5) : [];
   let bright = 0, wave = 9, shim = 0, pink = 0;
   ev.forEach(e => {
     if (e.head) {
@@ -4591,7 +4666,16 @@ function drawAurora(st, now, ah) {
   }
   // 拍の星（星座のように線でつなぐ。タップの場所も兼ねる）
   const G = m.groups.length, ys = top + SH * 0.24, r = clamp(Math.min(W / (G * 3.6), SH * 0.07), 8, 18 * K);
-  cx.save(); cx.globalAlpha = 0; const pos = metDotRow(m, ys, W * 0.12, W * 0.88, b, r); cx.restore();
+  cx.save(); cx.globalAlpha = 0; const pos0 = metDotRow(m, ys, W * 0.12, W * 0.88, b, r); cx.restore();
+  const mo = drawRocketMorph(st), pos = pos0.map((q, gi) => { const lp = drawRocketLampPos(mo, m, gi, q.x, W * 0.12, W * 0.88); if (metDots[gi]) metDots[gi].x = lp.x; return { x: lp.x, y: q.y, a: lp.a }; });
+  if (mo.pm) {   // 前の拍子で多かった星は、さいごの星へ寄ってきえる
+    const pm = mo.pm, pa = accOf(pm), last = pos[G - 1].x;
+    for (let gi = G; gi < pm.groups.length; gi++) {
+      const xo = drawRocketLampX(pm, gi, W * 0.12, W * 0.88), lvp = pa[gi], x = xo + (last - xo) * mo.t, yy = ys + Math.sin(gi * 2.1) * r * 0.25;
+      if (!lvp) continue;
+      auroraStarPath(x, yy, r * 0.8, 0.2); cx.fillStyle = hexA(shade(metCol(pm, gi, lvp), 0.2), 0.75 * (1 - mo.t)); cx.fill();
+    }
+  }
   cx.strokeStyle = 'rgba(186,215,255,0.28)'; cx.lineWidth = 1.2 * K; cx.setLineDash([2 * K, 4 * K]);
   cx.beginPath(); pos.forEach((p, i) => { const yy = p.y + Math.sin(i * 2.1) * r * 0.25; i ? cx.lineTo(p.x, yy) : cx.moveTo(p.x, yy); }); cx.stroke(); cx.setLineDash([]);
   if (live && G > 1) {   // 次の星へ流れる光（拍の進み具合）
@@ -4600,7 +4684,8 @@ function drawAurora(st, now, ah) {
     cx.save(); cx.globalCompositeOperation = 'lighter'; cx.globalAlpha = 0.85 * (wrap ? 0.6 : 1); const s = r * 1.6; cx.drawImage(rocketGlow('#e0f2fe', 1), x - s / 2, y - s / 2, s, s); cx.restore();
   }
   m.groups.forEach((Lg, gi) => {
-    const p = pos[gi], lv = acc[gi], col = metCol(m, gi, lv), on = b.g === gi && !b.muted ? Math.max(0, 1 - b.age / 0.3) : 0, cur = b.g === gi && live;
+    const p = pos[gi]; cx.globalAlpha = p.a;
+    const lv = acc[gi], col = metCol(m, gi, lv), on = b.g === gi && !b.muted ? Math.max(0, 1 - b.age / 0.3) : 0, cur = b.g === gi && live;
     const yy = p.y + Math.sin(gi * 2.1) * r * 0.25, pr = r * (lv === 3 ? 1 : lv === 2 ? 0.82 : lv === 1 ? 0.65 : 0.55);
     const goldOn = cur && tap && tap.k === 'p' && tap.a < 0.6 ? 1 - tap.a / 0.6 : 0;
     cx.save(); cx.globalCompositeOperation = 'lighter';
@@ -4616,6 +4701,7 @@ function drawAurora(st, now, ah) {
     }
     txt(['', '弱', '中', '強'][lv] || '', p.x, ys + r * 1.9, Math.max(9, 10 * K), on > 0 ? '#e2e8f0' : 'rgba(148,163,184,0.85)', 700);
     if (metF(m) !== 2) txt(String(Lg), p.x, ys - r * 1.75, Math.max(10, 11 * K), hexA(col, 0.9), 900);
+    cx.globalAlpha = 1;
   });
   // 大きな数字（夜空に、湖に少し映る）
   const numY = top + SH * 0.6, numS = Math.min(SH * 0.34, 130 * K);
@@ -4919,21 +5005,31 @@ function drawStairsHillsPaint(g, w, h) {
 }
 /* @@BEGIN drawStairs */
 function drawStairs(st, now, ah) {
-  const m = st.m, G = m.groups.length, single = m.nBars === 1;
+  const m = st.m;
   const u = W / 13, stepH = Math.min(ah * 0.11, 70 * K), hop = Math.min(ah * 0.07, 44 * K);
-  const X = k => Math.floor(k / G) * m.total + m.starts[mod(k, G)];
-  const Lk = k => m.groups[mod(k, G)];
-  const level = k => {   // 段の高さ
-    const gi = mod(k, G), b = m.barOfGroup[gi], idx = gi - m.barStartGroup[b], Gb = m.bars[b].length;
-    const barNo = single ? Math.floor(k / G) : b;
+  const levelA = a => {   // 段の高さ（通しの刻み番号から。拍子が変わっても、過去の段の高さは変わらない）
+    const idx = a.gl, Gb = a.m.bars[a.bar].length, barNo = (a.seg.ms0 + a.cyc) * a.m.nBars + a.bar;
     return mod(barNo, 2) === 0 ? idx : Gb - idx;
   };
-  const S = st.has ? Math.max(0, st.step) : 0, L = Lk(S);
+  const L = m.groups[st.has ? st.g : 0];
   const q = st.has ? clamp(st.pos - m.starts[st.g], 0, L - 1e-4) : 0;
   const hopI = Math.floor(q), f = q - hopI;
-  const lvNow = level(S), lvNext = level(S + 1);
+  const gStart0 = st.has ? st.sc - (st.sub - m.starts[st.g]) : 0;   // いまの段の先頭（通しの刻み番号＝世界の横位置）
+  // 段の並び（前後1つ多めに：となりの高さが要るため）
+  const gl = [];
+  {
+    const lo = Math.max(0, tl.length ? tl[0].sc0 : 0);
+    let s0 = gStart0; const back = [];
+    for (let i = 0; i < 9 && s0 - 1 >= lo; i++) { const a = tlAt(s0 - 1); if (!a) break; s0 = s0 - 1 - (a.n - a.m.starts[a.g]); const a2 = tlAt(s0); back.unshift({ s: s0, L: a2.m.groups[a2.g], a: a2, lv: levelA(a2) }); }
+    for (const e of back) gl.push(e);
+    const a0 = tlAt(gStart0); const cur0 = { s: gStart0, L, a: a0, lv: levelA(a0) }; gl.push(cur0);
+    let s1 = gStart0 + L;
+    for (let i = 0; i < 15; i++) { const a = tlAt(s1); if (!a) break; const L2 = a.m.groups[a.g]; gl.push({ s: s1, L: L2, a, lv: levelA(a) }); s1 += L2; }
+  }
+  const ci = gl.findIndex(e => e.s === gStart0);
+  const lvNow = gl[ci].lv, lvNext = ci + 1 < gl.length ? gl[ci + 1].lv : lvNow;
   // ボールの位置（単位：x＝8分音符、y＝段）
-  const ballXu = X(S) + q;
+  const ballXu = gStart0 + q;
   let ballLv, liftLv;
   if (hopI < L - 1) { ballLv = lvNow; liftLv = 0; }
   else { ballLv = lvNow + (lvNext - lvNow) * f; liftLv = Math.max(0, lvNext - lvNow) * 0.6; }
@@ -4985,10 +5081,11 @@ function drawStairs(st, now, ah) {
   // 階段（石の段。上面＝明るい、前面＝やや暗い、右の側面＝暗い。段の鼻に色のタイル）
   const dep = 14 * K, dy = dep * 0.7, pat = stairsStonePattern(), off = -camX * u;
   const fillStone = () => { cx.save(); cx.translate(off, 0); cx.fillStyle = pat; cx.fill(); cx.restore(); };
-  for (let k = S - 8; k <= S + 14; k++) {
-    const x0 = sx(X(k)), w = Lk(k) * u, lv = level(k), yT = topOf(lv), col = COLORS[Lk(k)], cur = k === S && st.has;
+  for (let gi2 = 0; gi2 < gl.length; gi2++) {
+    const ge = gl[gi2], k = ge.s, Lg = ge.L;
+    const x0 = sx(k), w = Lg * u, lv = ge.lv, yT = topOf(lv), col = COLORS[Lg], cur = gi2 === ci && st.has;
     if (x0 > W + dep || x0 + w < -dep) continue;
-    const lvR = level(k + 1), lvL = level(k - 1);
+    const lvR = gi2 + 1 < gl.length ? gl[gi2 + 1].lv : lv - 1, lvL = gi2 > 0 ? gl[gi2 - 1].lv : lv - 1;
     // 右の側面（右どなりが低いときに見える）
     if (lvR < lv) {
       cx.beginPath(); cx.moveTo(x0 + w, yT); cx.lineTo(x0 + w + dep, yT - dy); cx.lineTo(x0 + w + dep, ah); cx.lineTo(x0 + w, ah); cx.closePath();
@@ -5038,19 +5135,18 @@ function drawStairs(st, now, ah) {
     cx.fillStyle = 'rgba(255,255,255,0.55)'; cx.fillRect(x0, yT - 0.5 * K, w, 1 * K);   // 角の光
     cx.fillStyle = 'rgba(0,0,0,0.35)'; cx.fillRect(x0, yT + nh, w, 1.2 * K);
     // 刻みの目印（上面のみぞ）と言葉（前面に彫った文字）
-    for (let s = 0; s < Lk(k); s++) {
+    for (let s = 0; s < Lg; s++) {
       const lit = cur && q >= s, tx = x0 + (s + 0.5) * u, ty = yT + nh + 18 * K, fs = Math.min(18 * K, u * 0.4);
-      txt(syl(Lk(k), s), tx, ty + 1 * K, fs, 'rgba(255,255,255,0.18)', s === 0 ? 900 : 600);
-      txt(syl(Lk(k), s), tx, ty, fs, lit ? '#ffffff' : hexA(shade(col, 0.3), 0.9), s === 0 ? 900 : 600);
+      txt(syl(Lg, s), tx, ty + 1 * K, fs, 'rgba(255,255,255,0.18)', s === 0 ? 900 : 600);
+      txt(syl(Lg, s), tx, ty, fs, lit ? '#ffffff' : hexA(shade(col, 0.3), 0.9), s === 0 ? 900 : 600);
       if (s > 0) {
         cx.fillStyle = 'rgba(30,32,42,0.55)'; cx.beginPath(); cx.moveTo(x0 + s * u, yT); cx.lineTo(x0 + s * u + dep, yT - dy); cx.lineWidth = 1.5 * K; cx.strokeStyle = 'rgba(30,32,42,0.45)'; cx.stroke();
       }
     }
     // 小節の旗（金属のポールと、なびく布）
-    const gi = mod(k, G);
-    if (m.barStartGroup.includes(gi) && k >= 0) {
-      const n = single ? Math.floor(k / G) + 1 : Math.floor(k / G) * m.nBars + m.barOfGroup[gi] + 1;
-      const up = level(k + 1) > lv || (level(k + 1) === lv && level(k - 1) < lv);
+    if (ge.a.gl === 0 && k >= 0) {
+      const n = (ge.a.seg.ms0 + ge.a.cyc) * ge.a.m.nBars + ge.a.bar + 1;
+      const up = lvR > lv || (lvR === lv && lvL < lv);
       const px = x0 + 8 * K, pb = yT - dy * 0.5, pt = yT - 54 * K, fc = up ? LIME : '#f472b6';
       softShadow(px + 3 * K, pb + 1 * K, 5 * K, 1.8 * K, 0.5);
       cx.fillStyle = metalGrad(px - 1.5 * K, 0, px + 1.5 * K, 0, 'steel'); cx.fillRect(px - 1.5 * K, pt, 3 * K, pb - pt);
@@ -5068,9 +5164,9 @@ function drawStairs(st, now, ah) {
 
   // 着地のエフェクト（拍の頭＝星、8分音符＝輪）
   for (const a of accents) {
-    if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.6) continue;
-    const pq = age / 0.6, xa = sx(X(a.step)) + u * 0.1, ya = topOf(level(a.step)) - dy * 0.5;
+    const aa = tlAt(a.sc); if (!aa) continue;
+    const pq = age / 0.6, xa = sx(a.sc) + u * 0.1, ya = topOf(levelA(aa)) - dy * 0.5;
     for (let i = 0; i < 7; i++) {
       const an = -Math.PI * (0.1 + 0.8 * i / 6), d = pq * 50 * K;
       cx.fillStyle = hexA(i % 2 ? '#fde68a' : LIME, 1 - pq);
@@ -5079,7 +5175,7 @@ function drawStairs(st, now, ah) {
   }
   const tN = lastNote ? now - lastNote.time : 9;
   if (st.has && lastNote && !lastNote.isAcc && tN >= 0 && tN < 0.3) {
-    const xs = sx(X(S) + lastNote.sub - m.starts[st.g]), ys = topOf(lvNow) - dy * 0.5, pq = tN / 0.3;
+    const xs = sx(lastNote.sc), ys = topOf(lvNow) - dy * 0.5, pq = tN / 0.3;
     cx.strokeStyle = hexA('#ffffff', (1 - pq) * 0.6); cx.lineWidth = 1.5 * K;
     cx.beginPath(); cx.ellipse(xs, ys, 5 * K + pq * 24 * K, 2 * K + pq * 5 * K, 0, 0, Math.PI * 2); cx.stroke();
   }
@@ -5118,7 +5214,7 @@ function drawStairs(st, now, ah) {
     const q2 = q - i * 0.05; if (q2 < 0 || Math.floor(q2) !== hopI) continue;
     const f2 = q2 - hopI, lv2 = hopI < L - 1 ? lvNow : lvNow + (lvNext - lvNow) * f2;
     const y2 = topOf(lv2) - zOff - 4 * hopH * f2 * (1 - f2);
-    cx.fillStyle = hexA(LIME, 0.12 / i); cx.beginPath(); cx.arc(sx(X(S) + q2) + dep * 0.5, y2 - r, r * 0.95, 0, Math.PI * 2); cx.fill();
+    cx.fillStyle = hexA(LIME, 0.12 / i); cx.beginPath(); cx.arc(sx(gStart0 + q2) + dep * 0.5, y2 - r, r * 0.95, 0, Math.PI * 2); cx.fill();
   }
   if (tp.live && tp.p) {   // 金色の光の輪が段の上にひろがる
     const R0 = (12 + 70 * Math.sqrt(tp.q)) * K, gy = topOf(lvNow) - zOff;
@@ -5247,6 +5343,30 @@ function drawConduct(st, now, ah) {
   const P = p => [ox + (mirrorView ? -p[0] : p[0]) * S, oy + p[1] * S];
   const lb = st.has ? st.g - g0 : 0;
   const lt = st.has ? clamp(st.gp, 0, 0.9999) : 0;
+  // 前の小節の図形（拍の数がちがうときは、なめらかに形を変える。指揮棒は同じ場所からつづく）
+  const barG0 = st.has ? st.sc - (st.sub - m.barStartSub[bar]) : 0;   // この小節の最初の刻みの通し番号
+  const loTl = Math.max(0, tl.length ? tl[0].sc0 : 0);
+  let pgOld = null, oldInfo = null, e = 1;
+  if (st.has && barG0 - 1 >= loTl) {
+    const ap = tlAt(barG0 - 1);
+    if (ap) {
+      const bgO = ap.m.bars[ap.bar], g0O = ap.m.barStartGroup[ap.bar];
+      oldInfo = { m: ap.m, bar: ap.bar, bg: bgO, g0: g0O, len: ap.m.total / ap.m.nBars, pg: getPattern(bgO.length) };
+      oldInfo.len = (ap.bar + 1 < ap.m.nBars ? ap.m.barStartSub[ap.bar + 1] : ap.m.total) - ap.m.barStartSub[ap.bar];
+      if (bgO.length !== G) {
+        pgOld = oldInfo.pg;
+        const el = (st.pos - m.barStartSub[bar]) * (lastNote && lastNote.dur || 0.4), t0 = clamp(el / 0.6, 0, 1);
+        e = t0 * t0 * (3 - 2 * t0);
+      }
+    }
+  }
+  const mt = pgOld && e < 1;
+  const pm = (pgX, b, u) => {   // 図形の上の点（形が変わる最中は、前の図形と新しい図形のあいだ）
+    const nw = patAt(pgX.beats[b], u);
+    if (!mt) return nw;
+    const od = drawConductWholeAt(pgOld, drawConductFrac(pgX, b, u));
+    return [od[0] + (nw[0] - od[0]) * e, od[1] + (nw[1] - od[1]) * e];
+  };
 
   cx.drawImage(bounceCache('conductHall', W, ah, '', conductHallPaint), 0, 0, W, ah);
   const tp = drawCharBallTap(0.9), env = tp.env, fest = tp.fest;
@@ -5258,10 +5378,16 @@ function drawConduct(st, now, ah) {
   const tipAt = lp => {
     let b = 0; while (b < G - 1 && lp >= m.starts[g0 + b + 1] - m.barStartSub[bar]) b++;
     const s0 = m.starts[g0 + b] - m.barStartSub[bar];
-    return P(patPos(pg, b, clamp((lp - s0) / bg[b], 0, 0.9999)));
+    return P(pm(pg, b, beatEase(clamp((lp - s0) / bg[b], 0, 0.9999))));
   };
   const lp = st.has ? st.pos - m.barStartSub[bar] : 0;
   const tip = tipAt(lp);
+  const tipAtOld = lq => {   // 前の小節の指揮棒の先（小節の頭より前の残像用）
+    if (!oldInfo) return null;
+    const o = oldInfo; let b = 0; while (b < o.bg.length - 1 && lq >= o.m.starts[o.g0 + b + 1] - o.m.barStartSub[o.bar]) b++;
+    const s0 = o.m.starts[o.g0 + b] - o.m.barStartSub[o.bar];
+    return P(patPos(o.pg, b, clamp((lq - s0) / o.bg[b], 0, 0.9999)));
+  };
   // 🎮 早い・遅いのときは、指揮棒の先が小さくぶるっとふるえる（早い＝左下、遅い＝右下へ）
   if (tp.live && tp.w) { const sh = env * Math.sin(tp.age * 45) * 4 * K; tip[0] += sh * tp.dir; tip[1] += Math.abs(sh) * 0.5; }
 
@@ -5320,23 +5446,26 @@ function drawConduct(st, now, ah) {
   pg.beats.forEach((bt, b) => {
     const L = bg[b], col = COLORS[L], cur = st.has && b === lb;
     cx.strokeStyle = hexA(col, cur ? 0.9 : 0.38); cx.lineWidth = (cur ? 5 : 3.5) * K; cx.lineCap = 'round'; cx.lineJoin = 'round';
-    cx.beginPath(); bt.pts.forEach((pt, n) => { const q = P(pt); n ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); }); cx.stroke();
+    cx.beginPath();
+    if (mt) { for (let n = 0; n <= 18; n++) { const q = P(pm(pg, b, n / 18)); n ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); } }
+    else bt.pts.forEach((pt, n) => { const q = P(pt); n ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1]); });
+    cx.stroke();
     for (const ua of [0.35, 0.8]) {   // 矢印
-      const a = P(patAt(bt, ua - 0.02)), c = P(patAt(bt, ua + 0.02)), an = Math.atan2(c[1] - a[1], c[0] - a[0]), z = 8 * K;
+      const a = P(pm(pg, b, ua - 0.02)), c = P(pm(pg, b, ua + 0.02)), an = Math.atan2(c[1] - a[1], c[0] - a[0]), z = 8 * K;
       cx.fillStyle = hexA(col, cur ? 1 : 0.55);
       cx.beginPath(); cx.moveTo(c[0] + Math.cos(an) * z, c[1] + Math.sin(an) * z);
       cx.lineTo(c[0] + Math.cos(an + 2.5) * z, c[1] + Math.sin(an + 2.5) * z); cx.lineTo(c[0] + Math.cos(an - 2.5) * z, c[1] + Math.sin(an - 2.5) * z);
       cx.closePath(); cx.fill();
     }
     for (let k = 1; k < L; k++) {   // 刻みの位置
-      const q = P(patPos(pg, b, k / L)), lit = cur && lt * L >= k;
+      const q = P(pm(pg, b, beatEase(k / L))), lit = cur && lt * L >= k;
       cx.fillStyle = lit ? '#ffffff' : hexA(col, 0.8);
       cx.beginPath(); cx.arc(q[0], q[1], (lit ? 5.5 : 4) * K, 0, Math.PI * 2); cx.fill();
     }
   });
   // 打点と「下・内・外・上」（光るガラスの円盤）
   pg.ict.forEach((I, b) => {
-    const L = bg[b], col = COLORS[L], q = P(I), cur = st.has && b === lb, rD = 14 * K;
+    const L = bg[b], col = COLORS[L], q = P(pm(pg, b, 0)), cur = st.has && b === lb, rD = 14 * K;
     const dg = cx.createRadialGradient(q[0] - rD * 0.35, q[1] - rD * 0.4, rD * 0.1, q[0], q[1], rD);
     dg.addColorStop(0, hexA(shade(col, 0.5), cur ? 0.85 : 0.45)); dg.addColorStop(0.6, hexA(col, cur ? 0.55 : 0.22)); dg.addColorStop(1, hexA(shade(col, -0.5), cur ? 0.8 : 0.5));
     cx.fillStyle = dg; cx.strokeStyle = col; cx.lineWidth = 2.5 * K;
@@ -5348,15 +5477,16 @@ function drawConduct(st, now, ah) {
   });
   // 打点の光
   for (const a of accents) {
-    if (a.meta !== m || m.barOfGroup[a.g] !== bar) continue;
     const age = now - a.t; if (age < 0 || age > 0.6) continue;
-    const q = age / 0.6, c = P(pg.ict[a.g - g0]);
+    const ba = a.meta.barOfGroup[a.g], ib = a.g - a.meta.barStartGroup[ba];
+    const c = P(a.sc >= barG0 ? pm(pg, ib, 0) : getPattern(a.meta.bars[ba].length).ict[ib]);
+    const q = age / 0.6;
     cx.strokeStyle = hexA(LIME, 1 - q); cx.lineWidth = 3 * K * (1 - q) + 0.5;
     cx.beginPath(); cx.arc(c[0], c[1], 15 * K + q * 50 * K, 0, Math.PI * 2); cx.stroke();
   }
   // 🎮 タップへの反応（いまの打点に金の輪／色の波紋）
   if (tp.live) {
-    const c = P(pg.ict[lb]), q = tp.q;
+    const c = P(pm(pg, lb, 0)), q = tp.q;
     if (tp.p) {
       cx.save(); cx.globalCompositeOperation = 'lighter';
       cx.strokeStyle = hexA('#ffd54a', 0.9 * (1 - q)); cx.lineWidth = (4 - 3 * q) * K; cx.beginPath(); cx.arc(c[0], c[1], (16 + 60 * Math.sqrt(q)) * K, 0, Math.PI * 2); cx.stroke();
@@ -5374,12 +5504,13 @@ function drawConduct(st, now, ah) {
     let prev = tip;
     cx.lineCap = 'round';
     for (let i = 1; i <= 26; i++) {
-      const l2 = lp - i * 0.035; if (l2 < 0) break;
-      const q = tipAt(l2);
+      const l2 = lp - i * 0.035;
+      const q = l2 < 0 ? (oldInfo && l2 + oldInfo.len >= 0 ? tipAtOld(l2 + oldInfo.len) : null) : tipAt(l2);
+      if (!q) break;
       cx.strokeStyle = hexA('#f0fdfa', (1 - i / 26) * 0.7); cx.lineWidth = (7 - i * 0.22) * K;
       cx.beginPath(); cx.moveTo(prev[0], prev[1]); cx.lineTo(q[0], q[1]); cx.stroke(); prev = q;
     }
-    for (let i = 3; i >= 1; i--) { const l2 = lp - i * 0.05; if (l2 >= 0) baton(tipAt(l2), 0.12 / i); }
+    for (let i = 3; i >= 1; i--) { const l2 = lp - i * 0.05; if (l2 >= 0) baton(tipAt(l2), 0.12 / i); else if (oldInfo && l2 + oldInfo.len >= 0) baton(tipAtOld(l2 + oldInfo.len), 0.12 / i); }
   }
   baton(tip, 1);
   fingers();
@@ -5403,6 +5534,20 @@ function drawConduct(st, now, ah) {
   if (fest > 0.3 && st.has && Math.random() < Math.min(fest, 3) * 0.035) drawCharBallBurst('D', tip[0], tip[1], 1, { kind: 'note', ch: NOTES[Math.floor(Math.random() * 4)], cols: ['#fde68a', '#f9a8d4', '#a5f3fc', '#d9f99d'], sp: 50, a0: -Math.PI * 0.8, a1: -Math.PI * 0.2, g: -40, drag: 1, life: 1.6, size: 3.6 });
   drawCharBallConfetti('D', fest, 0, W, 60 * K, ah * 0.8);
   drawCharBallParticles('D');
+}
+
+// 図形ぜんたい（1小節ぶんの道）の、道のり 0〜1 の位置（形がかわる最中に、ふたつの図形をそろえるため）
+function drawConductWhole(pg) {
+  if (pg._w) return pg._w;
+  let tot = 0; const st0 = [], ln = [];
+  pg.beats.forEach(bt => { st0.push(tot); const l = bt.cum[bt.cum.length - 1]; ln.push(l); tot += l; });
+  return pg._w = { st0, ln, tot };
+}
+function drawConductFrac(pg, b, u) { const w = drawConductWhole(pg); return (w.st0[b] + u * w.ln[b]) / w.tot; }
+function drawConductWholeAt(pg, f) {
+  const w = drawConductWhole(pg), s = clamp(f, 0, 1) * w.tot;
+  let b = 0; while (b < pg.beats.length - 1 && w.st0[b + 1] <= s) b++;
+  return patAt(pg.beats[b], (s - w.st0[b]) / (w.ln[b] || 1));
 }
 /* @@END drawConduct */
 // ホールの空気：舞台のあかりの中のほこり、🎮 コンボで客席があたたかく明るくなり（4〜）、譜面台のあかりがともる（16〜）
@@ -7267,10 +7412,17 @@ function dancerPlanks(fy, y1, offX, step, vp) {
 function drawDancer(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   // 足がつく場所：1拍で1歩。拍の頭の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
-  const EX = 0.6, cnt = [];
-  { let c = 0; for (let j = 0; j < N; j++) { if (m.starts.includes(j)) c++; cnt.push(c); } }
-  const isHead = j => m.starts.includes(mod(j, N));
-  const X = j => j + EX * (Math.floor(j / N) * G + cnt[mod(j, N)]);
+  const EX = 0.6;
+  // 世界の横位置：通しの刻み番号 j ＋ 拍の頭ごとの踏み込みぶん（拍子が変わっても、過去の足あとは動かない）
+  const loTl = Math.max(0, tl.length ? tl[0].sc0 : 0), xCache = new Map(), aCache = new Map();
+  const A = j => { let a = aCache.get(j); if (a === undefined) { a = tlAt(j); aCache.set(j, a); } return a; };
+  const X = j => {
+    let v = xCache.get(j); if (v !== undefined) return v;
+    if (j >= loTl) v = j + EX * tlSteps(j);
+    else { const m0 = tl.length ? tl[0].meta : m; v = j + EX * (tlSteps(loTl) - (loTl - j) * m0.groups.length / m0.total); }
+    xCache.set(j, v); return v;
+  };
+  const isHead = j => { const a = A(j); return !!(a && a.head); };
   let k = 0, f = 0, g = 0, kCur = 0;
   if (has) { k = st.sc; f = st.frac; g = st.g; kCur = st.sub - m.starts[g]; }
   const L = m.groups[g], col = COLORS[L];
@@ -7282,9 +7434,13 @@ function drawDancer(st, now, ah) {
   // 大きさ
   const hB = Math.min(ah * 0.3, 175 * K), Lt = 0.5 * hB;
   const fy = Math.min(ah * 0.7, Math.max(ah * 0.56, 100 * K + hB * 1.3)), band = ah * (narrow ? 0.16 : 0.15);
-  const barUnits = (N + EX * G) / m.nBars, speed = (N + EX * G) / N;
-  const u = Math.max(6, Math.min(0.42 * Lt, 0.66 * W / (2 * barUnits)));   // 1歩ぶんの横の長さ
-  const ax = W * (narrow ? 0.6 : 0.58), cam = (has ? (k + f) * speed : 0) - 0.6;
+  const uOf = mm => Math.max(6, Math.min(0.42 * Lt, 0.66 * W / (2 * ((mm.total + EX * mm.groups.length) / mm.nBars))));   // 1歩ぶんの横の長さ
+  let u = uOf(m);
+  if (st.changed && st.prevMeta) { const t0 = clamp(st.segAge / 0.7, 0, 1), e0 = t0 * t0 * (3 - 2 * t0); u = uOf(st.prevMeta) * (1 - e0) + u * e0; }   // 拍子が変わったら、歩はばをなめらかに
+  // カメラ：一定の速さで進む（1周ぶんの踏み込みをならして足す）。拍子が変わっても連続
+  let camW = 0;
+  if (has) { const a0 = A(k); const Gc = a0.m.groups.length; camW = k + f + EX * ((a0.seg.st0 + a0.cyc * Gc) + Gc * (a0.n + f) / a0.m.total); }
+  const ax = W * (narrow ? 0.6 : 0.58), cam = camW - 0.6;
   const sx = w => ax + (w - cam) * u;
   const yR = fy + band * 0.3, yL = fy + band * 0.64;
 
@@ -7295,7 +7451,7 @@ function drawDancer(st, now, ah) {
   const ageS = has ? f * dur : 9;
 
   // ===== 人 =====
-  const headNow = has && isHead(k), nextHead = has && isHead(k + 1), barNow = has && m.barStartSub.includes(mod(k, N));
+  const headNow = has && m.starts[g] === st.sub, nextHead = has && isHead(k + 1), barNow = has && m.barStartSub.includes(st.sub);
   // 足：今ついている足（stance）と、次へ運ぶ足（swing）。刻みはつま先で小刻みに、拍の頭の前は高く上げて踏み込む
   const s = has ? clamp((f - (nextHead ? 0.18 : 0.08)) / (nextHead ? 0.8 : 0.84), 0, 1) : 0, se = s * s * (3 - 2 * s), arcS = Math.sin(Math.PI * s);
   const xS = has ? sx(X(k)) : ax + 0.3 * u, xW = has ? sx(X(k - 1) + (X(k + 1) - X(k - 1)) * se) : ax - 0.3 * u;
@@ -7384,12 +7540,13 @@ function drawDancer(st, now, ah) {
   // これまでの足あと：拍の頭＝色つきの大きな足あと、刻み＝つま先の小さな点
   const barXs = [];
   if (has) {
-    for (let j = k, n = 0; j >= 0 && n < 90; j--, n++) {
+    for (let j = k, n = 0; j >= loTl && n < 90; j--, n++) {
       const x = sx(X(j)); if (x < -40 * K) break;
       const y = (j % 2 === 0) ? yR : yL, fade = clamp(0.95 - (ax - x) / (ax + 40) * 0.5, 0.35, 0.95);
-      if (m.barStartSub.includes(mod(j, N))) barXs.push(x);
-      if (isHead(j)) {
-        const Lj = m.groups[m.subToGroup[mod(j, N)]], c = COLORS[Lj];
+      const aj = A(j);
+      if (aj.barHead) barXs.push(x);
+      if (aj.head) {
+        const Lj = aj.m.groups[aj.g], c = COLORS[Lj];
         footPrint(x, y, Math.min(0.5 * u, 24 * K) + 2 * K, c, fade * 0.85, false);
         txt(pw(Lj), x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
       } else {
@@ -7397,11 +7554,11 @@ function drawDancer(st, now, ah) {
         cx.beginPath(); cx.ellipse(x, y, Math.min(0.15 * u, 7 * K) + 1.5 * K, Math.min(0.1 * u, 5 * K) + 1 * K, 0, 0, Math.PI * 2); cx.fill();
       }
     }
-    let j = k + 1; for (let i = 0; i < N + 1; i++, j++) if (m.barStartSub.includes(mod(j, N))) break;
+    let j = k + 1; for (let i = 0; i < 40; i++, j++) if (A(j).barHead) break;
     barXs.unshift(sx(X(j)));
     // 次に足がつく場所（点線）
     const nh = isHead(k + 1);
-    footPrint(sx(X(k + 1)), ((k + 1) % 2 === 0) ? yR : yL, nh ? Math.min(0.5 * u, 24 * K) + 2 * K : Math.min(0.2 * u, 9 * K) + 2 * K, nh ? COLORS[m.groups[m.subToGroup[mod(k + 1, N)]]] : '#e2e8f0', 0.5, true);
+    footPrint(sx(X(k + 1)), ((k + 1) % 2 === 0) ? yR : yL, nh ? Math.min(0.5 * u, 24 * K) + 2 * K : Math.min(0.2 * u, 9 * K) + 2 * K, nh ? COLORS[A(k + 1).m.groups[A(k + 1).g]] : '#e2e8f0', 0.5, true);
   }
   // 小節の頭の線とわく
   for (const x of barXs) {
@@ -7418,9 +7575,8 @@ function drawDancer(st, now, ah) {
   // 床に足がついた瞬間の波（拍の頭は大きく、刻みは小さく）
   let barFlash = 0;
   for (const a of accents) {
-    if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.7) continue;
-    const q = 1 - age / 0.7, isBar = m.barStartGroup.includes(a.g), c = isBar ? '#a3e635' : COLORS[m.groups[a.g]];
+    const q = 1 - age / 0.7, isBar = a.meta.barStartGroup.includes(a.g), c = isBar ? '#a3e635' : COLORS[a.meta.groups[a.g]];
     if (isBar) barFlash = Math.max(barFlash, q);
     const x = sx(X(a.sc)), r = (0.5 + 1.7 * (1 - q)) * u + 4 * K, y = (a.sc % 2 === 0) ? yR : yL;
     cx.strokeStyle = hexA(c, 0.85 * q); cx.lineWidth = (isBar ? 3.5 : 2.5) * K * q + 0.5;
@@ -7840,11 +7996,17 @@ function drawJuggle(st, now, ah) {
   drawDancerAir(now, fy, cxC, fest, tp);   // 光の筋のほこり、コンボで色のライト・ミラーボール
 
   // これまでの軌道（1小節ぶんより少し多く）：空気に残る光のすじ
-  if (has) for (let i = Math.min(n, G * 2); i >= 1; i--) {
-    const nn = n - i, gi = mod(g - i, G), Lg = m.groups[gi], a = 0.5 * (1 - (i - 1) / (G * 2));
-    cx.strokeStyle = hexA(COLORS[Lg], a); cx.lineWidth = (m.barStartGroup.includes(gi) ? 3 : 2) * K;
-    arcPath(fromSide(nn), Lg, 0, 1); cx.stroke();
-    for (let k = 1; k < Lg; k++) { const p = pathPt(fromSide(nn), Lg, k / Lg); cx.fillStyle = hexA('#e2e8f0', a); cx.beginPath(); cx.arc(p[0], p[1], 2.5 * K, 0, Math.PI * 2); cx.fill(); }
+  if (has) {   // 拍子が変わっても、通しの刻み番号でさかのぼる（前の拍子の軌道も、そのまま残る）
+    const lo = Math.max(0, tl.length ? tl[0].sc0 : 0), nPast = G * 2;
+    let s0 = st.sc - (st.sub - m.starts[g]);
+    const past = [];
+    for (let i = 1; i <= nPast && i <= n && s0 - 1 >= lo; i++) { const ap = tlAt(s0 - 1); if (!ap) break; s0 = s0 - 1 - (ap.n - ap.m.starts[ap.g]); past.push({ i, Lg: ap.m.groups[ap.g], bs: ap.gl === 0 }); }
+    for (let q = past.length - 1; q >= 0; q--) {
+      const { i, Lg, bs } = past[q], nn = n - i, a = 0.5 * (1 - (i - 1) / nPast);
+      cx.strokeStyle = hexA(COLORS[Lg], a); cx.lineWidth = (bs ? 3 : 2) * K;
+      arcPath(fromSide(nn), Lg, 0, 1); cx.stroke();
+      for (let k = 1; k < Lg; k++) { const p = pathPt(fromSide(nn), Lg, k / Lg); cx.fillStyle = hexA('#e2e8f0', a); cx.beginPath(); cx.arc(p[0], p[1], 2.5 * K, 0, Math.PI * 2); cx.fill(); }
+    }
   }
   // いまの軌道：これから飛ぶ道は点線、刻みごとの位置に点
   const side = fromSide(n), col = COLORS[L];
