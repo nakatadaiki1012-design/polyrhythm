@@ -478,6 +478,38 @@
   .mpreset { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; background: #111c33; border: 1px solid #24314d; margin-bottom: 6px; }
   .mpreset .pn { flex: 1; text-align: left; } .mpreset .pn b { display: block; font-size: 15px; } .mpreset .pn span { font-size: 12px; color: #94a3b8; }
   .mpreset .del { width: 34px; height: 34px; border-radius: 10px; background: #1e293b; color: #fda4af; }
+
+  /* 🎼 テンポのプログラム編集 */
+  .prog-box { width: min(760px, 100%); display: flex; flex-direction: column; overflow: hidden; max-height: min(92%, 880px); }
+  .prog-box > * { flex: none; }
+  .pg-top { display: flex; align-items: center; gap: 10px; margin: 2px 0 6px; } .pg-sum { font-size: 12px; color: #94a3b8; font-weight: 800; white-space: nowrap; }
+  .pg-howto { font-size: 12.5px; color: #94a3b8; line-height: 1.55; margin: 0 0 8px; } .pg-howto b { color: #a3e635; }
+  .pg-list { display: flex; flex-direction: column; gap: 0; flex: 1 1 auto !important; min-height: 120px; overflow-y: auto; margin: 0 -8px; padding: 0 8px 8px; overscroll-behavior: contain; }
+  .pg-ins { display: flex; align-items: center; gap: 8px; width: 100%; height: 26px; padding: 0; color: #64748b; font-size: 12px; font-weight: 800; opacity: .55; transition: opacity .12s, height .12s; }
+  .pg-ins::before, .pg-ins::after { content: ''; flex: 1; height: 0; border-top: 1px dashed #334155; } .pg-ins span { padding: 2px 12px; border-radius: 999px; border: 1px dashed #334155; background: transparent; }
+  .pg-ins:hover, .pg-ins:focus-visible { opacity: 1; color: #a3e635; } .pg-ins:hover span { border-color: #a3e635; background: rgba(163,230,53,.1); }
+  .pg-ins.end { height: 40px; opacity: .9; } .pg-ins.end span { font-size: 14px; padding: 6px 18px; color: #a3e635; border-style: solid; border-color: #4d7c0f; }
+  .pg-blk { border: 1px solid #2a3957; border-radius: 16px; padding: 10px 12px; background: #0f1a30; display: flex; flex-direction: column; gap: 8px; position: relative; transition: border-color .15s, box-shadow .15s; }
+  .pg-blk.cur { border-color: #a3e635; box-shadow: 0 0 0 2px rgba(163,230,53,.25), 0 0 22px rgba(163,230,53,.18); }
+  .pg-r1, .pg-r2, .pg-r3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pg-no { min-width: 56px; font-size: 18px; font-weight: 900; color: #67e8f9; } .pg-no small { font-size: 10px; color: #94a3b8; margin-left: 2px; }
+  .pg-meter { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 12px; background: #172544; border: 1px solid #334155; } .pg-meter:hover { border-color: #22d3ee; }
+  .pg-sig { font-size: 22px; font-weight: 900; color: #f1f5f9; } .pg-gs { display: inline-flex; align-items: center; gap: 2px; } .pg-gs i { font-style: normal; font-weight: 900; font-size: 15px; } .pg-gs em { font-style: normal; color: #64748b; font-size: 12px; }
+  .pg-gs .c2 { color: #22d3ee; } .pg-gs .c3 { color: #fbbf24; } .pg-edit { font-size: 12px; color: #64748b; }
+  .pg-rep { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; } .pg-nv { min-width: 62px; text-align: center; font-size: 12px; color: #94a3b8; font-weight: 800; } .pg-nv b { font-size: 22px; color: #f1f5f9; margin-right: 2px; }
+  .pg-lbl { font-size: 11px; color: #94a3b8; font-weight: 800; min-width: 40px; }
+  .pg-tv { display: inline-flex; align-items: center; gap: 4px; } .pg-tnum { min-width: 78px; text-align: center; } .pg-tnum b { font-size: 22px; color: #67e8f9; } .pg-tnum small { font-size: 12px; color: #94a3b8; }
+  .pg-hint { font-size: 12px; color: #64748b; font-weight: 700; }
+  .pg-ops { display: inline-flex; gap: 4px; margin-left: auto; }
+  .pg-mk { font-size: 12px; padding: 5px 10px; }
+  .pg-rnote { font-size: 11.5px; color: #fcd34d; background: rgba(251,191,36,.08); border-radius: 8px; padding: 4px 8px; }
+  .pg-empty { text-align: center; padding: 18px 8px; border: 1px dashed #334155; border-radius: 16px; } .pg-e1 { font-size: 17px; font-weight: 900; margin-bottom: 4px; } .pg-e2 { font-size: 13px; color: #94a3b8; margin-bottom: 12px; }
+  .pg-tpls { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
+  .pg-foot { margin: 6px -20px -18px; padding: 10px 20px 14px; border-top: 1px solid #24314d; background: #0c1527; display: flex; flex-direction: column; gap: 6px; max-height: 42%; overflow-y: auto; }
+  .pg-range summary { cursor: pointer; font-size: 13px; font-weight: 800; color: #94a3b8; padding: 4px 0; }
+  .pg-textbox summary { cursor: pointer; font-size: 13px; font-weight: 800; color: #94a3b8; padding: 4px 0; } .pg-textbox textarea { width: 100%; margin: 6px 0; }
+  .pk-mine { padding: 6px 0; } .pk-prev { min-height: 40px; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 12px; border-radius: 12px; background: #172544; }
+  @media (max-width: 599px) { .pg-ops { margin-left: auto; } .pg-rep { margin-left: auto; } .pg-howto { display: none; } .pg-tk button { padding: 5px 7px; font-size: 12px; } }
 /* @@LIGHT-BEGIN（明るいモード：自動で作った色の置きかえ） */
 html[data-theme="light"], html[data-theme="light"] body { background:#f8fafc }
 html[data-theme="light"] body { color:#1e293b }
@@ -884,34 +916,8 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
     <!-- 曲の進行 -->
     <details class="sec" id="secSong">
       <summary><span class="sum-main">🎼 テンポ・拍子のプログラム（曲の進行）<span class="sum-sub">曲に合わせて、小節ごとにテンポ・accel.・rit.・拍子を変える</span></span></summary>
-      <div class="hint" style="margin-bottom:6px">曲の楽譜を見ながら、1小節ずつリズムを並べます。文字でも書けます。<br>例：<b>[A] ♩=80 4/4×8, accel 4/4×4, ♩=120 4/4×8, rit 4/4×2, ♩=72 4/4</b><br>（4/4・3/4・6/8 などの拍子、2+3 のような変拍子、×4＝4小節続ける、[A]＝練習番号、♩=80・♪=160＝その小節からのテンポ、<b>accel</b>＝その小節から次のテンポまで だんだん速く、<b>rit</b>＝だんだん遅く、<b>a tempo</b>＝accel./rit. の前のテンポにもどる、♩.=60＝付点4分。目標のテンポを書かないと、25%ほど変わる）</div>
-      <textarea id="songText" class="song-text" rows="2" placeholder="♩=80 4/4×8, accel 4/4×4, ♩=120 4/4×8"></textarea>
-      <div class="cards song-chips" id="songChips"></div>
-      <div class="build-info" id="songInfo"></div>
-      <div class="lbl2" style="margin:6px 0 4px">小節を足す</div>
-      <div class="song-add" id="songAdd"></div>
-      <div class="btns" style="margin-top:6px">
-        <button class="btn small" id="songRep">最後の小節をもう1回</button>
-        <button class="btn small" id="songMark">＋ 練習番号</button>
-        <button class="btn small" id="songTempo">＋ テンポを変える</button>
-        <button class="btn small" id="songAccel">＋ accel.（だんだん速く）</button>
-        <button class="btn small" id="songRit">＋ rit.（だんだん遅く）</button>
-        <button class="btn small" id="songUndo">1つもどす</button>
-        <button class="btn small" id="songClear">ぜんぶ消す</button>
-      </div>
-      <input id="songName" class="song-name" maxlength="40" placeholder="曲の名前（なくてもよい）">
-      <div class="btns">
-        <button class="btn main wide" id="songPlay">この進行で鳴らす</button>
-        <button class="btn wide" id="songSave">保存する</button>
-      </div>
-      <div class="build-msg" id="songMsg"></div>
-      <div id="songRange" class="song-range" hidden>
-        <div class="lbl2">練習する場所（いま鳴らしている進行）</div>
-        <div class="row" style="gap:6px;flex-wrap:wrap"><input id="songFrom" type="number" min="1" value="1"><span>小節目から</span><input id="songTo" type="number" min="1" value="1"><span>小節目まで</span>
-          <button class="btn small" id="songFromHere">ここから鳴らす</button><button class="btn small" id="songAll">全部</button></div>
-        <div class="row"><div><div class="lbl">くり返す</div><div class="hint">OFF：最後の小節で止まる（通し練習）</div></div><button id="songLoopSw" class="sw" aria-label="くり返す"></button></div>
-      </div>
-      <div class="hint">鳴らすと、1小節ずつ順にリズムが変わり、最後の小節で止まります（「くり返す」をONにすると最初にもどる）。画面の上に「次の小節」、楽譜バーに「いまの小節＋次の小節」が出ます。画面の上の小節を押すと、その小節から鳴らせます。「保存する」で ★ プリセットに入ります（最大200小節）。</div>
+      <div class="hint" style="margin-bottom:8px">「拍子 × 小節数」のブロックをならべて作ります。途中に別の拍子をはさんだり、順番を入れかえたり、テンポを変えたりが、かんたんにできます。</div>
+      <button class="btn main wide" id="openProg">🎼 プログラムの編集画面を開く</button>
     </details>
 
     <div class="dr-group">練習・授業</div>
@@ -1192,6 +1198,30 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <div id="recBody"></div>
 </div></div>
 <div id="toast" class="toast" hidden></div>
+<div id="shProg" class="modal hidden"><div class="modal-box wide prog-box">
+  <div class="mhead"><h3>🎼 テンポのプログラム</h3><button class="dr-close" data-close>✕</button></div>
+  <div class="pg-top"><input id="pgName" class="song-name" maxlength="40" placeholder="曲の名前（なくてもよい）" style="margin:0;flex:1"><span class="pg-sum" id="pgSum"></span></div>
+  <div class="pg-howto">「拍子 × 小節数」のブロックを上から順にならべます。<b>「＋ ここに入れる」</b>で、どこにでも別の拍子をはさめます。鳴らしている間に直すと、その場で変わります。</div>
+  <div class="pg-list" id="pgList"></div>
+  <div class="pg-foot">
+    <div class="btns"><button class="btn main" id="pgPlay">▶ この進行で鳴らす</button><button class="btn" id="pgSave">★ 保存する</button><button class="btn small" id="pgClear">ぜんぶ消す</button></div>
+    <div class="build-msg" id="pgMsg"></div>
+    <details id="pgRange" class="pg-range" hidden><summary>🔁 練習する場所・くり返し</summary>
+      <div class="lbl2">練習する場所（いま鳴らしている進行）</div>
+      <div class="row" style="gap:6px;flex-wrap:wrap"><input id="songFrom" type="number" min="1" value="1"><span>小節目から</span><input id="songTo" type="number" min="1" value="1"><span>小節目まで</span>
+        <button class="btn small" id="songFromHere">ここから鳴らす</button><button class="btn small" id="songAll">全部</button></div>
+      <div class="row"><div><div class="lbl">くり返す</div><div class="hint">OFF：最後の小節で止まる（通し練習）</div></div><button id="songLoopSw" class="sw" aria-label="くり返す"></button></div>
+    </details>
+    <details class="pg-textbox"><summary>✏️ 文字で書く・コピーする</summary>
+      <textarea id="pgText" class="song-text" rows="3" placeholder="♩=80 4/4×8, accel 4/4×4, ♩=120 4/4×8"></textarea>
+      <div class="hint">例：<b>[A] ♩=80 4/4×8, accel 4/4×4, ♩=120 6/8×8, rit 2+3×2, a tempo 4/4</b><br>4/4・3/4・6/8 などの拍子、2+3 のような変拍子、×4＝4小節つづく、[A]＝練習番号、♩=80・♪=160・♩.=60＝テンポ、accel＝だんだん速く、rit＝だんだん遅く、a tempo＝もとの速さにもどる</div>
+    </details>
+  </div>
+</div></div>
+<div id="shPick" class="modal hidden"><div class="modal-box">
+  <div class="mhead"><h3>拍子をえらぶ</h3><button class="dr-close" data-pickclose>✕</button></div>
+  <div id="pkBody"></div>
+</div></div>
 <div id="shEns" class="modal hidden"><div class="modal-box">
   <div class="mhead"><h3>👥 みんなで合わせる</h3><button class="dr-close" data-close>✕</button></div>
   <div id="ensBody"></div>
@@ -3019,6 +3049,7 @@ function rollPlayRings(x, y, age, dur, r0, col, n = 3, spread = 60) {
     cx.beginPath(); cx.arc(x, y, r0 + q * spread * K, -Math.PI * 0.82, -Math.PI * 0.18); cx.stroke();
   }
 }
+/* @@BEGIN drawRoll */
 function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
   const top = 112 * K, gMax = ah - Math.max(22 * K, ah * 0.07);
@@ -3302,6 +3333,7 @@ function drawRoll(st, now, ah) {
     rollPlayConfetti(0, -10 * K, W, groundY, PL.f3, tt, 29);
   }
 }
+/* @@END drawRoll */
 function rollRows(y0, y1) {   // ゆか板の継ぎ目の高さ（奥ほどせまい）
   const out = []; let y = y0, h = (y1 - y0) * 0.06;
   while (y < y1) { out.push(y); y += h; h *= 1.28; }
@@ -3397,6 +3429,7 @@ function drawBounceAtmosPaint(g, w, h, backY, frontY) {
   gr = g.createLinearGradient(0, frontY - 6 * K, 0, frontY + 2 * K); gr.addColorStop(0, 'rgba(255,220,180,0)'); gr.addColorStop(1, 'rgba(255,220,180,0.10)');
   g.fillStyle = gr; g.fillRect(0, frontY - 6 * K, w, 8 * K);
 }
+/* @@BEGIN drawBounce */
 function drawBounce(st, now, ah) {
   const m = st.m, G = m.groups.length;
   const u = W / Math.max(12, Math.min(m.total, 10) * 1.6);
@@ -3596,6 +3629,7 @@ function drawBounce(st, now, ah) {
   drawCharBallConfetti('B', fest, 0, W, top - 20 * K, frontY - 40 * K);
   drawCharBallParticles('B');
 }
+/* @@END drawBounce */
 // ガーランドの電球（かべの上にゆるく下がる）と、色のスポットライト
 function drawBounceParty(now, fest, top, backY, tp) {
   const a = Math.min(1, fest), y0 = Math.max(top - 30 * K, 64 * K), sag = 22 * K, n = Math.max(8, Math.round(W / (34 * K)));
@@ -3638,6 +3672,7 @@ function orbitCache(key, w, h, paint) {
   }
   return e.c;
 }
+/* @@BEGIN drawOrbit */
 function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
@@ -3794,6 +3829,7 @@ function drawOrbit(st, now, ah) {
   txt(st.has ? syl(L, k) : '▶', cxC, cyC + 1, hub * 1.05, st.has ? COLORS[L] : '#64748b', 900);
   cx.beginPath(); cx.arc(cxC, cyC, hub * 0.86, 0, Math.PI * 2); glassShine(cxC - hub, cyC - hub, hub * 2, hub * 2, 0.22);
 }
+/* @@END drawOrbit */
 /* ---------- 共通：顔つきのボール ---------- */
 /* 🚀 ロケット／🌌 オーロラ 共通の小道具（キャッシュ・タイミング・タップの反応） */
 const rocketCv = {};
@@ -4057,6 +4093,7 @@ function rocketLamp(x, y, r, col, lv, on, u, gold) {
   }
   cx.fillStyle = 'rgba(255,255,255,0.35)'; cx.beginPath(); cx.ellipse(x - r * 0.3, y - r * 0.42, r * 0.38, r * 0.2, -0.4, 0, Math.PI * 2); cx.fill();
 }
+/* @@BEGIN drawRocket */
 
 /* 🚀 ロケット：拍の頭でエンジンが火をふき、8小節で発射台から宇宙へ（くり返す）。
    刻み＝姿勢をととのえる小さな噴射。小節の頭＝ブースター／段の切りはなし */
@@ -4309,6 +4346,7 @@ function drawRocket(st, now, ah) {
     if (metF(m) !== 2) txt(String(L), x, ly - lr * 1.65, Math.max(10, 11 * K), hexA(col, 0.9), 900);
   });
 }
+/* @@END drawRocket */
 /* 🌌 オーロラ：雪山と湖の夜。拍の頭でオーロラのカーテンが波打って明るくなり、刻みでちらちら光る。小節の頭で流れ星
    （小道具は drawRocket のところの rocketCache・rocketEvents などを使う） */
 let auroraLayer = null;
@@ -4421,6 +4459,7 @@ function auroraScene(top, Hz, shoreY, ah) {
   });
   return { sky, front };
 }
+/* @@BEGIN drawAurora */
 function drawAurora(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, acc = accOf(m), pn = performance.now() / 1000, live = b.g >= 0;
   const top = 62 * K, Hz = Math.round(top + (ah - top) * 0.6), shoreY = Math.round(Hz + (ah - Hz) * 0.6), SH = Hz - top;
@@ -4585,6 +4624,7 @@ function drawAurora(st, now, ah) {
   } else txt('▶ スタートでオーロラが光る', W / 2, numY, Math.max(15, 17 * K), '#cbd5e1', 800);
   function goldNow() { return tap && tap.k === 'p' && tap.a < 0.6 ? '#fde047' : metCol(m, b.g, acc[b.g]); }
 }
+/* @@END drawAurora */
 /* ---------- リアルな見た目の部品（光と影・金属・木・ガラス） ---------- */
 // やわらかい影（床に落ちる楕円）
 function softShadow(x, y, rx, ry, a = 0.4) {
@@ -4639,6 +4679,7 @@ function glassShine(x, y, w, h, a = 0.35) {
   const g = cx.createLinearGradient(x, y, x + w * 0.6, y + h); g.addColorStop(0, `rgba(255,255,255,${a})`); g.addColorStop(0.35, 'rgba(255,255,255,0.05)'); g.addColorStop(1, 'rgba(255,255,255,0)');
   cx.fillStyle = g; cx.fill();
 }
+/* @@BEGIN drawFace */
 // 小さな顔：つやのある黒い目（映りこみの光つき）、ほお、口。球の上にのせても立体に見えるよう、端ほど細くする
 // mood（なくてもよい）：{ joy：0〜1 にっこり（目が ^ ^、口をあけて笑う）, worry：0〜1 あせり（汗・への字の口）, look：-1〜1 目線 }
 function drawFace(x, y, r, dirX, now, mood) {
@@ -4696,6 +4737,8 @@ function drawFace(x, y, r, dirX, now, mood) {
   cx.strokeStyle = 'rgba(255,255,255,0.25)'; cx.lineWidth = Math.max(0.8, r * 0.03);
   cx.beginPath(); cx.arc(x + lx, y + r * 0.12 + r * 0.04, r * 0.15, 0.3 * Math.PI, 0.7 * Math.PI); cx.stroke();
 }
+/* @@END drawFace */
+/* @@BEGIN drawCharBall */
 // つやのあるボール（左上からの光・下からの照り返し・ふちの光）に、小さな顔
 // fx（なくてもよい）：{ joy, worry, look（顔へ）, gold：0〜1 金色にかがやく, spin：回転（ラジアン） }
 function drawCharBall(x, yBottom, r, sq, colA, colB, dirX, now, fx) {
@@ -4728,6 +4771,7 @@ function drawCharBall(x, yBottom, r, sq, colA, colB, dirX, now, fx) {
   cx.restore();
   if (gold > 0.05) drawCharBallGlint(x - r * 0.42 * sq[0], cy - r * 0.5 * sq[1], r * (0.5 + 0.5 * gold) * (0.8 + 0.2 * Math.sin(now * 20)), gold, '#fff6d0');
 }
+/* @@END drawCharBall */
 
 // ===== たたいた結果への反応（B・E・K・O・D の見せ方で共通に使う） =====
 let drawCharBallFest = 0, drawCharBallFT = 0, drawCharBallSeen = -1;
@@ -4873,6 +4917,7 @@ function drawStairsHillsPaint(g, w, h) {
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(255,${190 + Math.round(rnd() * 50)},120,${0.25 + rnd() * 0.4})`; g.beginPath(); g.arc(rnd() * w, h * (0.8 + rnd() * 0.17), (0.6 + rnd() * 0.8) * K, 0, Math.PI * 2); g.fill(); }
 }
+/* @@BEGIN drawStairs */
 function drawStairs(st, now, ah) {
   const m = st.m, G = m.groups.length, single = m.nBars === 1;
   const u = W / 13, stepH = Math.min(ah * 0.11, 70 * K), hop = Math.min(ah * 0.07, 44 * K);
@@ -5092,6 +5137,7 @@ function drawStairs(st, now, ah) {
   drawCharBallConfetti('E', fest, 0, W, ah * 0.05, ah * 0.6);
   drawCharBallParticles('E');
 }
+/* @@END drawStairs */
 function star(x, y, r) {
   cx.beginPath();
   for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? r * 0.45 : r; cx.lineTo(x + Math.cos(a) * rr2, y + Math.sin(a) * rr2); }
@@ -5191,6 +5237,7 @@ function conductHallPaint(g, w, h) {
   gr = g.createLinearGradient(0, ry - 16 * K, 0, ry); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,0.35)');
   g.fillStyle = gr; g.fillRect(0, ry - 16 * K, w, 16 * K);
 }
+/* @@BEGIN drawConduct */
 function drawConduct(st, now, ah) {
   const m = st.m, bar = st.has ? m.barOfGroup[st.g] : 0;
   const bg = m.bars[bar], G = bg.length, g0 = m.barStartGroup[bar], pg = getPattern(G);
@@ -5357,6 +5404,7 @@ function drawConduct(st, now, ah) {
   drawCharBallConfetti('D', fest, 0, W, 60 * K, ah * 0.8);
   drawCharBallParticles('D');
 }
+/* @@END drawConduct */
 // ホールの空気：舞台のあかりの中のほこり、🎮 コンボで客席があたたかく明るくなり（4〜）、譜面台のあかりがともる（16〜）
 function drawConductAir(now, ah, fest, tp) {
   for (let i = 0; i < 16; i++) {
@@ -5523,6 +5571,7 @@ function trainLantern(x, y, r, a, col, now, i) {
   cx.fillStyle = '#1b1b1b'; cx.fillRect(-r * 0.45, r * 0.45, r * 0.9, r * 0.2); cx.fillRect(-r * 0.45, r * 2.6, r * 0.9, r * 0.2);
   cx.restore(); cx.globalAlpha = 1;
 }
+/* @@BEGIN drawTrain */
 function drawTrain(st, now, ah) {
   const m = st.m, T = m.total, G = m.groups.length, dur = 60 / bpm;
   const u = W / clamp(T * 1.3, 10, 26);                       // 刻み1つぶんの長さ（画面上）
@@ -5851,6 +5900,8 @@ function drawTrain(st, now, ah) {
     txt(pf.kind === 'e' ? 'ガクン（早い）' : 'ガクン（遅い）', clamp(locoX, 60 * K, W - 60 * K), Math.max(carTop - 30 * K, 60 * K), 14 * K, hexA(pf.kind === 'e' ? '#bfdbfe' : '#fecdd3', Math.min(1, e * 1.7)), 800); tshadow(false);
   }
 }
+/* @@END drawTrain */
+/* @@BEGIN drawWheel */
 function drawWheel(x, y, r, s) {
   const a = -s * 2.2;   // 回転（左へ走るので反時計回り）
   const spd = 2.2 * bpm / 60, blur = clamp((spd - 5) / 18, 0, 0.85);   // 速いほど、穴がぶれて見える
@@ -5878,6 +5929,7 @@ function drawWheel(x, y, r, s) {
   cx.fillStyle = '#b8bec8'; cx.beginPath(); cx.arc(x, y, r * 0.16, 0, Math.PI * 2); cx.fill();
   cx.fillStyle = 'rgba(255,255,255,0.8)'; cx.beginPath(); cx.arc(x - r * 0.05, y - r * 0.05, r * 0.06, 0, Math.PI * 2); cx.fill();
 }
+/* @@END drawWheel */
 
 /* ---------- モードH：拍子の紋章 ----------
    ・円のまわりを光が走り、刻みごとに点を打って直線でつなぐ（1周 ＝ 1小節。交互パターンは2小節）
@@ -6005,6 +6057,7 @@ function emblemStar(x, y, r, col, a) {
   cx.quadraticCurveTo(x, y, x + r * 0.8, y); cx.quadraticCurveTo(x, y, x, y + r); cx.quadraticCurveTo(x, y, x - r * 0.8, y); cx.quadraticCurveTo(x, y, x, y - r);
   cx.fill(); cx.globalAlpha = 1;
 }
+/* @@BEGIN drawEmblem */
 function drawEmblem(st, now, ah) {
   const m = st.m, T = m.total, key = presetKey(m.preset);
   const meas = st.has ? st.measure : 0;
@@ -6176,6 +6229,7 @@ function drawEmblem(st, now, ah) {
   sh(left > 0 ? `あと ${left} 周で模様がひとめぐり` : '模様がひとめぐりしました！', top + 22 * K, 11 * K, left > 0 ? '#cbd5e1' : LIME, 700);
   sh(`1周 ＝ ${m.nBars}小節`, top + 40 * K, 11 * K, '#94a3b8', 700);
 }
+/* @@END drawEmblem */
 
 /* ---------- モードI：花火 ----------
    ・拍の頭で大きな花火が開く（ちょうど拍の瞬間に開くよう、少し前から玉を打ち上げる）
@@ -6336,6 +6390,7 @@ function fireworksCrowd(ah, fest, cheer, rim, rimA, now) {
     cx.restore();
   }
 }
+/* @@BEGIN drawFireworks */
 
 function drawFireworks(st, now, ah) {
   const m = st.m, T = m.total, dur = 60 / bpm;
@@ -6602,6 +6657,7 @@ function drawFireworks(st, now, ah) {
   }
   // 説明
 }
+/* @@END drawFireworks */
 
 /* ---------- モードJ：歯車 ----------
    ・刻みの歯車：1拍（8分音符）で1マス進み、一定の速さで回り続ける。1回転でちょうど1周期（1小節）。
@@ -6855,6 +6911,7 @@ function gearsRays(x, y, R, a, now, col) {
   for (let i = 0; i < 12; i++) { const t = i * Math.PI / 6; cx.moveTo(0, 0); cx.arc(0, 0, R, t, t + 0.16); cx.closePath(); }
   cx.fill(); cx.restore();
 }
+/* @@BEGIN drawGears */
 let gearsFx = [], gearsVigC = null, gearsVigKey = '';
 function drawGears(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
@@ -7121,6 +7178,7 @@ function drawGears(st, now, ah) {
   }
   if (pf.f3 > 0) gearsRain(gearsFx, 14 * pf.f3, pf.dt, 0, W, -6 * K);
 }
+/* @@END drawGears */
 
 
 /* ---------- モードK：踊る人 ----------
@@ -7205,6 +7263,7 @@ function dancerPlanks(fy, y1, offX, step, vp) {
   for (let x = mod(offX, step) - step * 2; x < W + step * 2; x += step) { cx.moveTo(vp + (x + 1.5 * K - vp) * s0, fy); cx.lineTo(x + 1.5 * K, y1); }
   cx.stroke();
 }
+/* @@BEGIN drawDancer */
 function drawDancer(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   // 足がつく場所：1拍で1歩。拍の頭の一歩だけ、少し大きく踏み込む（EX ぶん先へ）
@@ -7397,6 +7456,7 @@ function drawDancer(st, now, ah) {
   else if (has) txt((pw(L) || '拍の頭') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 84 * K, dfs, col, 900);
   else txt('▶ 再生すると、踊りはじめます', W / 2, 84 * K, dfs, '#e2e8f0', 700);
 }
+/* @@END drawDancer */
 // 舞台の空気：光の筋の中のほこり、🎮 コンボで色のスポットライト（4〜）とミラーボールの光（16〜）
 function drawDancerAir(now, fy, lx, fest, tp) {
   const spread = Math.min(W * 0.3, 190 * K);
@@ -7577,6 +7637,7 @@ function dominoPiece(px, gy, th, w, h, D, ox, oy, base, d, opt) {
   if (a < 1) cx.globalAlpha = 1;
   return [A, B, C, Dd];
 }
+/* @@BEGIN drawDomino */
 let dominoGold = new Map(), dominoFx = [];   // ぴったりで金色になったドミノ（番号 → 時刻）
 function drawDomino(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
@@ -7748,6 +7809,8 @@ function drawDomino(st, now, ah) {
   else txt(W < 640 ? '背の高いドミノ ＝ 拍の頭' : '背の高いドミノ ＝ 拍の頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
 }
+/* @@END drawDomino */
+/* @@BEGIN drawJuggle */
 
 /* ---------- モード：ジャグリング ----------
    ・1拍＝1回の投げ。パン（2拍）は低く、トマト（3拍）は高く投げる（空中にいる時間が長いほど高い：高さ ∝ 時間²）
@@ -7930,6 +7993,7 @@ function drawJuggle(st, now, ah) {
   if (barFlash > 0) txt('小節の頭！ 同じ投げ方をもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
 }
+/* @@END drawJuggle */
 
 /* ドミノの音：カタッ（刻み）／カタン（拍の頭、低く重い） */
 function playDomino(t, head, L, barHead) {
@@ -8052,6 +8116,7 @@ function dropsKoi(x, y, s, dir, now, a, i) {
   cx.fillStyle = 'rgba(255,255,255,0.5)'; cx.beginPath(); cx.ellipse(4 * s, -2.2 * s, 5 * s, 0.9 * s, 0, 0, Math.PI * 2); cx.fill();
   cx.restore();
 }
+/* @@BEGIN drawDrops */
 
 function drawDrops(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
@@ -8297,6 +8362,7 @@ function drawDrops(st, now, ah) {
   else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '大きなしずく ＝ 拍の頭' : '大きなしずく ＝ 拍の頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawDrops */
 
 /* ---------- モード：ぷるぷるゼリー ----------
    ・1拍＝ゼリー1つ。パンは小さいゼリー、トマトは大きいゼリー（はばが拍の数に比例）
@@ -8368,6 +8434,7 @@ function jellyDecoGet(plateY, ah) {
   g.fillStyle = vg; g.fillRect(0, 0, W, ah);
   jellyDeco = { key, c }; return c;
 }
+/* @@BEGIN drawJelly */
 
 function drawJelly(st, now, ah) {
   const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, has = st.has;
@@ -8586,6 +8653,7 @@ function drawJelly(st, now, ah) {
   else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ゼリーの大きさ ＝ 拍の長さ' : 'ゼリーの大きさ ＝ 拍の長さ（パン＝刻み2つ ／ トマト＝刻み3つ）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawJelly */
 
 /* しずくの音：ポチャン（拍の頭、トマトは低く長く）／ピチョ（刻み） */
 function playDrop(t, head, L, barHead) {
@@ -8646,6 +8714,7 @@ function pendulumCache(key, w, h, paint) {
   }
   return e.c;
 }
+/* @@BEGIN drawPendulum */
 function drawPendulum(st, now, ah) {
   const m = st.m, G = m.groups.length, dur = 60 / bpm, has = st.has;
   const top = 118 * K, bobY = ah - Math.max(40 * K, (ah - top) * 0.16);
@@ -8819,6 +8888,7 @@ function drawPendulum(st, now, ah) {
   else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawPendulum */
 function pendulumRR(c, x, y, w, h, r) {   // 角丸の四角（別のキャンバス用）
   r = Math.max(0, Math.min(r, w / 2, h / 2));
   c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath();
@@ -8948,6 +9018,7 @@ function notesCrowd(y0, ah, beat, pf, now) {
   }
   cx.lineCap = 'butt';
 }
+/* @@BEGIN drawNotes */
 function drawNotes(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, has = st.has;
   const top = 112 * K, laneY = top + (ah - top) * 0.5, laneH = Math.min(110 * K, (ah - top) * 0.36);
@@ -9090,6 +9161,7 @@ function drawNotes(st, now, ah) {
   if (!has) sh('▶ 再生して、ノーツが線に重なった瞬間にタップ（J・Enterキーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   else sh(W < 640 ? '線に重なった瞬間にタップ！' : '大きな丸が線に重なった瞬間に、画面をタップ（J・Enter キーでも）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawNotes */
 
 /* 振り子の音：カーン（鐘に当たる＝拍の頭。パンは高く、トマトは低く）／コッ（刻み） */
 function playPendulum(t, head, L, barHead) {
@@ -9201,6 +9273,7 @@ function flowersButterfly(x, y, s, now, i, a) {
   cx.fillStyle = '#1f1308'; cx.beginPath(); cx.ellipse(0, 0, 1.1 * s, 5 * s, 0, 0, Math.PI * 2); cx.fill();
   cx.restore();
 }
+/* @@BEGIN drawFlowers */
 
 function drawFlowers(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has, B = m.nBars;
@@ -9392,6 +9465,7 @@ function drawFlowers(st, now, ah) {
   else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '花びら2枚 ＝ 刻み1つ' : '花びら2枚 ＝ 刻み1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawFlowers */
 
 /* ---------- モード：カエルのハス跳び ----------
    ・ハスの葉の間かくが、パン＝2マス、トマト＝3マス（1マス＝刻み1つ）
@@ -9553,6 +9627,7 @@ function frogFigure(x, y, fs, sqX, sqY, air, rot, sac) {
   }
   cx.restore();
 }
+/* @@BEGIN drawFrog */
 
 function drawFrog(st, now, ah) {
   const m = st.m, N = m.total, G = m.groups.length, dur = 60 / bpm, has = st.has;
@@ -9726,6 +9801,7 @@ function drawFrog(st, now, ah) {
   else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
+/* @@END drawFrog */
 
 /* 花の音：ポン（開く＝拍の頭。パンは高く、トマトは低く）／ピン（花びら＝刻み） */
 function playFlower(t, head, L, barHead) {
@@ -9831,6 +9907,7 @@ function karakuriTube(tube, r, pass) {   // ガラス（アクリル）の管
     line(); cx.strokeStyle = 'rgba(220,240,255,0.08)'; cx.lineWidth = r * 1.9; cx.stroke();
   }
 }
+/* @@BEGIN drawKarakuri */
 let karakuriFx = [];
 function drawKarakuri(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has;
@@ -10031,6 +10108,7 @@ function drawKarakuri(st, now, ah) {
   else txt(W < 640 ? '大きな仕掛け ＝ 拍の頭' : '大きな仕掛け（ばね・ベル）＝ 拍の頭。刻み1つごとに1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
 }
+/* @@END drawKarakuri */
 
 /* ---------- モード：ブロック積み（ゲーム） ----------
    ・上から「2」と「3」のブロックが落ちてくる。着地の瞬間（拍の頭）に画面タップ（または J・Enter キー）
@@ -10199,6 +10277,7 @@ function blocksCityGet(ah, cs) {   // 背景（星・遠くの街・高層ビル
   gg.fillStyle = 'rgba(255,220,120,0.5)'; for (let xx = 10 * K; xx < W; xx += 26 * K) gg.fillRect(xx, gh - 5 * K, 12 * K, 1.2 * K);
   blocksCity = { stars: sc, far: fc, fh, tall, S, ground: gc, gh }; blocksCityKey = key; return blocksCity;
 }
+/* @@BEGIN drawBlocks */
 function drawBlocks(st, now, ah) {
   const m = st.m, N = m.total, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
   const top = 112 * K;
@@ -10393,6 +10472,7 @@ function drawBlocks(st, now, ah) {
   if (!has) sh(auto ? '▶ 再生すると、ブロックが自動で積み上がります' : '▶ 再生して、ブロックが着地する瞬間にタップ！', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
   else sh(auto ? '拍の頭でブロックが着地。どんどん積み上がる' : (nar ? '着地の瞬間にタップ！ どこまで高く？' : 'ブロックが着地する瞬間に、画面をタップ。どこまで高く積めるかな？'), W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700, 'center');
 }
+/* @@END drawBlocks */
 const G_ = m => m.groups.length;
 
 /* からくりの音：仕掛けごとに素材のちがう音 */
@@ -10532,6 +10612,7 @@ function metroBallDotRow(m, y, x0, x1, b, r, py) {
   });
   return pos;
 }
+/* @@BEGIN drawMetroBall */
 function drawMetroBall(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, top = 70 * K, y = top + (ah - top) * 0.74;
   const r = clamp(Math.min(W / (m.groups.length * 3.2), ah * 0.06), 9, 30 * K);
@@ -10678,6 +10759,7 @@ function drawMetroBall(st, now, ah) {
   } else txt(playing ? '' : '▶ スタートで鳴らす', W / 2, numY, Math.max(16, 18 * K), '#64748b', 800);
   if (P.f3 > 0.01) rollPlayConfetti(0, -20 * K, W, cTop + 20 * K, P.f3, tt, 13);   // コンボ（16〜）：紙ふぶき
 }
+/* @@END drawMetroBall */
 const metroBallStripN = w => Math.max(0, Math.min(14, Math.floor((w * 0.55) / (11 * K))));
 function metroBallRR(c, x, y, w, h, r) {   // rr と同じ角丸の四角（別のキャンバス用）
   r = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -10850,6 +10932,7 @@ function metroPendPaintBody(c, G) {
   // 支点の受け（金属の板）
   c.fillStyle = metroPendLG(c, cxp - 10 * K, 0, cxp + 10 * K, 0, [[0, '#4b5260'], [0.4, '#e5e9ef'], [1, '#3a404c']]); metroBallRR(c, cxp - 9 * K, pivY - 9 * K, 18 * K, 15 * K, 3 * K); c.fill();
 }
+/* @@BEGIN drawMetroPend */
 function drawMetroPend(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, top = 64 * K, cxp = W / 2, lightT = !!canvasLight;
   const baseY = ah - 58 * K;
@@ -11038,6 +11121,8 @@ function drawMetroPend(st, now, ah) {
   metDotRow(m, dY, W * 0.2, W * 0.8, b, dr);
   metBigNum(b, W * 0.12, top + 50 * K, Math.min(ah * 0.18, 90 * K));
 }
+/* @@END drawMetroPend */
+/* @@BEGIN drawMetroFlash */
 /* フラッシュ：かべにかけた大きなLEDランプのパネル（ガラスの前面・金属のふち）。拍の頭で光り、まわりのかべも照らす */
 function drawMetroFlash(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m;
@@ -11182,6 +11267,7 @@ function drawMetroFlash(st, now, ah) {
   cx.fillStyle = 'rgba(10,12,18,0.82)'; rr(x0 - dr * 1.6 + 2 * K, dotY - rh / 2 + 2 * K, x1 - x0 + dr * 3.2 - 4 * K, rh - 4 * K, rh / 2); cx.fill();
   metroBallDotRow(m, dotY, x0, x1, b, dr, 1);
 }
+/* @@END drawMetroFlash */
 
 /* =========================================================
    👏 まねっこ（お手本 → あなた の、よびかけとこたえ）
@@ -12027,7 +12113,6 @@ function parseSong(text) {
     } else g = mm[1].split('+').map(Number);
     if (!g || g.length > 8 || g.reduce((a, v) => a + v, 0) > 16) { err.push(tok); return; }
     const n = clamp(+(mm[2] || 1), 1, SONG_MAX_BARS);
-    if (at && !tempo && preRampT) tempo = preRampT;
     for (let i = 0; i < n && bars.length < SONG_MAX_BARS; i++) {
       const b = { g: g.slice() }; if (i === 0 && mark) b.mark = mark; if (i === 0 && tempo) b.t = tempo; if (i === 0 && ramp) b.ramp = ramp;
       if (i === 0 && at) b.at = true;
@@ -12070,12 +12155,16 @@ function songRamps() {
 }
 const rampBpm = (rp, sub) => rp.from + (rp.to - rp.from) * ((rp.off + sub) / rp.total);
 function songTempoAt(i) { if (!song) return null; for (let j = i; j >= 0; j--) if (song.bars[j].t) return song.bars[j].t; return song.t0; }
+const songMetaOfBar = b => makeMeta({ cat: 'song', sig: barSig(b.g), bars: [b.g], note: b.g.map(L => L === 2 ? 'パン' : 'トマト').join('＋') });
+function songResolve(bars) {   // a tempo：accel./rit. をはじめる前のテンポにもどす
+  bars.forEach((b, i) => { if (b.at0 && !b.t) { let k = i - 1; while (k >= 0 && !bars[k].ramp) k--; b.t = k >= 0 ? songTempoAt(k) : song.t0; } });
+}
 function songSet(s) {   // 曲の進行を鳴らす（再生中なら次の小節の頭から）
   const { bars } = parseSong(s.text); if (!bars.length) return false;
   if (mode === 'V' || mode === 'W' || mode === 'F' || mode === 'X') setMode(lastMetaMode && lastMetaMode !== 'V' && lastMetaMode !== 'W' ? lastMetaMode : 'A');
   song = { name: s.name || '自分で作った進行', text: songText(bars), bars, note: s.note || '', t0: bpm, from: 0, to: bars.length - 1 };
-  bars.forEach((b, i) => { if (b.at0 && !b.t) { let k = i - 1; while (k >= 0 && !bars[k].ramp) k--; b.t = k >= 0 ? songTempoAt(k) : song.t0; } });   // a tempo
-  songMetas = bars.map(b => makeMeta({ cat: 'song', sig: barSig(b.g), bars: [b.g], note: b.g.map(L => L === 2 ? 'パン' : 'トマト').join('＋') }));
+  songResolve(bars);
+  songMetas = bars.map(songMetaOfBar);
   songRamps();
   selected = songMetas[0].preset;
   songPos = 0; songStartAt = 0; pendingMeta = null; songJump = null;
@@ -12121,10 +12210,11 @@ function renderSongMap() {
   el.innerHTML = `<div class="sm-head"><b>🎵 ${song.name}</b><span>${L}小節${SET.songLoop ? `・${song.from + 1}〜${song.to + 1}小節をくり返す` : '・最後で止まる'}</span><button class="btn small" id="smEdit">✎ 進行</button></div>
     <div class="sm-row" id="smRow">${song.bars.map((b, i) => `<button class="sm-cell ${i < song.from || i > song.to ? 'out' : ''}" data-i="${i}" title="${i + 1}小節目から">${b.mark ? `<span class="sm-mk">${b.mark}</span>` : ''}<span class="sm-no">${i + 1}</span><span class="sm-g">${b.g.every(L2 => L2 === b.g[0]) ? `<i class="c${b.g[0]}">${barSig(b.g)}</i>` : b.g.map(L2 => `<i class="c${L2}">${L2}</i>`).join('<i style="color:#64748b">+</i>')}</span>${b.t ? `<span class="sm-t">${tempoStr(b.t)}</span>` : ''}${b.ramp && b.rp ? `<span class="sm-t">${b.ramp === 'accel' ? '↗ accel.' : '↘ rit.'}</span>` : b.rp ? `<span class="sm-t" style="opacity:.6">${b.rp.kind === 'accel' ? '↗' : '↘'}</span>` : ''}</button>`).join('')}</div>`;
   el.querySelectorAll('.sm-cell').forEach(c => c.onclick = () => songSeek(+c.dataset.i));
-  $('#smEdit').onclick = () => openDrawer('secSong');
+  $('#smEdit').onclick = () => openProg();
   songMapMark(lastSongBar);
 }
 function songMapMark(cur) {
+  try { pgMark(song ? songPos - 1 : -1); } catch (e) {}
   const el = document.getElementById('songMap'); if (!el || el.hidden || !song) return;
   const L = song.bars.length, c = cur >= 0 ? mod(cur, L) : -1, nx = songJump !== null ? songJump : c >= 0 ? (c + 1 > song.to ? song.from : c + 1) : (playing ? -1 : songStartAt);
   el.querySelectorAll('.sm-cell').forEach(b => { const i = +b.dataset.i; b.classList.toggle('cur', i === c); b.classList.toggle('nx', i === nx && i !== c); });
@@ -12132,82 +12222,177 @@ function songMapMark(cur) {
   if (cc && row) { const l = cc.offsetLeft - row.clientWidth / 2 + cc.offsetWidth / 2; if (Math.abs(row.scrollLeft - l) > 4) row.scrollTo({ left: Math.max(0, l), behavior: 'smooth' }); }
 }
 
-/* ----- 曲の進行の編集（カードと文字の両方） ----- */
+/* ===== 🎼 テンポのプログラム：「拍子 × 小節数」のブロックをならべて作る =====
+   ・ブロック＝同じ拍子が○小節つづくまとまり（テンポの変化・accel.・rit.・練習番号をつけられる）
+   ・どこにでも「＋ここに入れる」で、途中に別の拍子をはさめる。↑↓で順番を入れかえ、⧉で複製、🗑で消す
+   ・鳴らしている間に直すと、その場で反映される */
 let songDraft = [];
 try { songDraft = parseSong(localStorage.getItem('kr_songdraft') || '').bars; } catch (e) {}
 function songDraftSave() { try { localStorage.setItem('kr_songdraft', songText(songDraft)); } catch (e) {} }
-function songMsg(t, bad) { const el = $('#songMsg'); el.textContent = t; el.style.color = bad ? '#fda4af' : '#bef264'; clearTimeout(songMsg.t); songMsg.t = setTimeout(() => { el.textContent = ''; }, 4000); }
-function renderSongEditor(fromText) {
-  const box = $('#songChips'); if (!box) return;
-  if (!fromText) $('#songText').value = songText(songDraft);
+let pgBlocks = [], pgBound = false, pgPick = null;
+const gF = g => g.every(L => L === 2) ? 2 : g.every(L => L === 3) ? 3 : 1;   // その拍子のテンポの単位（2＝♩、3＝♩.、まざる＝♪）
+const gNote = g => ({ 1: '♪', 2: '♩', 3: '♩.' })[gF(g)];
+const pgGroup = bars => {   // 小節の並び → ブロックの並び
+  const out = [];
+  bars.forEach(b => {
+    const l = out[out.length - 1];
+    if (l && !b.mark && !b.t && !b.ramp && !b.at0 && !b.at && l.g.join() === b.g.join()) l.n++;
+    else out.push({ g: b.g.slice(), n: 1, mark: b.mark, t: b.t, ramp: b.ramp, at0: b.at0 || (b.at && !b.t) });
+  });
+  return out;
+};
+const pgExpand = blocks => {   // ブロックの並び → 小節の並び
+  const bars = [];
+  for (const b of blocks) for (let i = 0; i < b.n && bars.length < SONG_MAX_BARS; i++) {
+    const x = { g: b.g.slice() };
+    if (i === 0) { if (b.mark) x.mark = b.mark; if (b.t) x.t = b.t; if (b.ramp) x.ramp = b.ramp; if (b.at0) { x.at0 = true; x.at = true; } }
+    bars.push(x);
+  }
+  return bars;
+};
+function songMsg(t, bad) { const el = $('#pgMsg'); if (!el) return; el.textContent = t; el.style.color = bad ? '#fda4af' : '#bef264'; clearTimeout(songMsg.t); songMsg.t = setTimeout(() => { el.textContent = ''; }, 4500); }
+const pgEff = i => { let t = null; for (let k = 0; k < i; k++) if (pgBlocks[k].t) t = pgBlocks[k].t; return t || (song && song.t0) || bpm; };   // そのブロックの前までの「いまのテンポ」
+const pgBarNo = i => pgBlocks.slice(0, i).reduce((a, b) => a + b.n, 0);
+function pgChanged(at = 0, d = 0, keepText) {   // 直したあとの共通の後しまつ。at：直した小節（0から）、d：小節の数の増減
+  songDraft = pgExpand(pgBlocks); songDraftSave();
+  if (pgBound && song && songDraft.length) songApply(at, d);
+  renderProg(keepText);
+}
+function songApply(at = 0, d = 0) {   // 鳴らしている進行を、その場で作りなおす（いまの位置は、できるだけ保つ）
+  if (!song) return;
+  const bars = songDraft.map(b => Object.assign({}, b, { g: b.g.slice() })), oldLen = song.bars.length, all = song.from === 0 && song.to === oldLen - 1;
+  song.bars = bars; song.text = songText(bars); const nm = ($('#pgName').value || '').trim(); if (nm) song.name = nm;
+  songResolve(bars);
+  songMetas = bars.map(songMetaOfBar);
+  song.from = all ? 0 : clamp(song.from, 0, bars.length - 1); song.to = all ? bars.length - 1 : clamp(song.to, song.from, bars.length - 1);
+  songRamps();
+  if (d && playing && songPos - 1 >= at) songPos = clamp(songPos + d, 0, bars.length);
+  renderSongMap(); updateBarRhythm();
+}
+function renderSongEditor() { renderProg(); }
+/* ----- 画面のえがき ----- */
+const pgSigHtml = g => { const uni = g.every(L => L === g[0]); return `<b class="pg-sig">${barSig(g)}</b>${uni ? '' : `<span class="pg-gs">${g.map(L => `<i class="c${L}">${L}</i>`).join('<em>+</em>')}</span>`}`; };
+function renderProg(keepText) {
+  const box = $('#pgList'); if (!box) return;
+  if (!keepText) $('#pgText').value = songText(songDraft);
   box.innerHTML = '';
-  if (!songDraft.length) box.innerHTML = '<span class="empty">下のボタンで小節を足すか、上に文字で書いてください</span>';
-  let i = 0, bar = 1;
-  while (i < songDraft.length) {
-    let j = i; while (j + 1 < songDraft.length && songDraft[j + 1].g.join() === songDraft[i].g.join() && !songDraft[j + 1].mark && !songDraft[j + 1].t && !songDraft[j + 1].ramp) j++;
-    const b = songDraft[i], n = j - i + 1, c = document.createElement('span');
-    c.className = 'schip';
-    c.innerHTML = `${b.mark ? `<span class="smk">${b.mark}</span>` : ''}<span class="sn">${bar}${n > 1 ? '〜' + (bar + n - 1) : ''}</span>${b.t ? `<span class="st">${tempoStr(b.t)}</span>` : ''}${b.ramp ? `<span class="st">${b.ramp === 'accel' ? '↗accel.' : '↘rit.'}</span>` : ''}${b.g.map(L => `<b class="c${L}">${L}</b>`).join('<i>+</i>')}${n > 1 ? `<span class="sx">×${n}</span>` : ''}<button class="sdel" title="消す">×</button>`;
-    const a = i, cnt = n;
-    c.querySelector('.sdel').onclick = () => { songDraft.splice(a, cnt); songDraftSave(); renderSongEditor(); };
-    box.appendChild(c); bar += n; i = j + 1;
+  const total = songDraft.length;
+  if (!pgBlocks.length) {
+    box.innerHTML = `<div class="pg-empty"><div class="pg-e1">まだ、ブロックがありません</div><div class="pg-e2">拍子を1つえらんで、はじめましょう。あとから、どこにでも別の拍子をはさめます。</div>
+      <button class="btn main wide" id="pgFirst">＋ 最初の拍子をえらぶ</button>
+      <div class="lbl2" style="margin-top:14px">ひな形から作る</div><div class="pg-tpls" id="pgTpls"></div></div>`;
+    $('#pgFirst').onclick = () => pgOpenPick(g => { pgBlocks.push({ g, n: 4 }); pgChanged(0, 4); });
+    [['テンポが変わる', '♩=80 4/4×4, accel 4/4×4, ♩=120 4/4×4, rit 4/4×2, a tempo 4/4×2'], ['拍子が変わる（4/4 → 7/8 → 4/4）', '4/4×4, 2+2+3×4, 4/4×4'], ['5/8 → 6/8', '2+3×4, 6/8×4'], ['7/8 の3つの形', '2+2+3×2, 3+2+2×2, 2+3+2×2']].forEach(([n, tx]) => {
+      const b = document.createElement('button'); b.className = 'btn small'; b.textContent = n; b.onclick = () => { songDraft = parseSong(tx).bars; pgBlocks = pgGroup(songDraft); pgChanged(0, 0); }; $('#pgTpls').appendChild(b); });
   }
-  $('#songInfo').textContent = songDraft.length ? `全部で ${songDraft.length} 小節（最大 ${SONG_MAX_BARS} 小節）` : '';
-  // 練習の範囲（いま鳴らしている進行）
-  const rg = $('#songRange'); if (!rg) return;
-  rg.hidden = !song;
+  const ins = at => { const b = document.createElement('button'); b.className = 'pg-ins'; b.innerHTML = '<span>＋ ここに入れる</span>'; b.onclick = () => pgOpenPick(g => { pgBlocks.splice(at, 0, { g, n: 1 }); pgChanged(pgBarNo(at), 1); }); return b; };
+  pgBlocks.forEach((bl, i) => {
+    if (i === 0 || true) box.appendChild(ins(i));
+    const f = gF(bl.g), eff = pgEff(i), b0 = pgBarNo(i), card = document.createElement('div');
+    card.className = 'pg-blk'; card.dataset.b0 = b0; card.dataset.b1 = b0 + bl.n - 1;
+    const tk = bl.at0 ? 'a' : bl.t ? 't' : 'k';
+    card.innerHTML = `
+      <div class="pg-r1">
+        <span class="pg-no">${bl.n > 1 ? `${b0 + 1}〜${b0 + bl.n}` : b0 + 1}<small>小節</small></span>
+        <button class="pg-meter" title="拍子をかえる">${pgSigHtml(bl.g)}<span class="pg-edit">✎</span></button>
+        <span class="pg-rep"><button class="sq" data-a="n-">−</button><span class="pg-nv"><b>${bl.n}</b>小節</span><button class="sq" data-a="n+">＋</button></span>
+      </div>
+      <div class="pg-r2">
+        <span class="pg-lbl">テンポ</span>
+        <span class="seg pg-tk"><button data-a="tk" data-v="k" class="${tk === 'k' ? 'on' : ''}">そのまま</button><button data-a="tk" data-v="t" class="${tk === 't' ? 'on' : ''}">かえる</button><button data-a="tk" data-v="a" class="${tk === 'a' ? 'on' : ''}" title="だんだん速く／遅くしたあと、もとの速さにもどす">a tempo</button></span>
+        ${tk === 't' ? `<span class="pg-tv"><button class="sq" data-a="t-">−</button><span class="pg-tnum"><small>${gNote(bl.g)}＝</small><b>${Math.round(bl.t / f)}</b></span><button class="sq" data-a="t+">＋</button></span>` : tk === 'k' ? `<span class="pg-hint">${gNote(bl.g)}＝${Math.round(eff / f)}</span>` : '<span class="pg-hint">もとの速さにもどる</span>'}
+      </div>
+      <div class="pg-r3">
+        <span class="seg pg-rp"><button data-a="rp" data-v="" class="${!bl.ramp ? 'on' : ''}">一定</button><button data-a="rp" data-v="accel" class="${bl.ramp === 'accel' ? 'on' : ''}">↗ だんだん速く</button><button data-a="rp" data-v="rit" class="${bl.ramp === 'rit' ? 'on' : ''}">↘ だんだん遅く</button></span>
+        <button class="pchip pg-mk ${bl.mark ? 'on' : ''}" data-a="mk" title="練習番号（［A］など）">${bl.mark ? `［${bl.mark}］ ✕` : '＋ 練習番号'}</button>
+        <span class="pg-ops"><button class="sq" data-a="play" title="この小節から鳴らす">▶</button><button class="sq" data-a="up" title="上へ" ${i === 0 ? 'disabled' : ''}>↑</button><button class="sq" data-a="dn" title="下へ" ${i === pgBlocks.length - 1 ? 'disabled' : ''}>↓</button><button class="sq" data-a="dup" title="複製">⧉</button><button class="sq" data-a="del" title="消す">🗑</button></span>
+      </div>
+      ${bl.ramp ? `<div class="pg-rnote">${bl.ramp === 'accel' ? '↗' : '↘'} この先、次にテンポを「かえる」ブロックまで、だんだん${bl.ramp === 'accel' ? '速く' : '遅く'}なります（なければ25%ほど）</div>` : ''}`;
+    card.querySelector('.pg-meter').onclick = () => pgOpenPick(g => { bl.g = g; if (bl.t) { /* テンポは、そのまま */ } pgChanged(b0, 0); }, bl.g);
+    card.querySelectorAll('[data-a]').forEach(el => el.onclick = () => pgAct(i, el.dataset.a, el.dataset.v));
+    box.appendChild(card);
+    card.querySelectorAll('[data-a="t-"],[data-a="t+"],[data-a="n-"],[data-a="n+"]').forEach(el => pgRepeat(el, () => pgAct(i, el.dataset.a)));
+  });
+  if (pgBlocks.length) { const e = ins(pgBlocks.length); e.classList.add('end'); e.innerHTML = '<span>＋ 最後に足す</span>'; box.appendChild(e); }
+  $('#pgSum').textContent = total ? `全部で ${total} 小節（最大 ${SONG_MAX_BARS}）` : '';
+  const rg = $('#pgRange'); rg.hidden = !song;
   if (song) { $('#songFrom').max = $('#songTo').max = song.bars.length; $('#songFrom').value = song.from + 1; $('#songTo').value = song.to + 1; }
+  pgMark(song ? songPos - 1 : -1);
 }
-function songAdd(g, n = 1) {
-  if (songDraft.length >= SONG_MAX_BARS) { songMsg(`小節は ${SONG_MAX_BARS} まで`, true); return; }
-  for (let i = 0; i < n && songDraft.length < SONG_MAX_BARS; i++) songDraft.push({ g: g.slice() });
-  songDraftSave(); renderSongEditor();
+function pgRepeat(el, fn) {   // 長押しで連続
+  let t1 = null, t2 = null; const end = () => { clearTimeout(t1); clearInterval(t2); };
+  el.addEventListener('pointerdown', () => { end(); t1 = setTimeout(() => { t2 = setInterval(fn, 90); }, 450); });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => el.addEventListener(ev, end));
 }
-function songAddMark() {
-  if (!songDraft.length) { songMsg('先に小節を足してください（練習番号は、次に足す小節につきます）', true); return; }
-  const used = songDraft.filter(b => b.mark).length, mk = String.fromCharCode(65 + (used % 26));
-  songDraft.push({ g: songDraft[songDraft.length - 1].g.slice(), mark: mk }); songDraftSave(); renderSongEditor();
-  songMsg(`［${mk}］の小節を足しました（文字で、リズムやテンポを書きかえられます）`);
+function pgAct(i, a, v) {
+  const bl = pgBlocks[i]; if (!bl) return; const b0 = pgBarNo(i), f = gF(bl.g);
+  const total = () => pgBlocks.reduce((s, b) => s + b.n, 0);
+  if (a === 'n+') { if (total() >= SONG_MAX_BARS) { songMsg(`小節は ${SONG_MAX_BARS} まで`, true); return; } bl.n++; pgChanged(b0 + bl.n - 1, 1); }
+  else if (a === 'n-') { if (bl.n <= 1) return; bl.n--; pgChanged(b0 + bl.n, -1); }
+  else if (a === 'tk') { if (v === 'k') { bl.t = undefined; bl.at0 = false; } else if (v === 't') { bl.at0 = false; bl.t = bl.t || clamp(Math.round(pgEff(i) / f) * f, 40, 600); } else { bl.t = undefined; bl.at0 = true; bl.ramp = undefined; } pgChanged(b0, 0); }
+  else if (a === 't+' || a === 't-') { bl.t = clamp(Math.round((bl.t || pgEff(i)) / f) * f + (a === 't+' ? f : -f), 40, 600); pgChanged(b0, 0); }
+  else if (a === 'rp') { bl.ramp = v || undefined; if (bl.ramp) bl.at0 = false; pgChanged(b0, 0); }
+  else if (a === 'mk') { if (bl.mark) bl.mark = undefined; else { const used = new Set(pgBlocks.map(b => b.mark)); let c = 0; while (used.has(String.fromCharCode(65 + c))) c++; bl.mark = String.fromCharCode(65 + (c % 26)); } pgChanged(b0, 0); }
+  else if (a === 'up' && i > 0) { pgBlocks.splice(i - 1, 0, pgBlocks.splice(i, 1)[0]); pgChanged(pgBarNo(i - 1), 0); }
+  else if (a === 'dn' && i < pgBlocks.length - 1) { pgBlocks.splice(i + 1, 0, pgBlocks.splice(i, 1)[0]); pgChanged(b0, 0); }
+  else if (a === 'dup') { if (total() + bl.n > SONG_MAX_BARS) { songMsg(`小節は ${SONG_MAX_BARS} まで`, true); return; } const c = { g: bl.g.slice(), n: bl.n }; pgBlocks.splice(i + 1, 0, c); pgChanged(b0 + bl.n, bl.n); }
+  else if (a === 'del') { pgBlocks.splice(i, 1); pgChanged(b0, -bl.n); }
+  else if (a === 'play') pgPlayFrom(b0);
 }
-function songAddFlag(kind) {   // テンポを変える小節・accel.／rit. を始める小節を足す（拍子は1つ前の小節と同じ）
-  if (!songDraft.length) { songMsg('先に小節を足してください', true); return; }
-  const last = songDraft[songDraft.length - 1].g.slice();
-  if (kind === 't') {
-    const v = prompt('この小節からのテンポ（♩＝いくつ？　8分音符で数える曲は ♪160 のように）', '120'); if (!v) return;
-    const mm = String(v).replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).match(/(♪)?\s*(\d{2,3})/); if (!mm) return;
-    songDraft.push({ g: last, t: clamp(mm[1] ? +mm[2] : +mm[2] * 2, 40, 600) });
-    songMsg(`${tempoStr(songDraft[songDraft.length - 1].t)} の小節を足しました`);
-  } else {
-    songDraft.push({ g: last, ramp: kind });
-    songMsg(`${kind === 'accel' ? 'accel.（だんだん速く）' : 'rit.（だんだん遅く）'}の小節を足しました。続けて小節を足し、最後に「＋ テンポを変える」で、着いたときのテンポを入れてください`);
-  }
-  songDraftSave(); renderSongEditor();
+function pgPlayFrom(bar) {   // その小節から鳴らす（まだ鳴らしていなければ、いまの進行で鳴らしはじめる）
+  if (!songDraft.length) return;
+  if (!song || !pgBound) { songSet({ name: ($('#pgName').value || '').trim() || '自分で作った進行', text: songText(songDraft) }); pgBound = true; }
+  if (mode === 'V' || mode === 'W' || mode === 'F' || mode === 'X' || mode === 'Y') setMode(lastMetaMode || 'MB');
+  songSeek(bar); if (!playing) start();
+  renderSongMap(); songMsg(`${bar + 1}小節目から鳴らします`);
+}
+function pgMark(cur) {   // 鳴らしている小節のブロックを光らせる
+  const el = $('#pgList'); if (!el) return; let on = null;
+  el.querySelectorAll('.pg-blk').forEach(c => { const hit = playing && cur >= +c.dataset.b0 && cur <= +c.dataset.b1; c.classList.toggle('cur', !!hit); if (hit) on = c; });
+  if (on && !$('#shProg').classList.contains('hidden')) { const r = on.getBoundingClientRect(), p = $('#shProg .modal-box').getBoundingClientRect(); if (r.top < p.top + 60 || r.bottom > p.bottom - 100) on.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+/* ----- 拍子をえらぶ画面 ----- */
+function pgOpenPick(cb, cur) {
+  pgPick = cb; const box = $('#pkBody'); box.innerHTML = '';
+  const sec = (title, list) => {
+    const h = document.createElement('div'); h.className = 'sh'; h.textContent = title; box.appendChild(h);
+    const g = document.createElement('div'); g.className = 'ogrid'; box.appendChild(g);
+    list.forEach(([sig, gs]) => { const b = document.createElement('button'); b.className = 'opt' + (cur && cur.join() === gs.join() ? ' on' : ''); b.innerHTML = `${sig}<small>${gs.every(L => L === gs[0]) ? gNote(gs) + ' × ' + gs.length : gs.join('+')}</small>`; b.onclick = () => pgChoose(gs.slice()); g.appendChild(b); });
+  };
+  sec('よく使う拍子', M_BASIC.concat([['6/8', [3, 3]], ['9/8', [3, 3, 3]], ['12/8', [3, 3, 3, 3]]]));
+  sec('変拍子', M_ODD);
+  const h = document.createElement('div'); h.className = 'sh'; h.textContent = '自分で組み立てる（2＝短い拍、3＝長い拍）'; box.appendChild(h);
+  const mine = document.createElement('div'); mine.className = 'pk-mine'; box.appendChild(mine);
+  let g = cur ? cur.slice() : [2, 3];
+  const draw = () => { mine.innerHTML = `<div class="pk-prev">${g.length ? pgSigHtml(g) : '<span class="hint">下のボタンで足してください</span>'}</div>
+    <div class="btns"><button class="btn" data-k="2">＋ 2（短い）</button><button class="btn" data-k="3">＋ 3（長い）</button><button class="btn" data-k="b">⌫ 1つ消す</button><button class="btn main" data-k="ok" ${g.length ? '' : 'disabled'}>この拍子にする</button></div>`;
+    mine.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { const k = b.dataset.k; if (k === '2' || k === '3') { if (g.length < 8 && g.reduce((x, y) => x + y, 0) + +k <= 16) g.push(+k); } else if (k === 'b') g.pop(); else pgChoose(g.slice()); draw(); }); };
+  draw();
+  if (buildCards && buildCards.length >= 2) { const b = document.createElement('button'); b.className = 'btn small'; b.style.marginTop = '8px'; b.textContent = '🃏 「リズムを作る」で作った拍子を使う'; b.onclick = () => pgChoose(buildCards.slice()); box.appendChild(b); }
+  openModal('#shPick'); $('#shPick .modal-box').scrollTop = 0;
+}
+function pgChoose(g) { const cb = pgPick; pgPick = null; closeModals(); openModal('#shProg'); if (cb) cb(g); }
+function openProg(focusBar) {
+  if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V' || mode === 'Y') setMode(lastMetaMode || 'MB');
+  pgBlocks = pgGroup(songDraft); closeDrawer(); closeModals(); renderProg(); openModal('#shProg');
 }
 function initSongEditor() {
-  const ADD = [[2, 2], [2, 2, 2], [2, 2, 2, 2], [2, 2, 2, 2, 2], [3, 3], [3, 3, 3], [2, 3], [3, 2], [2, 2, 3], [2, 3, 2], [3, 2, 2], [3, 3, 2], [2, 2, 2, 3]];
-  const box = $('#songAdd');
-  ADD.forEach(g => { const b = document.createElement('button'); b.className = 'btn small'; const uni = g.every(L => L === g[0]); b.innerHTML = uni ? `＋ ${barSig(g)}` : `＋ ${barSig(g)}<span class="c-mute" style="font-size:11px"> ${g.join('+')}</span>`; b.onclick = () => songAdd(g); box.appendChild(b); });
-  const mine = document.createElement('button'); mine.className = 'btn small'; mine.textContent = '＋ 🃏作ったリズム';
-  mine.onclick = () => { if (buildCards.length >= 2) songAdd(buildCards); else songMsg('「リズムを作る」でカードを2枚以上並べてください', true); };
-  box.appendChild(mine);
-  $('#songText').addEventListener('input', () => {
-    const { bars, err } = parseSong($('#songText').value); songDraft = bars; songDraftSave(); renderSongEditor(true);
-    if (err.length) songMsg(`読めない所：${err.slice(0, 3).join('　')}（例：3+2×4, 2+3, 6/8, 5/4, [A], ♩=80）。5/8 や 7/8 は 2+3 のように書いてください`, true);
+  $('#pgText').addEventListener('input', () => {
+    const { bars, err } = parseSong($('#pgText').value); songDraft = bars; songDraftSave(); pgBlocks = pgGroup(songDraft);
+    if (pgBound && song && bars.length) songApply(0, 0);
+    renderProg(true);
+    if (err.length) songMsg(`読めない所：${err.slice(0, 3).join('　')}（例：3+2×4, 6/8, 5/4, [A], ♩=80, accel, rit, a tempo）`, true);
   });
-  $('#songRep').onclick = () => { if (songDraft.length) songAdd(songDraft[songDraft.length - 1].g); };
-  $('#songMark').onclick = songAddMark;
-  $('#songTempo').onclick = () => songAddFlag('t'); $('#songAccel').onclick = () => songAddFlag('accel'); $('#songRit').onclick = () => songAddFlag('rit');
-  $('#songUndo').onclick = () => { songDraft.pop(); songDraftSave(); renderSongEditor(); };
-  $('#songClear').onclick = () => { if (!songDraft.length || confirm('小節の並びを全部消しますか？')) { songDraft = []; songDraftSave(); renderSongEditor(); } };
-  $('#songPlay').onclick = () => {
-    if (!songDraft.length) { songMsg('小節が1つもありません', true); return; }
-    songSet({ name: $('#songName').value.trim() || '自分で作った進行', text: songText(songDraft) });
+  $('#pgClear').onclick = () => { if (!pgBlocks.length || confirm('ブロックを全部消しますか？')) { pgBlocks = []; pgChanged(0, 0); } };
+  $('#pgPlay').onclick = () => {
+    if (!songDraft.length) { songMsg('ブロックが1つもありません', true); return; }
+    songSet({ name: ($('#pgName').value || '').trim() || '自分で作った進行', text: songText(songDraft) }); pgBound = true;
     if (!playing) start(); songMsg('この進行で鳴らします（画面の上の小節を押すと、その小節から）');
-    if (window.innerWidth < 1100) closeDrawer();   // 小さい画面では、絵が見えるように閉じる
+    renderProg(true); if (window.innerWidth < 900) closeModals();
   };
-  $('#songSave').onclick = () => {
-    if (!songDraft.length) { songMsg('小節が1つもありません', true); return; }
-    const name = $('#songName').value.trim() || `進行 ${savedSongs.length + 1}`;
+  $('#pgSave').onclick = () => {
+    if (!songDraft.length) { songMsg('ブロックが1つもありません', true); return; }
+    const name = ($('#pgName').value || '').trim() || `進行 ${savedSongs.length + 1}`;
     const ex = savedSongs.findIndex(s => s.name === name), it = { name, text: songText(songDraft) };
     if (ex >= 0) savedSongs[ex] = it; else savedSongs.push(it);
     saveSongs(); renderPresets();
@@ -12220,13 +12405,16 @@ function initSongEditor() {
     if (!song) return; const L = song.bars.length;
     let f = clamp(Math.round(+$('#songFrom').value || 1), 1, L) - 1, t = clamp(Math.round(+$('#songTo').value || L), 1, L) - 1;
     if (t < f) [f, t] = [t, f];
-    song.from = f; song.to = t; renderSongMap(); renderSongEditor();
+    song.from = f; song.to = t; renderSongMap(); renderProg(true);
   };
   $('#songFrom').onchange = setRange; $('#songTo').onchange = setRange;
-  $('#songAll').onclick = () => { if (!song) return; song.from = 0; song.to = song.bars.length - 1; renderSongMap(); renderSongEditor(); };
+  $('#songAll').onclick = () => { if (!song) return; song.from = 0; song.to = song.bars.length - 1; renderSongMap(); renderProg(true); };
   $('#songFromHere').onclick = () => { if (song) songSeek(song.from); };
   bindSwitch('#songLoopSw', () => SET.songLoop, v => { SET.songLoop = v; renderSongMap(); });
-  renderSongEditor();
+  $('#openProg').onclick = () => openProg();
+  $('#shPick').addEventListener('click', e => { if (e.target === $('#shPick') || e.target.hasAttribute('data-pickclose')) { e.stopImmediatePropagation(); pgPick = null; closeModals(); openModal('#shProg'); } }, true);   // 拍子えらびをやめたら、編集画面にもどる
+  $('#shProg').addEventListener('click', e => { if (e.target.closest('#pgText')) return; });
+  pgBlocks = pgGroup(songDraft);
 }
 function songButton(s, onDelete) {
   const b = document.createElement('button'), { bars } = parseSong(s.text);
@@ -12235,7 +12423,7 @@ function songButton(s, onDelete) {
   b.onclick = () => { songSet(s); };
   if (onDelete) { const d = document.createElement('span'); d.className = 'p-del'; d.textContent = '×'; d.title = 'この進行を消す'; d.onclick = e => { e.stopPropagation(); onDelete(); }; b.appendChild(d); }
   const ed = document.createElement('span'); ed.className = 'p-edit'; ed.textContent = '✎'; ed.title = '編集する';
-  ed.onclick = e => { e.stopPropagation(); songDraft = bars.map(x => Object.assign({}, x, { g: x.g.slice() })); songDraftSave(); $('#songName').value = s.name; renderSongEditor(); openDrawer('secSong'); };
+  ed.onclick = e => { e.stopPropagation(); songDraft = bars.map(x => Object.assign({}, x, { g: x.g.slice() })); songDraftSave(); $('#pgName').value = s.name; pgBound = !!(song && song.name === s.name); openProg(); };
   b.appendChild(ed);
   return b;
 }
@@ -13117,10 +13305,10 @@ function homeGo(go) {
   else if (go === 'ens') { closeDrawer(); renderEns(); openModal('#shEns'); }
   else if (go === 'rec') { closeDrawer(); renderRec(); openModal('#shRec'); }
   else if (go === 'build') { if (mode === 'W' || mode === 'F' || mode === 'X') setMode('L'); openDrawer('secBuild'); }
-  else if (go === 'song') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secSong'); }
+  else if (go === 'song') { openProg(); }
   else if (go === 'tup') { closeDrawer(); setMode('X'); }
   else if (go === 'game') { closeDrawer(); setMode('Y'); }
-  else if (go === 'song') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secSong'); }
+  else if (go === 'song') { openProg(); }
   else if (go === 'cmp') { closeDrawer(); setMode('V'); }
   else if (go === 'poly') { closeDrawer(); setMode('F'); }
   else if (go === 'music') { if (mode !== plainMode()) setMode(plainMode()); openDrawer('secMusic'); }
@@ -13261,7 +13449,7 @@ document.querySelectorAll('#rampEvery2 button').forEach(b => b.onclick = () => {
 [['#segMOn', 'mOn'], ['#segMOff', 'mOff'], ['#segRand', 'rand'], ['#segTimer', 'timerMin']].forEach(([id, k]) => document.querySelectorAll(id + ' button').forEach(b => b.onclick = () => { SET[k] = +b.dataset.v; saveSet(); renderMetro(); }));
 document.querySelectorAll('#tapTarget2 button').forEach(b => b.onclick = () => { SET.tapHead = b.dataset.v === 'head'; saveSet(); renderMetro(); refreshPanels(); });
 $('#tapReset2').onclick = () => $('#tapReset').onclick();
-$('#progBtn').onclick = () => { closeModals(); if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V' || mode === 'Y') setMode(lastMetaMode || 'MB'); openDrawer('secSong'); };
+$('#progBtn').onclick = () => { closeModals(); openProg(); };
 $('#toDrawerPrac').onclick = () => { closeModals(); openDrawer('secPractice'); };
 /* ★ プリセット */
 let mPresets = []; try { mPresets = JSON.parse(localStorage.getItem('vm_presets') || '[]'); } catch (e) {}
