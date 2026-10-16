@@ -1351,7 +1351,7 @@ function makeMeta(p) {
       groups.push(L); s += L;
     });
   });
-  const mt = { preset: p, bars, sigs, nBars: bars.length, groups, starts, subToGroup, barOfGroup, barStartGroup, barStartSub, total: s };
+  const mt = { preset: p, bars, sigs, nBars: bars.length, groups, starts, subToGroup, barOfGroup, barStartGroup, barStartSub, total: s, shape: groups.join('') + '/' + barStartGroup.join('') };
   mt.poly = buildShape(mt);
   return mt;
 }
@@ -1988,9 +1988,10 @@ const MODE_SOUND = {
   L: (t, h, L, b, k, bar) => playKarakuri(t, h, L, b, k, bar), M: (t, h, L, b) => { playBlock(t, h, L, b); if (b) playBell(t, 1760, 0.18); },
 };
 function scheduleMeta() {
-  if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; stepCounter = 0; subCounter = 0; measure = 0; }
+  if (curSub === 0 && pendingMeta) { activeMeta = pendingMeta; pendingMeta = null; }   // 拍子が変わっても、数えるのはつづける（絵がリセットされない）
   else if (curSub === 0 && songOnNow()) songStep();   // 曲の進行：小節の頭で次の小節へ
   const m = activeMeta;
+  if (curSub === 0) tlPush(m, nextTime);
   if (m.barStartSub.includes(curSub)) onBarStart();
   if (songOnNow() && songPos > 0) { const rp = song.bars[songPos - 1] && song.bars[songPos - 1].rp; if (rp) { bpm = Math.round(rampBpm(rp, curSub) * 10) / 10; uiBpmDirty = true; } }   // accel.・rit.
   const g = m.subToGroup[curSub], isAcc = m.starts[g] === curSub, dur = 60 / bpm;
@@ -2028,7 +2029,7 @@ function scheduleMeta() {
   }
   if (tuneOn() && stg < 3) tuneSchedule(nextTime, m, curSub, dur);
   if (isAcc) stepCounter++;
-  queue.push({ kind: 'meta', time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1, resp: maneResp, muted: metBeatMuted && mode !== 'W' && mode !== 'V' && mode !== 'Y' });
+  queue.push({ kind: 'meta', seg: tl[tl.length - 1], time: nextTime, sub: curSub, dur, meta: m, g, isAcc, step: stepCounter - 1, sc: subCounter++, measure, bar: barCount - 1, stage: stg, songBar: songOnNow() ? songPos - 1 : -1, resp: maneResp, muted: metBeatMuted && mode !== 'W' && mode !== 'V' && mode !== 'Y' });
   logTarget(nextTime, isAcc, subCounter - 1, { resp: maneResp, round: Math.floor(measure / 2), g, L });
   if (SET.vibe && isAcc && navigator.vibrate && !(metBeatMuted && mode !== 'W')) {   // 📳 拍の頭でふるえる（Android）
     const barHead = m.barStartSub.includes(curSub), ms = (nextTime - ctx.currentTime + (ctx.outputLatency || ctx.baseLatency || 0)) * 1000;
@@ -2146,11 +2147,41 @@ function audioNow() {
   return heardTime(performance.now()) + 1 / 60;
 }
 
+/* ===== 拍子のタイムライン：これまで鳴らした拍子の並び。拍子が途中で変わっても、絵が「過去」と「つづき」を正しく計算できる =====
+   seg = { sc0（この拍子の最初の刻みの通し番号）, st0（ここまでの拍の数）, ms0（ここまでの小節の数）, meta, t（始まった時刻） }
+   tlAt(j) … 通し番号 j の刻みが、どの拍子の何番目か（j は過去でも、少し先でも）            */
+let tl = [];
+function tlPush(m, t) {
+  const last = tl[tl.length - 1];
+  if (last && last.meta === m) return;
+  tl.push({ sc0: subCounter, st0: stepCounter, ms0: measure, meta: m, t, i: tl.length, prev: last || null });
+  if (tl.length > 80) tl.splice(0, tl.length - 80);
+}
+function tlSeg(j) {   // j をふくむ区間（いちばん新しい区間より先は、その拍子のくり返しと考える）
+  for (let i = tl.length - 1; i >= 0; i--) if (tl[i].sc0 <= j) return tl[i];
+  return tl[0] || null;
+}
+function tlNextMeta() {   // 次に来る拍子（プログラム・予約された拍子・同じ拍子のくり返し）
+  const last = tl[tl.length - 1]; if (!last) return activeMeta;
+  if (pendingMeta) return pendingMeta;
+  if (typeof song !== 'undefined' && song && songOnNow() && songMetas.length) { const i = songPos > song.to || songPos < song.from ? song.from : songPos; return songMetas[i] || last.meta; }
+  return last.meta;
+}
+function tlAt(j) {
+  let s = tlSeg(j); if (!s) return null;
+  let loc = j - s.sc0, m = s.meta, st0 = s.st0, ms0 = s.ms0;
+  while (loc >= m.total && s === tl[tl.length - 1]) {   // いまの区間より先：次の拍子を順につなぐ（予測）
+    const nm = tlNextMeta(); loc -= m.total; st0 += m.groups.length; ms0 += 1; m = nm; s = { sc0: j - loc, st0, ms0, meta: nm, predicted: true };
+  }
+  const n = loc % m.total, cyc = Math.floor(loc / m.total), g = m.subToGroup[n], head = m.starts[g] === n;
+  return { m, n, cyc, g, head, gl: g - m.barStartGroup[m.barOfGroup[g]], bar: m.barOfGroup[g], barHead: m.barStartSub.includes(n), step: s.st0 + cyc * m.groups.length + g, seg: s, loc };
+}
+function tlSteps(j) { const a = tlAt(j); return a ? a.step + (a.head ? 1 : 0) : 0; }   // j までに数えた拍（頭）の数
 function resetCounters() {
   curSub = 0; measure = 0; stepCounter = 0; subCounter = 0; barCount = 0; curStage = 0;
   polyK = 0; polyCycle = -1;
   tupE = 0; tupBeat = 0; tupBarIdx = -1; tupFrozen = 0;
-  queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0;
+  queue = []; noteLog = []; lastNote = null; accents = []; polyHits = []; prevStage = 0; tl = [];
   if (tune) tune.m0 = null;
 }
 function start(noCount) {
@@ -2241,7 +2272,10 @@ function getState(now) {
   const n = lastNote, m = n.meta;
   const frac = playing ? clamp((now - n.time) / n.dur, 0, 0.999) : frozenFrac;
   const pos = n.sub + frac, gs = m.starts[n.g], len = m.groups[n.g];
-  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true, songBar: n.songBar };
+  const seg = n.seg || null;
+  return { m, pos, g: n.g, gp: (pos - gs) / len, step: n.step, sc: n.sc, measure: n.measure, sub: n.sub, frac, has: true, songBar: n.songBar,
+    seg, prevMeta: seg && seg.prev ? seg.prev.meta : null, changed: !!(seg && seg.prev && seg.prev.meta.shape !== m.shape),   // 拍子が変わった直後か（前の拍子）
+    segAge: seg ? now - seg.t : 99 };
 }
 function getPolyState(now) {
   if (!lastNote || lastNote.kind !== 'poly') {
@@ -12070,7 +12104,7 @@ function songStep() {
   const b = song.bars[songPos];
   if (b.t) { if (bpm !== b.t) { bpm = b.t; uiBpmDirty = true; } }
   else if (jumped) { const t = songTempoAt(songPos); if (t && t !== bpm) { bpm = t; uiBpmDirty = true; } }
-  activeMeta = songMetas[songPos]; stepCounter = 0; subCounter = 0; measure = 0;
+  activeMeta = songMetas[songPos];   // 小節がかわっても、数えるのはつづける（絵がリセットされない）
   songPos++;
 }
 const songActive = () => !!song;
