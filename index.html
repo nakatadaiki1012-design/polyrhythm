@@ -1280,7 +1280,7 @@ function neutralTxt(t) {
   if (oddNow()) return t.replace(/パ・ン・ト・マ・ト/g, '1・2…').replace(/パン（2）|パン/g, '短い拍').replace(/トマト（3）|トマト/g, '長い拍');
   // 拍の長さがみな同じ拍子：パン・トマトをくらべる言い方は意味がないので、その部分をけずる
   t = t.replace(/（[^（）]*(パン|トマト|パ・ン)[^（）]*）/g, '');
-  return t.split(/(?<=[。、])/).filter(x => !/パン|トマト|パ・ン/.test(x)).join('').replace(/[、]$/, '');
+  return (t.match(/[^。、]+[。、]?|[。、]/g) || []).filter(x => !/パン|トマト|パ・ン/.test(x)).join('').replace(/[、]$/, '');
 }
 /* メトロノームの見せ方の説明（拍子に関係なく使える言い方） */
 const MODE_MLINE = { Z1: '拍の頭でエンジン点火。小節の頭でブースター切りはなし', Z2: '拍の頭でオーロラが光る。小節の頭で流れ星', A: '角が床に「コトッ」とつく瞬間に音。とがった角＝拍の頭', B: '大きいボールは拍ごとに跳ぶ。着地の瞬間＝拍の頭', C: '光の球が1周＝1小節。色の境目を通る瞬間＝拍の頭',
@@ -2204,7 +2204,7 @@ function tlPush(m, t) {
 }
 function tlSeg(j) {   // j をふくむ区間（いちばん新しい区間より先は、その拍子のくり返しと考える）
   for (let i = tl.length - 1; i >= 0; i--) if (tl[i].sc0 <= j) return tl[i];
-  return tl[0] || null;
+  return tl[0] || { sc0: 0, st0: 0, ms0: 0, meta: activeMeta, virtual: true };   // まだ鳴らしていない：いまの拍子が 0 から続くとみなす
 }
 function tlNextMeta(k = 0) {   // k 番めに来る拍子（0＝次の小節）。プログラムなら、あとに続く小節を順に（くり返し・最後まで考える）
   const last = tl[tl.length - 1]; if (!last) return activeMeta;
@@ -2225,6 +2225,16 @@ function tlAt(j) {
   }
   const n = loc % m.total, cyc = Math.floor(loc / m.total), g = m.subToGroup[n], head = m.starts[g] === n;
   return { m, n, cyc, g, head, gl: g - m.barStartGroup[m.barOfGroup[g]], bar: m.barOfGroup[g], barHead: m.barStartSub.includes(n), step: s.st0 + cyc * m.groups.length + g, seg: s, loc };
+}
+function barGroupsAt(j) {   // j をふくむ小節の拍の並び（例 [3,2,2]）と、その小節の頭の位置
+  const a = tlAt(j); if (!a) return null; const m = a.m, b = a.bar, g0 = m.barStartGroup[b], g1 = b + 1 < m.nBars ? m.barStartGroup[b + 1] : m.groups.length;
+  return { gs: m.groups.slice(g0, g1), head: j - (a.n - m.barStartSub[b]) };
+}
+function barCap(st, same) {   // 小節の頭の説明：前の小節と並びがちがう（プログラムで拍子が変わった）ときは「もう一度」と言わない
+  if (!st || typeof st.sc !== 'number') return same;
+  const c = barGroupsAt(st.sc); if (!c || c.head <= 0) return same;
+  const pv = barGroupsAt(c.head - 1); if (!pv || pv.gs.join() === c.gs.join()) return same;
+  return `小節の頭！ 止まらずに、つづけて ${c.gs.join('+')} へ`;
 }
 function tlSteps(j) { const a = tlAt(j); return a ? a.step + (a.head ? 1 : 0) : 0; }   // j までに数えた拍（頭）の数
 function resetCounters() {
@@ -2575,6 +2585,7 @@ function frame(ts) {
       else if (bi - shufBar >= SET.shuffle) { shufBar = bi; const VO = viewsOpen().filter(k => k !== mode); swipeView(0, VO[Math.floor(Math.random() * VO.length)]); }
     }
     if (st.songBar !== lastSongBar) { lastSongBar = st.songBar; updateBarRhythm(); }
+    try {
     if (mode === 'A') drawRoll(st, now, sceneH);
     else if (mode === 'B') drawBounce(st, now, sceneH);
     else if (mode === 'C') drawOrbit(st, now, sceneH);
@@ -2603,6 +2614,7 @@ function frame(ts) {
     else if (mode === 'V') drawCompare(st, now, sceneH);
     else if (mode === 'W') { if (quiz.cmpOn) drawCompare(st, now, sceneH - qPanH); else drawOrbit(st, now, sceneH - qPanH); }
     else drawStairs(st, now, sceneH);
+    } catch (e) { if (!frame.errShown) { frame.errShown = true; console.error(e); } }   // 絵の途中でまちがいがあっても、画面ぜんぶが消えないように
     drawHeader(st);
     if (cmp2) drawScore2(st, now, belowY + bandH, scoreH);
     else { if (scoreH) drawScore(st, now, belowY + bandH, scoreH); if (stripH) drawStrip(st, belowY + bandH + scoreH, stripH); }
@@ -7579,7 +7591,7 @@ function drawGears(st, now, ah) {
 
   // 文字
   if (movingB) gearsTxt(narrow ? '小節の頭！ 小節の歯車が1つ進む' : '小節の頭！ 小節の歯車が歯1つぶん進む（刻みの歯車は1回転）', W / 2, 80 * K, 13 * K, LIME, 900);
-  else if (barFlash > 0) gearsTxt('小節の頭！ 刻みの歯車が1回転して、もとの位置にもどった', W / 2, 80 * K, 13 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
+  else if (barFlash > 0) gearsTxt(barCap(st, '小節の頭！ 刻みの歯車が1回転して、もとの位置にもどった'), W / 2, 80 * K, 13 * K, hexA(LIME, Math.min(1, barFlash * 1.4)), 900);
   else if (!has) gearsTxt('▶ 再生すると、刻みの歯車が回りはじめます', W / 2, 80 * K, 13 * K, '#e2e8f0', 700);
   else if (moving) gearsTxt('歯がかみ合っている間だけ、拍の歯車が回る', W / 2, 80 * K, 12.5 * K, hexA(COLORS[L], 0.95), 800);
 
@@ -7898,7 +7910,7 @@ function drawDancer(st, now, ah) {
   // 文字
   // 上の説明は1行だけ：小節の頭の直後は「小節の頭！」、それ以外は今の拍の動き
   const dfs = Math.max(13, 14 * K);
-  if (barFlash > 0.35) txt(narrow ? '小節の頭！ 並びがもう一度' : '小節の頭！ 足あとの並びが、もう一度はじまる', W / 2, 84 * K, dfs, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
+  if (barFlash > 0.35) txt(barCap(st, narrow ? '小節の頭！ 並びがもう一度' : '小節の頭！ 足あとの並びが、もう一度はじまる'), W / 2, 84 * K, dfs, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
   else if (has) txt((pw(L) || '拍の頭') + ' ＝ 踏み込み ＋ 小刻みに' + (L - 1) + '歩', W / 2, 84 * K, dfs, col, 900);
   else txt('▶ 再生すると、踊りはじめます', W / 2, 84 * K, dfs, '#e2e8f0', 700);
 }
@@ -8256,7 +8268,7 @@ function drawDomino(st, now, ah) {
   gearsParts(dominoFx);
   if (pOff && pa < 0.6) { tsh(true); txt(pf.kind === 'e' ? 'グラッ（早い）' : 'グラッ（遅い）', ax + u * 1.5, gy - u * 2.6 - 10 * K, Math.max(13, 13 * K), hexA(pf.kind === 'e' ? '#bfdbfe' : '#fecdd3', Math.min(1, 1.7 * (1 - pa / 0.6))), 800); tsh(false); }
   tsh(true);
-  if (barFlash > 0) txt('小節の頭！ 同じ並びのドミノが、また倒れはじめる', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ 同じ並びのドミノが、また倒れはじめる'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、ドミノが倒れはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '背の高いドミノ ＝ 拍の頭' : '背の高いドミノ ＝ 拍の頭（トマトがいちばん高い）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
@@ -8448,7 +8460,7 @@ function drawJuggle(st, now, ah) {
   }
   drawCharBallConfetti('O', fest, 0, W, top - 30 * K, fy);
   drawCharBallParticles('O');
-  if (barFlash > 0) txt('小節の頭！ 同じ投げ方をもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ 同じ投げ方をもう一度'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、ジャグリングが始まります', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
 }
 /* @@END drawJuggle */
@@ -8826,7 +8838,7 @@ function drawDrops(st, now, ah) {
     if (p > 0.75) { cx.strokeStyle = hexA(col, (p - 0.75) * 2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.ellipse(x, waterY + 2 * K, sz * 1.4, sz * 0.4, 0, 0, Math.PI * 2); cx.stroke(); }   // 水面に映る影
   }
 
-  if (barFlash > 0) txt('小節の頭！ 同じ場所に、同じしずくがもう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ 同じ場所に、同じしずくがもう一度'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、しずくが落ちはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '大きなしずく ＝ 拍の頭' : '大きなしずく ＝ 拍の頭（トマトの波紋がいちばん大きい）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
@@ -9133,7 +9145,7 @@ function drawJelly(st, now, ah) {
     cx.beginPath(); cx.ellipse(bA.cxx, plateY + 4 * K, bA.w * (0.5 + 0.5 * q), 10 * K * (1 + q), 0, 0, Math.PI * 2); cx.stroke();
     if (bar) barFlash = 1 - q;
   }
-  if (barFlash > 0) txt('小節の頭！ サクランボが最初のゼリーにもどった', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ サクランボが最初のゼリーにもどった'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、サクランボが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ゼリーの大きさ ＝ 拍の長さ' : 'ゼリーの大きさ ＝ 拍の長さ（パン＝刻み2つ ／ トマト＝刻み3つ）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
@@ -9368,7 +9380,7 @@ function drawPendulum(st, now, ah) {
     if (act && kCur > 0 && ageS < 0.2) { cx.strokeStyle = hexA('#ffffff', 1 - ageS / 0.2); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], br + (4 + 20 * ageS) * K, 0, Math.PI * 2); cx.stroke(); }
   }
   if (P.f3 > 0.01) { rollPlayConfetti(0, -10 * K, W, floorY, P.f3, tt, 23); rollPlayTwinkle(0, beamY + 30 * K, W, floorY - beamY - 60 * K, 10, tt, P.f3, '#ffe9a8', 9); }
-  if (bar && hit > 0) txt('小節の頭！ 同じ順番で、もう一度', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, hit * 1.6)), 900);
+  if (bar && hit > 0) txt(barCap(st, '小節の頭！ 同じ順番で、もう一度'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, hit * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、振り子が動きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? 'ひもが長いほど、ゆっくり振れる' : 'ひもが長いほど、行って戻るのに時間がかかる（トマトのひもはパンの2.25倍）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
@@ -9959,7 +9971,7 @@ function drawFlowers(st, now, ah) {
     cx.strokeStyle = i % 2 ? 'rgba(34,90,40,0.9)' : 'rgba(74,140,70,0.85)'; cx.lineWidth = (1.2 + hash01(i + 640)) * K;
     cx.beginPath(); cx.moveTo(x, ah); cx.quadraticCurveTo(x + sw * 0.3, ah - h * 0.5, x + sw + (hash01(i + 660) - 0.5) * 6 * K, ah - h); cx.stroke();
   }
-  if (barFlash > 0) txt('小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ 新しい列が咲きはじめる（並びは前の列と同じ）'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、花が咲きはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '花びら2枚 ＝ 刻み1つ' : '花びら2枚 ＝ 刻み1つ。1列 ＝ 1小節（奥の列と並びをくらべよう）', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
@@ -10296,7 +10308,7 @@ function drawFrog(st, now, ah) {
     cx.beginPath(); cx.ellipse(fx, waterY + 5 * K, fs * (0.4 + 0.6 * q), fs * (0.12 + 0.15 * q), 0, 0, Math.PI * 2); cx.stroke();
   }
   cx.restore();
-  if (barFlash > 0) txt('小節の頭！ ハスの花の葉', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ ハスの花の葉'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
@@ -10619,7 +10631,7 @@ function drawKarakuri(st, now, ah) {
     const e = 1 - pa / 0.35; cx.strokeStyle = hexA('#e7dccb', 0.5 * e); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(bx, by, r + (4 + 14 * (1 - e)) * K, 0, Math.PI * 2); cx.stroke();
   }
   tsh(true);
-  if (barFlash > 0) txt('小節の頭！ 旗が立って、また最初の仕掛けから', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt(barCap(st, '小節の頭！ 旗が立って、また最初の仕掛けから'), W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、玉が転がりはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '大きな仕掛け ＝ 拍の頭' : '大きな仕掛け（ばね・ベル）＝ 拍の頭。刻み1つごとに1つずつ鳴る', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
   tsh(false);
