@@ -1306,7 +1306,7 @@ function neutralTxt(t) {
 const MODE_MLINE = { Z1: '拍の頭でエンジン点火。小節の頭でブースター切りはなし', Z2: '拍の頭でオーロラが光る。小節の頭で流れ星', A: '角が床に「コトッ」とつく瞬間に音。とがった角＝拍の頭', B: '大きいボールは拍ごとに跳ぶ。着地の瞬間＝拍の頭', C: '光の球が1周＝1小節。色の境目を通る瞬間＝拍の頭',
   D: '指揮の図形。打点で跳ね返る瞬間＝拍の頭', E: '刻みでぴょん、拍の頭で次の段へ', G: '車両の継ぎ目がレールの継ぎ目を通るとガタン！＝拍の頭。1両＝1拍',
   H: '外側の大きな点＝拍の頭、内側の点＝刻み。小節ごとに模様が育つ', I: '大きな花火＝拍の頭、小さな火花＝刻み', J: '刻み→拍→小節の3つの歯車。かみ合うときだけ次の歯車が回る',
-  K: '刻みはつま先で小刻みに（ブーレ）、拍の頭でつま先に立つ（ピケ）', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節で1段、どんどん積み上がる',
+  K: '1拍で1歩。拍の頭でつま先に立つ（ピケ）。長い拍はゆったり大きく', L: '玉が仕掛けを1つずつ鳴らして進む。大きな仕掛け＝拍の頭', M: 'ブロックが着地する瞬間にタップ！ 1小節で1段、どんどん積み上がる',
   N: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', O: '1拍＝1回の投げ。手に落ちる瞬間＝拍の頭', P: 'しずくが水面に落ちる瞬間に音。大きな波紋＝拍の頭',
   Q: 'サクランボが乗った瞬間にゼリーがぷるん＝拍の頭', R: '振り子が鐘に当たる瞬間＝拍の頭', S: '大きな丸が線に重なった瞬間にタップ！（J・Enter キーでも）',
   T: '拍の頭で花が開き、刻みごとに花びらがふえる', U: 'ハスの葉に着地する瞬間＝拍の頭' };
@@ -1500,8 +1500,8 @@ const MODE_INFO = {
        detail: ['拍の頭で大きな花火（ドン）、刻みで小さな火花（パチッ）。', 'トマトの花火は大きく、長く光る。', '小節の頭はピンクの二重の花火。', '開く場所は毎小節同じなので、くり返しが見える。'] },
   J: { g: 'g2', em: '⚙️', name: '歯車', line: '刻み→拍→小節の3つの歯車。歯がかみ合うときだけ、次の歯車が回る', short: '刻み→拍→小節。かみ合うときだけ次が回る',
        detail: ['刻みの歯車：1刻みで1マス進み、1回転でちょうど1小節（交互パターンは2小節）。', '歯は拍の頭のマスにだけある。歯のあいだは、パン＝2マス、トマト＝3マス。', '拍の歯車：歯がかみ合う拍の頭のときだけ回り、刻みのあいだは止まっている。', '小節の歯車（緑）：拍の歯車の前の小さな歯車には、小節の頭の拍にだけ歯がある。だから小節の頭のときだけ、歯1つぶん回る（歯1つ＝1小節、1回転＝4小節）。まん中は何小節目か。', '歯の真ん中どうしがかみ合う瞬間に音が鳴る。小節の頭の歯は緑。'] },
-  K: { g: 'g3', em: '💃', name: '踊る人', line: 'バレエダンサー。刻みはつま先で小刻みに（ブーレ）、拍の頭でつま先に立って脚を上げる（ピケ・アラベスク）', short: '刻みはブーレ、拍の頭でピケ',
-       detail: ['刻みでは、つま先で小刻みに1歩ずつ進む（ブーレ）。', '拍の頭の前にひざをやわらかく曲げ、拍の頭でまっすぐの脚でつま先に立つ（ピケ）。うしろの脚はアラベスクへ。長い拍ほど高く。', '腕は拍のグループごとに、ゆっくり形を変える：短い拍＝横にひらく、長い拍＝頭の上へ、小節の頭＝アラベスク。', '色つきの大きな足あと＝拍の頭、小さな点＝刻み。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
+  K: { g: 'g3', em: '💃', name: '踊る人', line: 'バレエダンサー。1拍で1歩：拍の頭でつま先に立ち（ピケ）、うしろの脚を上げる（アラベスク）。長い拍はゆったり大きく', short: '1拍で1歩、拍の頭でピケ',
+       detail: ['1拍で1歩。短い拍（パン）は四分音符のように軽やかに、長い拍（トマト）は付点四分音符のようにゆったり大きく。', '拍の頭で、まっすぐの脚でつま先に立つ（ピケ）。うしろの脚はアラベスクへ上がり、前へ運ばれて、次の拍の前にひざをやわらかく曲げる。足あとのあいだの小さな点＝刻み。', '腕は拍のグループごとに、ゆっくり形を変える：短い拍＝横にひらく、長い拍＝頭の上へ、小節の頭＝アラベスク。', '色つきの大きな足あと＝拍の頭、小さな点＝刻み。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
 };
 MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', short: '当たる瞬間に音。高いドミノ＝頭',
   detail: ['刻み1つ＝ドミノ1枚。刻み1つぶんの時間で倒れ、次のドミノに当たった瞬間に音が鳴る。', '拍の頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯が拍の長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
@@ -8408,7 +8408,7 @@ function drawDancer(st, now, ah) {
   // 大きさ
   const hB = Math.min(ah * 0.3, 175 * K), Lt = 0.5 * hB;
   const fy = Math.min(ah * 0.7, Math.max(ah * 0.56, 100 * K + hB * 1.3)), band = ah * (narrow ? 0.16 : 0.15);
-  const uOf = mm => Math.max(6, Math.min(0.42 * Lt, 0.66 * W / (2 * ((mm.total + EX * mm.groups.length) / mm.nBars))));   // 1歩ぶんの横の長さ
+  const uOf = mm => Math.max(6, Math.min(0.24 * Lt, 0.66 * W / (2 * ((mm.total + EX * mm.groups.length) / mm.nBars))));   // 1歩ぶんの横の長さ
   let u = uOf(m);
   if (st.changed && st.prevMeta) { const t0 = clamp(st.segAge / 0.7, 0, 1), e0 = t0 * t0 * (3 - 2 * t0); u = uOf(st.prevMeta) * (1 - e0) + u * e0; }   // 拍子が変わったら、歩はばをなめらかに
   // カメラ：一定の速さで進む（1周ぶんの踏み込みをならして足す）。拍子が変わっても連続
@@ -8433,48 +8433,45 @@ function drawDancer(st, now, ah) {
   const ageS = has ? f * dur : 9;
 
   // ===== 人 =====
-  const headNow = has && m.starts[g] === st.sub, nextHead = has && isHead(k + 1), barNow = has && m.barStartSub.includes(st.sub);
-  // バレエの動き：拍の頭＝ピケ（まっすぐの脚でつま先に立つ）＋うしろの脚をアラベスクへ／刻み＝ブーレ（つま先で小刻みに）
-  // 拍の頭の前の刻みは、ひざをやわらかく曲げて（ドゥミ・プリエ）、次のピケの準備
+  const barNow = has && m.barStartSub.includes(st.sub);
+  // バレエの動き：1拍で1歩（短い拍＝四分音符で軽やかに、長い拍＝付点四分音符でゆったり大きく）。刻みでは歩かない
+  //   拍の頭＝ピケ（まっすぐの脚でつま先に立つ）→ うしろの脚をアラベスクへ上げる → 前へ運んでタンデュ → 拍の前にドゥミ・プリエ → 次の拍の頭でピケ
   const subDur = dur, gDur = L * dur;
-  const nextBarHead = has && nextHead && A(k + 1).barHead;
-  const s = has ? clamp((f - 0.06) / (headNow ? 0.9 : 0.8), 0, 1) : 0, se = s * s * s * (s * (6 * s - 15) + 10);
+  const hC = k - kCur, hN = hC + L;                                         // いまの拍の頭・次の拍の頭（通しの刻み番号）
+  const aPv = has && hC - 1 >= loTl ? A(hC - 1) : null, hP = aPv && aPv.m.groups[aPv.g] ? hC - aPv.m.groups[aPv.g] : hC - 2;   // 前の拍の頭（うしろの足がいた場所）
+  const nextHead = has && isHead(k + 1);
+  const gp = has ? clamp((kCur + f) / L, 0, 1) : 0;                        // 1歩の進みぐあい（0＝着地、1＝次の着地）
+  const s = gp, se = s * s * s * (s * (6 * s - 15) + 10);
+  const ttp = clamp((gp - 0.3) / 0.7, 0, 1), tte = ttp * ttp * ttp * (ttp * (6 * ttp - 15) + 10);   // 前へ運ぶのは後半
   let ankWx, ankWy;
   if (!has) { ankWx = ax - 0.3 * u; ankWy = fy - 0.9 * 0.075 * hB; }
-  else {
-    const xa = sx(X(k - 1)), xb = sx(X(k + 1));
-    if (headNow) {   // あとで、こしを中心に脚をまっすぐのまま回して、アラベスクにする（下の araUp）
-      ankWx = xa + (xb - xa) * Math.pow(se, 1.7); ankWy = fy - 0.07 * hB;
-    } else if (nextHead) {   // 次のピケへ：前へまっすぐ脚をのばして（タンデュ）、つま先から床へ
-      ankWx = xa + (xb - xa) * se; ankWy = fy - 0.07 * hB - Math.sin(Math.PI * s) * 0.1 * Lt;
-    } else {   // ブーレ：足をそろえたまま、つま先で小さく
-      ankWx = xa + (xb - xa) * se; ankWy = fy - 0.07 * hB - Math.sin(Math.PI * s) * 0.035 * Lt;
-    }
-  }
-  // ドゥミ・プリエ（次が拍の頭のとき、刻みの後半でひざをやわらかく曲げる）。拍の頭でまっすぐ伸びてつま先立ち
-  const prep = nextHead ? Math.pow(Math.sin(Math.PI * clamp((f - 0.3) / 0.75, 0, 1)), 1.5) * clamp(subDur / 0.22, 0.4, 1) : 0;
-  const rise = headNow ? Math.pow(1 - clamp(f / 0.55, 0, 1), 2) : 0;                // ピケで、ぐっと上へ伸び上がる
+  else { const xa = sx(X(hP)), xb = sx(X(hN)); ankWx = xa + (xb - xa) * tte; ankWy = fy - 0.07 * hB; }
+  // ドゥミ・プリエ（次の拍の頭の前に、ひざをやわらかく曲げる）。拍の頭でまっすぐ伸びてつま先立ち
+  const prep = has ? Math.pow(Math.sin(Math.PI * clamp((gp - 0.72) / 0.32, 0, 1)), 1.4) * clamp(gDur / 0.4, 0.4, 1) : 0;
+  const rise = has ? Math.pow(1 - clamp(gp / 0.3, 0, 1), 2) : 0;          // ピケで、すっと上へ伸び上がる
   const subDip = tDip * Lt;
   const fl = 0.075 * hB, toeH = 0.92 * fl;
-  const relS = has ? 1 - 0.4 * prep : 0.85;                                          // 1＝つま先立ち（ポワント）、0.45＝ドゥミ・ポワント
-  const xS = has ? sx(X(k)) : ax + 0.3 * u;
+  const relS = has ? 1 - 0.45 * prep : 0.85;                                // 1＝つま先立ち（ポワント）、0.55＝ドゥミ・ポワント
+  const xS = has ? sx(X(hC)) : ax + 0.3 * u;
   const ankS = [xS - fl * (1 - 0.8 * relS) * 0.6, fy - toeH * relS - 1.5 * K];
   const ankW = [ankWx, ankWy];
   const d = Math.abs(ankW[0] - ankS[0]);
   const hh = Math.sqrt(Math.max(0, Math.pow(0.975 * Lt, 2) - Math.pow(Math.min(d, 0.9 * Lt), 2) / 4));   // 脚はほとんどまっすぐ（バレエ）
-  const hxp = (ankS[0] * 0.75 + Math.min(Math.max(ankW[0], ankS[0] - 0.4 * Lt), ankS[0] + 0.4 * Lt) * 0.25) + fl * 0.25;   // こしは、立っている脚の上に
+  const wt = 0.2 + 0.25 * tte;                                               // 体重は立っている脚の上。次の一歩の前に、少しずつ前へ
+  const hxp = (ankS[0] * (1 - wt) + Math.min(Math.max(ankW[0], ankS[0] - 0.45 * Lt), ankS[0] + 0.45 * Lt) * wt) + fl * 0.25;
   const hhS = Math.sqrt(Math.max(0, Math.pow(0.985 * Lt, 2) - Math.pow(hxp - ankS[0], 2)));   // 立っている脚がまっすぐになる高さ
-  const hyp = ankS[1] - Math.min(hh, hhS) * 0.15 - hhS * 0.85 + prep * 0.045 * Lt - rise * 0.015 * Lt + subDip;
+  const hyp = ankS[1] - Math.min(hh, hhS) * 0.15 - hhS * 0.85 + prep * 0.06 * Lt - rise * 0.015 * Lt + subDip;
+  const araUp = has ? Math.pow(Math.sin(Math.PI * clamp(gp / 0.72, 0, 1)), 0.85) : 0;   // アラベスクの高さ（拍の前半で上がり、後半でおりる）
   if (has) {
     const R = 0.975 * Lt, dx = ankW[0] - hxp; if (Math.abs(dx) < R) { const yC = hyp + Math.sqrt(R * R - dx * dx); if (ankW[1] > yC) ankW[1] = yC; }   // 運ぶ脚もひざを伸ばしたまま、つま先で床をなでる（タンデュ）
-    if (headNow) {   // アラベスク：脚をまっすぐのまま、うしろへ高く上げてから、前へ運んでおろす
-      const up = Math.pow(Math.sin(Math.PI * Math.min(1, s * 1.05)), 0.8), th0 = Math.atan2(ankW[0] - hxp, ankW[1] - hyp);
-      const thPk = -(L === 3 ? 1.45 : 1.1) * (barNow ? 1.12 : 1), th = th0 + (thPk - th0) * up;
+    if (araUp > 0) {   // アラベスク：脚をまっすぐのまま、うしろへ高く上げてから、前へ運んでおろす
+      const th0 = Math.atan2(ankW[0] - hxp, ankW[1] - hyp), thPk = -(L === 3 ? 1.5 : 1.15) * (m.barStartGroup.includes(g) ? 1.1 : 1), th = th0 + (thPk - th0) * araUp;
       ankW[0] = hxp + Math.sin(th) * R; ankW[1] = Math.min(fy - 0.07 * hB, hyp + Math.cos(th) * R);
     }
-  }   // 運ぶ脚もひざを伸ばしたまま、つま先で床をなでる（タンデュ）
+  }
+  const headNow = has && gp < 0.999 && kCur === 0;                          // 拍の頭の刻みのあいだ（光る・きらめく）
   // 姿勢：背すじはまっすぐ。アラベスクのときだけ、少し前へ
-  const araNow = headNow ? Math.sin(Math.PI * Math.min(1, s * 1.05)) : 0;
+  const araNow = araUp;
   const lean = dSpr('ln', (has ? 0.015 + 0.13 * araNow * (L === 3 ? 1 : 0.7) + 0.03 * prep : 0.01), 70, 16.7) + tp.dir * 0.16 * env + 0.05 * tWob - 0.04 * tJoy;
   const T = 0.34 * hB, shx = hxp + Math.sin(lean) * T, shy = hyp - Math.cos(lean) * T;
   const headR = 0.08 * hB, hl = dSpr('hl', lean, 60, 15.5);   // 頭は首をのばして、うなずかない（体より少しおくれてついてくる）
@@ -8592,23 +8589,21 @@ function drawDancer(st, now, ah) {
   if (has) {
     for (let j = k, n = 0; j >= loTl && n < 90; j--, n++) {
       const x = sx(X(j)); if (x < -40 * K) break;
-      const y = (j % 2 === 0) ? yR : yL, fade = clamp(0.95 - (ax - x) / (ax + 40) * 0.5, 0.35, 0.95);
-      const aj = A(j);
+      const aj = A(j), y = (aj.step % 2 === 0) ? yR : yL, fade = clamp(0.95 - (ax - x) / (ax + 40) * 0.5, 0.35, 0.95);
       if (aj.barHead) barXs.push(x);
       if (aj.head) {
         const Lj = aj.m.groups[aj.g], c = COLORS[Lj];
-        footPrint(x, y, Math.min(0.5 * u, 24 * K) + 2 * K, c, fade * 0.85, false);
+        footPrint(x, y, Math.min(0.75 * u, 16 * K) + 2 * K, c, fade * 0.85, false);
         txt(pw(Lj), x, fy + band + 11 * K, (narrow ? 9 : 10.5) * K, hexA(c, fade), 800);
       } else {
         cx.fillStyle = `rgba(226,232,240,${0.5 * fade})`;
-        cx.beginPath(); cx.ellipse(x, y, Math.min(0.15 * u, 7 * K) + 1.5 * K, Math.min(0.1 * u, 5 * K) + 1 * K, 0, 0, Math.PI * 2); cx.fill();
+        cx.beginPath(); cx.ellipse(x, (yR + yL) / 2, Math.min(0.25 * u, 5 * K) + 1.2 * K, Math.min(0.16 * u, 3.5 * K) + 0.8 * K, 0, 0, Math.PI * 2); cx.fill();   // 刻み：足あとのあいだの小さな点
       }
     }
     let j = k + 1; for (let i = 0; i < 40; i++, j++) if (A(j).barHead) break;
     barXs.unshift(sx(X(j)));
     // 次に足がつく場所（点線）
-    const nh = isHead(k + 1);
-    footPrint(sx(X(k + 1)), ((k + 1) % 2 === 0) ? yR : yL, nh ? Math.min(0.5 * u, 24 * K) + 2 * K : Math.min(0.2 * u, 9 * K) + 2 * K, nh ? COLORS[A(k + 1).m.groups[A(k + 1).g]] : '#e2e8f0', 0.5, true);
+    { const aN = A(hN); footPrint(sx(X(hN)), (aN.step % 2 === 0) ? yR : yL, Math.min(0.75 * u, 16 * K) + 2 * K, COLORS[aN.m.groups[aN.g]], 0.5, true); }
   }
   // 小節の頭の線とわく
   for (const x of barXs) {
@@ -8628,12 +8623,12 @@ function drawDancer(st, now, ah) {
     const age = now - a.t; if (age < 0 || age > 0.7) continue;
     const q = 1 - age / 0.7, isBar = a.meta.barStartGroup.includes(a.g), c = isBar ? '#a3e635' : COLORS[a.meta.groups[a.g]];
     if (isBar) barFlash = Math.max(barFlash, q);
-    const x = sx(X(a.sc)), r = (0.5 + 1.7 * (1 - q)) * u + 4 * K, y = (a.sc % 2 === 0) ? yR : yL;
+    const x = sx(X(a.sc)), r = (1.2 + 2.6 * (1 - q)) * u + 4 * K, aS = A(a.sc), y = (aS && aS.step % 2 === 0) ? yR : yL;
     cx.strokeStyle = hexA(c, 0.85 * q); cx.lineWidth = (isBar ? 3.5 : 2.5) * K * q + 0.5;
     cx.beginPath(); cx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2); cx.stroke();
   }
   if (has && !isHead(k) && ageS < 0.2) {
-    const q = 1 - ageS / 0.2, x = sx(X(k)), y = (k % 2 === 0) ? yR : yL, r = (0.25 + 0.5 * (1 - q)) * u + 3 * K;
+    const q = 1 - ageS / 0.2, x = sx(X(k)), y = (yR + yL) / 2, r = (0.3 + 0.6 * (1 - q)) * u + 3 * K;   // 刻み：足あとのあいだの点が、ぽっと光る
     cx.strokeStyle = `rgba(226,232,240,${0.6 * q})`; cx.lineWidth = 1.5 * K;
     cx.beginPath(); cx.ellipse(x, y, r, r * 0.4, 0, 0, Math.PI * 2); cx.stroke();
   }
@@ -8671,7 +8666,7 @@ function drawDancer(st, now, ah) {
   // 上の説明は1行だけ：小節の頭の直後は「小節の頭！」、それ以外は今の拍の動き
   const dfs = Math.max(13, 14 * K);
   if (barFlash > 0.35) txt(barCap(st, narrow ? '小節の頭！ アラベスク' : '小節の頭！ アラベスク（足あとの並びが、もう一度）'), W / 2, 84 * K, dfs, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
-  else if (has) txt((pw(L) || '拍の頭') + ' ＝ ピケ（つま先で立つ）＋ ブーレ ' + (L - 1) + '歩', W / 2, 84 * K, dfs, col, 900);
+  else if (has) txt((pw(L) || '拍の頭') + (L === 3 ? ' ＝ 付点四分音符で、ゆったり大きく1歩' : ' ＝ 四分音符で、かろやかに1歩'), W / 2, 84 * K, dfs, col, 900);
   else txt('▶ 再生すると、踊りはじめます', W / 2, 84 * K, dfs, '#e2e8f0', 700);
 }
 /* @@END drawDancer */
