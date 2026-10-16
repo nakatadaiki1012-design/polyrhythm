@@ -2467,7 +2467,7 @@ function perfTick(ts) {   // 毎フレームよぶ。true を返したら、こ�
   return !!PERF_LV[perfQ.lv].skip && perfQ.tick % 2 === 1;
 }
 function resize() {
-  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.max(0.6, Math.min(window.devicePixelRatio || 1, 2) * (typeof perfQ === 'undefined' ? 1 : PERF_LV[perfQ.lv].s));
+  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.max(0.6, renderDpr() * (typeof perfQ === 'undefined' ? 1 : PERF_LV[perfQ.lv].s));
   W = Math.max(50, r.width); H = Math.max(50, r.height);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -3098,28 +3098,109 @@ function rollPlayRings(x, y, age, dur, r0, col, n = 3, spread = 60) {
   }
 }
 /* @@BEGIN drawRoll */
+// ---- 拍子が変わっても転がりがつづくための、ワールド座標（px）の計算 ----
+// 同じ形がつづく区間（ルート）では、ひとつの転がりとして数えつづける。形が変わったら、前の形の終わりの位置から新しい形が始まる
+const drawRollSame = (a, b) => a.shape === b.shape && a.poly.unit === b.poly.unit;
+function drawRollRoot(seg) {
+  if (seg.rollRoot) return seg.rollRoot;
+  const stack = []; let s = seg;
+  while (s && !s.rollRoot) { stack.push(s); if (s.prev && drawRollSame(s.prev.meta, s.meta)) s = s.prev; else { s = null; break; } }
+  let r = s ? s.rollRoot : null;
+  while (stack.length) { const q = stack.pop(); if (!r) r = q; q.rollRoot = r; }
+  return seg.rollRoot;
+}
+function drawRollX(P, k) { return Math.floor(k / P.N) * P.perim + P.prefix[mod(k, P.N)]; }
+function drawRollLen(P, root, pr) { return P.unit === 'group' ? root.st0 - pr.st0 : root.sc0 - pr.sc0; }   // 前の区間が転がった辺の数
+function drawRollBase(root, Rpx) {
+  if (root.rollRp === Rpx) return root.rollBase;
+  const stack = []; let r = root;
+  while (r && r.rollRp !== Rpx && stack.length < 400) { stack.push(r); r = r.prev ? drawRollRoot(r.prev) : null; }
+  let b = r && r.rollRp === Rpx ? r.rollBase : 0;
+  while (stack.length) {
+    const s = stack.pop();
+    if (s.prev) { const pr = drawRollRoot(s.prev), Pp = pr.meta.poly; b += drawRollX(Pp, drawRollLen(Pp, s, pr)) * (Rpx / Pp.R); } else b = 0;
+    s.rollBase = b; s.rollRp = Rpx;
+  }
+  return root.rollBase;
+}
+function drawRollPose(P, u, base, S, t) {
+  const N = P.N, j = mod(S, N), p = 0.3 * t + 0.7 * t * t, phi = -P.edgeAng[mod(j - 1, N)] - P.ext[j] * p;
+  const c = Math.cos(phi), s = Math.sin(phi), pv = P.verts[j];
+  const rot = (vx, vy) => { const dx = vx - pv.x, dy = vy - pv.y; return [dx * c - dy * s, dx * s + dy * c]; };
+  const xs = drawRollX(P, S);
+  return { P, u, j, t, p, rel: P.verts.map(v => rot(v.x, v.y)), cen: rot(0, 0), px: base + xs * u, cam: base + (xs + P.sides[j] * t) * u };
+}
+function drawRollCen(P, u, base, k, p) {   // 重心のワールド位置（px）
+  const N = P.N, j = mod(k, N), phi = -P.edgeAng[mod(j - 1, N)] - P.ext[j] * p, c = Math.cos(phi), s = Math.sin(phi), pv = P.verts[j];
+  const dx = -pv.x, dy = -pv.y;
+  return [base + (drawRollX(P, k) + dx * c - dy * s) * u, (dx * s + dy * c) * u];
+}
+function drawRollBack(root, k, Rpx, cnt) {   // 直前までに転がった辺（前の拍子の分もさかのぼる）。古い順
+  const out = []; let r = root, kk = k - 1, guard = 0;
+  while (out.length < cnt && guard++ < 400) {
+    if (kk < 0) { if (!r.prev) break; const pr = drawRollRoot(r.prev); kk = drawRollLen(pr.meta.poly, r, pr) - 1; r = pr; continue; }
+    const P = r.meta.poly; out.push({ P, u: Rpx / P.R, base: drawRollBase(r, Rpx), k: kk }); kk--;
+  }
+  return out.reverse();
+}
+function drawRollMix(a, b, e) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), f = (s) => Math.round(((A >> s) & 255) * (1 - e) + ((B >> s) & 255) * e);
+  return '#' + [f(16), f(8), f(0)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+function drawRollLayer(pose, a, w) {   // ひとつの形（点は a 番目の角から数えた周の割合 fo で表す）
+  const Q = pose.P, n = Q.N, fo = [], Wd = [], pi = [];
+  for (let q = 0; q < n; q++) { const idx = (a + q) % n; fo.push((Q.prefix[idx] - Q.prefix[a] + (idx < a ? Q.perim : 0)) / Q.perim); }
+  for (let i = 0; i < n; i++) Wd.push([pose.px + pose.rel[i][0] * pose.u, pose.rel[i][1] * pose.u]);
+  return { pose, P: Q, U: Q.units, N: n, a, w, j: pose.j, t: pose.t, fo, Wd, pi, byGroup: Q.unit === 'group', cen: [pose.px + pose.cen[0] * pose.u, pose.cen[1] * pose.u] };
+}
+function drawRollQ(L, f) { let q = L.N - 1; while (q > 0 && L.fo[q] > f + 1e-9) q--; return q; }
+function drawRollPt(L, f) {
+  const q = drawRollQ(L, f), i0 = (L.a + q) % L.N, i1 = (i0 + 1) % L.N, f0 = L.fo[q], f1 = q + 1 < L.N ? L.fo[q + 1] : 1, s = f1 > f0 ? (f - f0) / (f1 - f0) : 0;
+  return [L.Wd[i0][0] + (L.Wd[i1][0] - L.Wd[i0][0]) * s, L.Wd[i0][1] + (L.Wd[i1][1] - L.Wd[i0][1]) * s];
+}
 function drawRoll(st, now, ah) {
   const m = st.m, P = m.poly, N = P.N, U = P.units, byGroup = P.unit === 'group';
   const top = 112 * K, gMax = ah - Math.max(22 * K, ah * 0.07);
   const Rpx = Math.max(24, Math.min((gMax - top) / 2.3, W * (W < 640 ? 0.3 : 0.2))), u = Rpx / P.R;
   const groundY = Math.min(gMax, top + (gMax - top) / 2 + Rpx * 1.15);   // 図形が上下のまん中あたりに来るように
   const span = 1e9;   // 画面がついていくので、はしで折り返さない
-  const X = k => Math.floor(k / N) * P.perim + P.prefix[mod(k, N)];
   const ease = t => 0.3 * t + 0.7 * t * t;   // 持ち上がりはゆっくり、倒れる瞬間は速く（コトッ）
-  const phiAt = (k, p) => -P.edgeAng[mod(k - 1, N)] - P.ext[mod(k, N)] * p;
-  const rotRel = (vx, vy, j, phi) => {
-    const c = Math.cos(phi), s = Math.sin(phi), dx = vx - P.verts[j].x, dy = vy - P.verts[j].y;
-    return [dx * c - dy * s, dx * s + dy * c];
-  };
-  const centerW = (k, p) => { const r = rotRel(0, 0, mod(k, N), phiAt(k, p)); return [X(k) + r[0], r[1]]; };
-  const S = st.has ? Math.max(0, byGroup ? st.step : st.sc) : 0, j = mod(S, N);
-  const t = st.has ? clamp(byGroup ? st.gp : st.frac, 0, 1) : 0, p = ease(t), phi = phiAt(S, p);
-  // 画面（カメラ）は図形の進みに合わせて動く → 図形はいつも画面のまん中あたりを転がる
-  const camU = X(S) + P.sides[j] * t;
-  const toS = xu => W * 0.5 + Rpx * 0.9 + (xu - camU) * u;
-  const scr = w => [toS(w[0]), groundY - w[1] * u];
+  const seg = st.has ? st.seg : null, root = seg ? drawRollRoot(seg) : null;
+  const base = root ? drawRollBase(root, Rpx) : 0;
+  const S = st.has ? Math.max(0, root ? (byGroup ? st.step - root.st0 : st.sc - root.sc0) : (byGroup ? st.step : st.sc)) : 0, j = mod(S, N);
+  const t = st.has ? clamp(byGroup ? st.gp : st.frac, 0, 1) : 0, p = ease(t);
+  const poseN = drawRollPose(P, u, base, S, t);
+  // 拍子が変わった直後：前の形がそのまま転がりつづけたものと、新しい形を重ねて、なめらかに移りかわる
+  let e = 1, poseO = null, aO = 0;
+  if (root && root.prev && st.has) {
+    const age = now - root.t, DUR = 0.6;
+    if (age < DUR) {
+      const x = clamp(age / DUR, 0, 1); e = x * x * (3 - 2 * x);
+      const pr = drawRollRoot(root.prev), Pp = pr.meta.poly, up = Rpx / Pp.R, Lp = drawRollLen(Pp, root, pr), og = Pp.unit === 'group';
+      poseO = drawRollPose(Pp, up, drawRollBase(pr, Rpx), Lp + (og ? st.step - root.st0 : st.sc - root.sc0), clamp(og ? st.gp : st.frac, 0, 1));
+      aO = mod(Lp, Pp.N);
+    }
+  }
+  const Ls = [];
+  if (poseO && e < 0.999) Ls.push(drawRollLayer(poseO, aO, 1 - e));
+  if (!poseO || e > 0.001) Ls.push(drawRollLayer(poseN, 0, poseO ? e : 1));
+  const LN = Ls[Ls.length - 1];
+  // 合成した形（角の並びは、どちらかの形の角がある場所すべて）
+  const fs = []; Ls.forEach(L => L.fo.forEach(f => fs.push(f))); fs.sort((a, b) => a - b);
+  const uf = []; fs.forEach(f => { if (!uf.length || f - uf[uf.length - 1] > 1e-6) uf.push(f); });
+  const M = uf.length;
+  const bw = L => (L.w);
+  const bx = (arr, f) => { let x = 0, y = 0; arr.forEach(L => { const q = drawRollPt(L, f); x += q[0] * L.w; y += q[1] * L.w; }); return [x, y]; };
+  const WP = uf.map(f => bx(Ls, f));
+  const par = uf.map((f, mi) => { const fm = (f + (mi + 1 < M ? uf[mi + 1] : 1)) / 2; return Ls.map(L => (L.a + drawRollQ(L, fm)) % L.N); });
+  Ls.forEach((L, li) => { L.pi = new Array(L.N).fill(-1); uf.forEach((f, mi) => { const q = drawRollQ(L, f); if (Math.abs(L.fo[q] - f) < 1e-6) L.pi[(L.a + q) % L.N] = mi; }); });
+  let cam = 0, pivX = 0, cenW = [0, 0];
+  Ls.forEach(L => { cam += L.pose.cam * L.w; pivX += L.pose.px * L.w; cenW[0] += L.cen[0] * L.w; cenW[1] += L.cen[1] * L.w; });
+  const toS = xw => W * 0.5 + Rpx * 0.9 + (xw - cam);
+  const scr = w => [toS(w[0]), groundY - w[1]];
+  const dpos = [cenW[0] - LN.cen[0], cenW[1] - LN.cen[1]];
   const SH = [0];
-  const shapeName = { 3: '三角形', 4: '四角形', 5: '五角形', 6: '六角形', 7: '七角形', 8: '八角形' }[N] || `${N}角形`;
+  const nameOf = n => ({ 3: '三角形', 4: '四角形', 5: '五角形', 6: '六角形', 7: '七角形', 8: '八角形' }[n] || `${n}角形`);
   // 奥行き（ブロックの厚み）の向き：右上の奥へ
   const ex = Rpx * 0.3, ey = -Rpx * 0.24, wallY = groundY + ey * 2.2;
 
@@ -3144,7 +3225,7 @@ function drawRoll(st, now, ah) {
   const PL = rollPlay('A'), pk = PL.k, pag = PL.age, tt = PL.t;
   // かべのランプ（カメラより少しゆっくり流れる → 奥行き）。コンボで明るく、あたたかくなる
   {
-    const gapL = Math.max(170 * K, Rpx * 3.4), off = mod(-camU * u * 0.6, gapL), ly = Math.max(top - 8 * K, wallY * 0.42), lum = 0.5 + 0.5 * PL.f1;
+    const gapL = Math.max(170 * K, Rpx * 3.4), off = mod(-cam * 0.6, gapL), ly = Math.max(top - 8 * K, wallY * 0.42), lum = 0.5 + 0.5 * PL.f1;
     for (let x = off - gapL; x < W + gapL; x += gapL) {
       const g = cx.createRadialGradient(x, ly, 0, x, ly + 20 * K, 120 * K); g.addColorStop(0, `rgba(255,214,150,${0.2 * lum})`); g.addColorStop(1, 'rgba(255,214,150,0)');
       cx.fillStyle = g; cx.fillRect(x - 120 * K, ly - 100 * K, 240 * K, 240 * K);
@@ -3153,7 +3234,7 @@ function drawRoll(st, now, ah) {
     }
     // コンボ（8〜）：かべに三角の旗（ガーランド）
     if (PL.f2 > 0.01) {
-      const fl = 26 * K, fy = Math.max(top - 20 * K, ly - 40 * K), offF = mod(-camU * u * 0.6, fl * 6), pal = ['#f472b6', '#facc15', '#4ade80', '#60a5fa', '#fb923c'];
+      const fl = 26 * K, fy = Math.max(top - 20 * K, ly - 40 * K), offF = mod(-cam * 0.6, fl * 6), pal = ['#f472b6', '#facc15', '#4ade80', '#60a5fa', '#fb923c'];
       cx.strokeStyle = `rgba(226,232,240,${0.5 * PL.f2})`; cx.lineWidth = 1 * K; cx.beginPath();
       for (let x = offF - fl * 6; x < W + fl * 6; x += fl * 6) { cx.moveTo(x, fy); cx.quadraticCurveTo(x + fl * 3, fy + 16 * K, x + fl * 6, fy); } cx.stroke();
       for (let x = offF - fl * 6, i = 0; x < W + fl * 6; x += fl, i++) {
@@ -3174,37 +3255,51 @@ function drawRoll(st, now, ah) {
     cx.stroke();
   }
 
-  txt(`${shapeName}：${byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 刻み　とがった角 ＝ 拍の頭'}`, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
+  {   // 形の名前と説明（形が変わるときは、うっすら入れかわる）
+    const cap = (L, a) => txt(`${nameOf(L.N)}：${L.byGroup ? '1辺 ＝ 1拍' : '1辺 ＝ 刻み　とがった角 ＝ 拍の頭'}`, W / 2, 84 * K, Math.max(13, 13 * K), hexA('#f1f5f9', a), 700);
+    Ls.forEach(L => { if (L.w > 0.01) cap(L, L.w); });
+  }
 
   // 転がる道（ゆかに貼ったテープ）
   cx.fillStyle = 'rgba(15,23,42,0.55)'; cx.beginPath(); cx.moveTo(0, groundY); cx.lineTo(W, groundY); cx.lineTo(W + ex, groundY + ey); cx.lineTo(ex, groundY + ey); cx.closePath(); cx.fill();
   cx.strokeStyle = 'rgba(203,213,225,0.35)'; cx.lineWidth = 1.5 * K;
   cx.beginPath(); cx.moveTo(0, groundY); cx.lineTo(W, groundY); cx.stroke();
 
-  // 足あと（これまでに接地した辺）
-  for (let k = Math.max(0, S - 2 * N); k < S; k++) {
-    const a = toS(X(k)), un = U[mod(k, N)], w = P.sides[mod(k, N)] * u;
-    const al = 0.15 + 0.55 * (1 - (S - 1 - k) / (2 * N));
-    for (const sh of SH) {
-      const xa = a + sh; if (xa > W || xa + w < 0) continue;
-      cx.strokeStyle = hexA(COLORS[un.L], al); cx.lineWidth = 5 * K;
-      cx.beginPath(); cx.moveTo(xa + 2 * K, groundY + 6 * K); cx.lineTo(xa + w - 2 * K, groundY + 6 * K); cx.stroke();
-      cx.fillStyle = hexA(un.head ? LIME : '#e2e8f0', al); cx.beginPath(); cx.arc(xa, groundY, (un.head ? 4.5 : 2.5) * K, 0, Math.PI * 2); cx.fill();
-    }
+  // 足あと（これまでに接地した辺。前の拍子の足あとも、その場所にのこる）
+  {
+    const back = root ? drawRollBack(root, S, Rpx, 2 * N) : [], nb = back.length;
+    back.forEach((b, ui) => {
+      const k = b.k, a = toS(b.base + drawRollX(b.P, k) * b.u), un = b.P.units[mod(k, b.P.N)], w = b.P.sides[mod(k, b.P.N)] * b.u;
+      const al = 0.15 + 0.55 * (1 - (nb - 1 - ui) / (2 * N));
+      for (const sh of SH) {
+        const xa = a + sh; if (xa > W || xa + w < 0) continue;
+        cx.strokeStyle = hexA(COLORS[un.L], al); cx.lineWidth = 5 * K;
+        cx.beginPath(); cx.moveTo(xa + 2 * K, groundY + 6 * K); cx.lineTo(xa + w - 2 * K, groundY + 6 * K); cx.stroke();
+        cx.fillStyle = hexA(un.head ? LIME : '#e2e8f0', al); cx.beginPath(); cx.arc(xa, groundY, (un.head ? 4.5 : 2.5) * K, 0, Math.PI * 2); cx.fill();
+      }
+    });
   }
 
   // 重心の軌跡
-  const past = [];
-  for (let k = Math.max(0, S - N); k <= S; k++) {
+  const past = [], fut = [];
+  {
+    const back = root ? drawRollBack(root, S, Rpx, N) : [], nb = back.length, off = N - nb;
+    const wgt = d => clamp(1 - d / 1.5, 0, 1);   // 合成中のずれは、いまの近くだけに反映
+    back.forEach((b, ui) => {
+      for (let i = 0; i <= 12; i++) {
+        const tq = i / 12, c = drawRollCen(b.P, b.u, b.base, b.k, ease(tq)), wg = wgt(nb + t - (ui + tq));
+        past.push({ w: [c[0] + dpos[0] * wg, c[1] + dpos[1] * wg], a: (off + ui + tq) / (N + 1), land: i === 0 && b.P.units[mod(b.k, b.P.N)].head });
+      }
+    });
     for (let i = 0; i <= 12; i++) {
-      const tt = i / 12; if (k === S && tt > t) break;
-      past.push({ w: centerW(k, ease(tt)), a: (k - (S - N) + tt) / (N + 1), land: i === 0 && U[mod(k, N)].head });
+      const tq = i / 12; if (tq > t) break;
+      const c = drawRollCen(P, u, base, S, ease(tq)), wg = wgt(t - tq);
+      past.push({ w: [c[0] + dpos[0] * wg, c[1] + dpos[1] * wg], a: (N + tq) / (N + 1), land: i === 0 && U[j].head });
     }
+    past.push({ w: cenW, a: 1 });
+    for (let i = 0; i <= 12; i++) { const c = drawRollCen(P, u, base, S, ease(t + (1 - t) * i / 12)), wg = 1 - i / 12; fut.push([c[0] + dpos[0] * wg, c[1] + dpos[1] * wg]); }
+    for (let i = 1; i <= 12; i++) fut.push(drawRollCen(P, u, base, S + 1, ease(i / 12)));
   }
-  past.push({ w: centerW(S, p), a: 1 });
-  const fut = [];
-  for (let i = 0; i <= 12; i++) fut.push(centerW(S, ease(t + (1 - t) * i / 12)));
-  for (let i = 1; i <= 12; i++) fut.push(centerW(S + 1, ease(i / 12)));
   for (const sh of SH) {
     cx.lineCap = 'round';
     for (let i = 1; i < past.length; i++) {
@@ -3228,11 +3323,12 @@ function drawRoll(st, now, ah) {
     cx.stroke(); cx.setLineDash([]);
   }
 
-  // 衝撃波：拍の頭は大きなリング、途中の拍は小さなリング
+  // 衝撃波：拍の頭は大きなリング、途中の拍は小さなリング（前の小節のぶんも、そのまま消えていく）
   for (const a of accents) {
-    if (a.meta !== m) continue;
     const age = now - a.t; if (age < 0 || age > 0.9) continue;
-    const q = age / 0.9, xa = toS(X(byGroup ? a.step : a.sc)), rad = 8 * K + age * 180 * K;
+    const sg = tlSeg(a.sc); if (!sg) continue;
+    const rt = drawRollRoot(sg), Pa = sg.meta.poly, ua = Rpx / Pa.R;
+    const q = age / 0.9, xa = toS(drawRollBase(rt, Rpx) + drawRollX(Pa, Pa.unit === 'group' ? a.step - rt.st0 : a.sc - rt.sc0) * ua), rad = 8 * K + age * 180 * K;
     for (const sh of SH) {
       const x0 = xa + sh; if (x0 < -300 * K || x0 > W + 300 * K) continue;
       cx.strokeStyle = hexA(LIME, (1 - q) * 0.9); cx.lineWidth = 3 * K * (1 - q) + 0.5;
@@ -3241,10 +3337,11 @@ function drawRoll(st, now, ah) {
       cx.beginPath(); cx.arc(x0, groundY, rad * 0.6, Math.PI, 0); cx.stroke();
     }
   }
-  if (!byGroup && st.has && lastNote && !lastNote.isAcc && lastNote.meta === m) {
-    const age = now - lastNote.time;
-    if (age >= 0 && age < 0.3) {
-      const q = age / 0.3, xa = toS(X(lastNote.sc));
+  if (st.has && lastNote && !lastNote.isAcc) {
+    const age = now - lastNote.time, sg = tlSeg(lastNote.sc);
+    if (sg && sg.meta.poly.unit !== 'group' && age >= 0 && age < 0.3) {
+      const rt = drawRollRoot(sg), Pa = sg.meta.poly;
+      const q = age / 0.3, xa = toS(drawRollBase(rt, Rpx) + drawRollX(Pa, lastNote.sc - rt.sc0) * (Rpx / Pa.R));
       for (const sh of SH) {
         cx.strokeStyle = hexA('#ffffff', (1 - q) * 0.6); cx.lineWidth = 1.5 * K;
         cx.beginPath(); cx.ellipse(xa + sh, groundY, 5 * K + q * 30 * K, 2 * K + q * 7 * K, 0, 0, Math.PI * 2); cx.stroke();
@@ -3253,10 +3350,7 @@ function drawRoll(st, now, ah) {
   }
 
   // 図形本体（厚みのあるブロック）
-  const rel = P.verts.map(v => rotRel(v.x, v.y, j, phi));
-  const cRel = rotRel(0, 0, j, phi);
-  const px0 = toS(X(S));
-  const dur = U[j].dur, gpos = t * dur;
+  const px0 = toS(pivX);
   const LX = -0.6, LY = -0.8;   // 光の向き（左上から）
   // タップの反応：ぴったり → ぴょんと小さくはねて金色に光る、はやい／おそい → ぐらっとよろける（はやい＝うしろ・青、おそい＝前・赤）、たたきすぎ → ことっ
   const gold = pk === 'p' && pag < 0.8 ? 1 - pag / 0.8 : 0;
@@ -3264,34 +3358,44 @@ function drawRoll(st, now, ah) {
   const rock = (pk === 'e' || pk === 'l') && pag < 0.7 ? (PL.dir * 0.08 * Math.exp(-pag * 5) * Math.sin(Math.min(1, pag * 9) * Math.PI / 2) + rollPlayWob(pag, 24, 6) * 0.04) : 0;
   cx.save(); if (hop) cx.translate(0, -hop); if (rock) { cx.translate(px0, groundY); cx.rotate(rock); cx.translate(-px0, -groundY); }
   for (const sh of SH) {
-    const ox = px0 + sh;
-    if (ox + 2.2 * Rpx < 0 || ox - 2.2 * Rpx > W) continue;
-    const pt = r => [ox + r[0] * u, groundY - r[1] * u];
-    const V = rel.map(pt), C = pt(cRel);
-    let area = 0; for (let i = 0; i < N; i++) { const a = V[i], b = V[(i + 1) % N]; area += a[0] * b[1] - b[0] * a[1]; }
+    const ox = sh;
+    if (px0 + sh + 2.2 * Rpx < 0 || px0 + sh - 2.2 * Rpx > W) continue;
+    const V = WP.map(w => { const s = scr(w); return [s[0] + ox, s[1]]; }), C = (c => [c[0] + ox, c[1]])(scr(cenW));
+    let area = 0; for (let i = 0; i < M; i++) { const a = V[i], b = V[(i + 1) % M]; area += a[0] * b[1] - b[0] * a[1]; }
     const sgn = area > 0 ? 1 : -1;
-    const nrm = i => { const a = V[i], b = V[(i + 1) % N], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [sgn * dy / l, -sgn * dx / l]; };   // 外向きの法線
+    const nrm = i => { const a = V[i], b = V[(i + 1) % M], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1; return [sgn * dy / l, -sgn * dx / l]; };   // 外向きの法線
+    // 辺ごとの色・いま転がっている辺か（合成中は2つの形をまぜる）
+    const eCol = [], eAct = [];
+    for (let i = 0; i < M; i++) {
+      let col = null, act = 0, wsum = 0;
+      Ls.forEach((L, li) => {
+        const c = COLORS[L.U[par[i][li]].L];
+        col = col === null ? c : drawRollMix(col, c, L.w / (wsum + L.w)); wsum += L.w;
+        if (par[i][li] === L.j) act += L.w;
+      });
+      eCol.push(col); eAct.push(act);
+    }
 
     // ゆかの影：浮いているほど大きく、うすく
     const lift = clamp((groundY - C[1]) / Rpx, 0.5, 1.6);
     softShadow(C[0] + ex * 0.5 + Rpx * 0.12, groundY + ey * 0.5 + 2 * K, Rpx * 1.05 / lift, Rpx * 0.2, 0.55 / lift);
-    const pv = V[j]; softShadow(pv[0] + ex * 0.5, groundY + ey * 0.5, Rpx * 0.35, 4 * K, 0.5);
+    softShadow(px0 + ox + ex * 0.5, groundY + ey * 0.5, Rpx * 0.35, 4 * K, 0.5);
 
     // 側面（見える面だけ）
-    for (let i = 0; i < N; i++) {
+    for (let i = 0; i < M; i++) {
       const n = nrm(i); if (n[0] * ex + n[1] * ey <= 0) continue;
-      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L];
+      const a = V[i], b = V[(i + 1) % M], act = eAct[i], col = eCol[i];
       const lit = Math.max(0, n[0] * LX + n[1] * LY);
       cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.lineTo(b[0] + ex, b[1] + ey); cx.lineTo(a[0] + ex, a[1] + ey); cx.closePath();
       const sg = cx.createLinearGradient(a[0], a[1], a[0] + ex, a[1] + ey);
-      sg.addColorStop(0, shade(col, -0.62 + 0.45 * lit + (act ? 0.12 : 0))); sg.addColorStop(1, shade(col, -0.75 + 0.35 * lit));
+      sg.addColorStop(0, shade(col, -0.62 + 0.45 * lit + 0.12 * act)); sg.addColorStop(1, shade(col, -0.75 + 0.35 * lit));
       cx.fillStyle = sg; cx.fill();
       cx.strokeStyle = 'rgba(0,0,0,0.35)'; cx.lineWidth = 1; cx.stroke();
     }
     // 奥の角のハイライト（面と面の境目）
     cx.strokeStyle = 'rgba(255,255,255,0.18)'; cx.lineWidth = 1 * K; cx.beginPath();
-    for (let i = 0; i < N; i++) {
-      const n0 = nrm((i + N - 1) % N), n1 = nrm(i), v0 = n0[0] * ex + n0[1] * ey > 0, v1 = n1[0] * ex + n1[1] * ey > 0;
+    for (let i = 0; i < M; i++) {
+      const n0 = nrm((i + M - 1) % M), n1 = nrm(i), v0 = n0[0] * ex + n0[1] * ey > 0, v1 = n1[0] * ex + n1[1] * ey > 0;
       if (v0 || v1) { cx.moveTo(V[i][0], V[i][1]); cx.lineTo(V[i][0] + ex, V[i][1] + ey); }
     }
     cx.stroke();
@@ -3301,11 +3405,11 @@ function drawRoll(st, now, ah) {
     let fg = cx.createLinearGradient(C[0] - Rpx * 0.7, C[1] - Rpx * 0.9, C[0] + Rpx * 0.7, C[1] + Rpx * 0.9);
     fg.addColorStop(0, '#3a4660'); fg.addColorStop(0.5, '#1f2839'); fg.addColorStop(1, '#111827');
     cx.fillStyle = fg; cx.fill();
-    for (let i = 0; i < N; i++) {
-      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L];
+    for (let i = 0; i < M; i++) {
+      const a = V[i], b = V[(i + 1) % M], act = eAct[i], col = eCol[i];
       cx.beginPath(); cx.moveTo(C[0], C[1]); cx.lineTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.closePath();
       const gr = cx.createLinearGradient(C[0], C[1], (a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
-      gr.addColorStop(0, hexA(col, 0.05)); gr.addColorStop(1, hexA(col, act ? 0.6 : 0.24));
+      gr.addColorStop(0, hexA(col, 0.05)); gr.addColorStop(1, hexA(col, 0.24 + 0.36 * act));
       cx.fillStyle = gr; cx.fill();
     }
     // くさびの境の溝
@@ -3314,50 +3418,71 @@ function drawRoll(st, now, ah) {
       cx.strokeStyle = 'rgba(255,255,255,0.12)'; cx.lineWidth = 1 * K; cx.beginPath(); cx.moveTo(C[0] + 1, C[1] + 1); cx.lineTo(q[0] + 1, q[1] + 1); cx.stroke();
     });
     // 面取り（光の当たる辺は明るく、反対は暗く）＋ 辺の色
-    for (let i = 0; i < N; i++) {
-      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L], n = nrm(i), d = n[0] * LX + n[1] * LY;
+    for (let i = 0; i < M; i++) {
+      const a = V[i], b = V[(i + 1) % M], act = eAct[i], col = eCol[i], n = nrm(i), d = n[0] * LX + n[1] * LY;
       const ins = 5 * K, ia = [a[0] - n[0] * ins, a[1] - n[1] * ins], ib = [b[0] - n[0] * ins, b[1] - n[1] * ins];
       cx.strokeStyle = d > 0 ? `rgba(255,255,255,${0.1 + 0.3 * d})` : `rgba(0,0,0,${0.15 - 0.35 * d})`; cx.lineWidth = 3 * K; cx.lineCap = 'butt';
       cx.beginPath(); cx.moveTo(ia[0], ia[1]); cx.lineTo(ib[0], ib[1]); cx.stroke();
       cx.lineCap = 'round';
-      if (act) { cx.save(); cx.shadowColor = col; cx.shadowBlur = 14 * K; }
-      cx.strokeStyle = act ? shade(col, 0.2) : shade(col, -0.15); cx.lineWidth = (act ? 6 : 4) * K;
+      if (act > 0.02) { cx.save(); cx.shadowColor = col; cx.shadowBlur = 14 * K * act; }
+      cx.strokeStyle = act > 0.02 ? shade(col, 0.2 * act - 0.15 * (1 - act)) : shade(col, -0.15); cx.lineWidth = (4 + 2 * act) * K;
       cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.stroke();
-      if (act) cx.restore();
+      if (act > 0.02) cx.restore();
       cx.strokeStyle = 'rgba(255,255,255,0.35)'; cx.lineWidth = 1 * K;
       cx.beginPath(); cx.moveTo(a[0] + LX * 1.2, a[1] + LY * 1.2); cx.lineTo(b[0] + LX * 1.2, b[1] + LY * 1.2); cx.stroke();
-      for (let k = 1; k < un.dur; k++) {   // 1辺が2拍ぶんのとき、途中の8分音符
-        const x = a[0] + (b[0] - a[0]) * k / un.dur, y = a[1] + (b[1] - a[1]) * k / un.dur, lit = act && gpos >= k;
-        if (lit) shadeSphere(x, y, 5 * K, '#ffffff', 'gloss');
-        else { cx.fillStyle = hexA(col, act ? 0.85 : 0.5); cx.beginPath(); cx.arc(x, y, 3.2 * K, 0, Math.PI * 2); cx.fill(); }
+    }
+    // 1辺が2拍ぶんのとき、途中の8分音符（それぞれの形の辺の上に）
+    Ls.forEach(L => {
+      if (L.w < 0.01) return;
+      cx.save(); cx.globalAlpha = L.w;
+      for (let q = 0; q < L.N; q++) {
+        const idx = (L.a + q) % L.N, un = L.U[idx], act = idx === L.j, col = COLORS[un.L], f0 = L.fo[q], f1 = q + 1 < L.N ? L.fo[q + 1] : 1, gpos = L.t * L.U[L.j].dur;
+        for (let k = 1; k < un.dur; k++) {
+          const wp = bx(Ls, f0 + (f1 - f0) * k / un.dur), s = scr(wp), x = s[0] + ox, y = s[1], lit = act && gpos >= k;
+          if (lit) shadeSphere(x, y, 5 * K, '#ffffff', 'gloss');
+          else { cx.fillStyle = hexA(col, act ? 0.85 : 0.5); cx.beginPath(); cx.arc(x, y, 3.2 * K, 0, Math.PI * 2); cx.fill(); }
+        }
       }
-    }
+      cx.restore();
+    });
     // 言葉（くさびに刻んだ文字）
-    for (let i = 0; i < N; i++) {
-      const a = V[i], b = V[(i + 1) % N], un = U[i], act = i === j, col = COLORS[un.L];
-      const wx = C[0] + ((a[0] + b[0]) / 2 - C[0]) * 0.64, wy = C[1] + ((a[1] + b[1]) / 2 - C[1]) * 0.64, fs = Math.min((byGroup ? 26 : 17) * K, Rpx * (byGroup ? 0.3 : 0.22));
-      txt(un.label, wx + 1, wy + 1.5, fs, 'rgba(0,0,0,0.55)', un.head ? 900 : 700);
-      txt(un.label, wx, wy, fs, act ? '#ffffff' : hexA(shade(col, 0.2), 0.85), un.head ? 900 : 700);
-    }
+    Ls.forEach(L => {
+      if (L.w < 0.01) return;
+      for (let q = 0; q < L.N; q++) {
+        const idx = (L.a + q) % L.N, un = L.U[idx], act = idx === L.j, col = COLORS[un.L], f0 = L.fo[q], f1 = q + 1 < L.N ? L.fo[q + 1] : 1;
+        const sm = scr(bx(Ls, (f0 + f1) / 2)), mx = sm[0] + ox, my = sm[1];
+        const wx = C[0] + (mx - C[0]) * 0.64, wy = C[1] + (my - C[1]) * 0.64, fs = Math.min((L.byGroup ? 26 : 17) * K, Rpx * (L.byGroup ? 0.3 : 0.22));
+        txt(un.label, wx + 1, wy + 1.5, fs, `rgba(0,0,0,${0.55 * L.w})`, un.head ? 900 : 700);
+        txt(un.label, wx, wy, fs, act ? hexA('#ffffff', L.w) : hexA(shade(col, 0.2), 0.85 * L.w), un.head ? 900 : 700);
+      }
+    });
     // 前の面のつや
     cx.beginPath(); V.forEach((q, i) => i ? cx.lineTo(q[0], q[1]) : cx.moveTo(q[0], q[1])); cx.closePath();
     glassShine(C[0] - Rpx, C[1] - Rpx, Rpx * 2, Rpx * 2, 0.16);
     // 重心（金属のびょう）
     shadeSphere(C[0], C[1], 5.5 * K, '#e2e8f0', 'metal');
-    // 角：拍の頭は大きく
-    V.forEach((q, i) => {
-      const piv = i === j, head = U[i].head;
-      if (piv) {
-        const gg = cx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 20 * K); gg.addColorStop(0, hexA(LIME, 0.7)); gg.addColorStop(1, hexA(LIME, 0));
-        cx.fillStyle = gg; cx.beginPath(); cx.arc(q[0], q[1], 20 * K, 0, Math.PI * 2); cx.fill();
-        shadeSphere(q[0], q[1], 7 * K, LIME, 'gloss');
-      } else if (head) shadeSphere(q[0], q[1], 5.5 * K, '#f1f5f9', 'metal');
-      else { cx.fillStyle = 'rgba(226,232,240,0.6)'; cx.beginPath(); cx.arc(q[0], q[1], 3 * K, 0, Math.PI * 2); cx.fill(); }
-      if (head && !piv) { cx.strokeStyle = hexA(LIME, 0.6); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], 9 * K, 0, Math.PI * 2); cx.stroke(); }
+    // 角：拍の頭は大きく（合成中は、それぞれの形の角が入れかわる）
+    Ls.forEach(L => {
+      if (L.w < 0.01) return;
+      cx.save(); cx.globalAlpha = L.w;
+      for (let idx = 0; idx < L.N; idx++) {
+        const mi = L.pi[idx]; if (mi < 0) continue;
+        const q = V[mi], piv = idx === L.j, head = L.U[idx].head;
+        if (piv) {
+          const gg = cx.createRadialGradient(q[0], q[1], 0, q[0], q[1], 20 * K); gg.addColorStop(0, hexA(LIME, 0.7)); gg.addColorStop(1, hexA(LIME, 0));
+          cx.fillStyle = gg; cx.beginPath(); cx.arc(q[0], q[1], 20 * K, 0, Math.PI * 2); cx.fill();
+          shadeSphere(q[0], q[1], 7 * K, LIME, 'gloss');
+        } else if (head) shadeSphere(q[0], q[1], 5.5 * K, '#f1f5f9', 'metal');
+        else { cx.fillStyle = 'rgba(226,232,240,0.6)'; cx.beginPath(); cx.arc(q[0], q[1], 3 * K, 0, Math.PI * 2); cx.fill(); }
+        if (head && !piv) { cx.strokeStyle = hexA(LIME, 0.6); cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(q[0], q[1], 9 * K, 0, Math.PI * 2); cx.stroke(); }
+      }
+      const nx = V[L.pi[(L.j + 1) % L.N]] || null;
+      if (nx) {
+        cx.strokeStyle = hexA(LIME, 0.35 + 0.6 * L.t); cx.lineWidth = 2 * K;
+        cx.beginPath(); cx.arc(nx[0], nx[1], 12 * K, 0, Math.PI * 2); cx.stroke();
+      }
+      cx.restore();
     });
-    const nx = V[(j + 1) % N];
-    cx.strokeStyle = hexA(LIME, 0.35 + 0.6 * t); cx.lineWidth = 2 * K;
-    cx.beginPath(); cx.arc(nx[0], nx[1], 12 * K, 0, Math.PI * 2); cx.stroke();
     if (gold > 0) {   // 金色のふち
       cx.save(); cx.globalCompositeOperation = 'lighter'; cx.shadowColor = '#fbbf24'; cx.shadowBlur = 20 * K * gold;
       cx.strokeStyle = `rgba(255,220,120,${0.85 * gold})`; cx.lineWidth = 3 * K; cx.lineJoin = 'round';
@@ -3730,12 +3855,28 @@ function orbitCache(key, w, h, paint) {
   return e.c;
 }
 /* @@BEGIN drawOrbit */
+function drawOrbitMix(a, b, e) {
+  const A = parseInt(a.slice(1), 16), B = parseInt(b.slice(1), 16), f = s => Math.round(((A >> s) & 255) * (1 - e) + ((B >> s) & 255) * e);
+  return '#' + [f(16), f(8), f(0)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
 function drawOrbit(st, now, ah) {
   const m = st.m, T = m.total;
+  const oE = st.changed && st.prevMeta && st.segAge < 0.6 ? (x => x * x * (3 - 2 * x))(clamp(st.segAge / 0.6, 0, 1)) : 1;   // 拍子が変わった直後：前の拍子の区切りから、新しい区切りへ動く
+  const mo = oE < 1 ? st.prevMeta : null, To = mo ? mo.total : T;
   const top = 104 * K, cxC = W / 2, cyC = top + (ah - top) / 2;
   const R = Math.max(40, Math.min(W * 0.4, (ah - top) / 2 - 32 * K));
   const Ri = R + 16 * K, Ro = R + 25 * K;   // 文字盤のふち（内がわ・外がわ）
-  const A0 = -Math.PI / 2, ang = (v, tt = T) => A0 + 2 * Math.PI * v / tt;
+  const A0 = -Math.PI / 2;
+  const Mn = mo ? Math.max(m.groups.length, mo.groups.length) : m.groups.length;
+  const bpad = M => M.starts.map(v => v / M.total).concat(new Array(Mn + 1 - M.groups.length).fill(1));   // 区切りの位置（円の割合）。足りない分は終わりにたたむ
+  const pn = bpad(m), po = mo ? bpad(mo) : null, bb = po ? pn.map((v, i) => po[i] + (v - po[i]) * oE) : pn;
+  const warp = (pl, f) => {   // 前／新の拍子の円の割合 f → いまの（移りかわり中の）円の割合
+    if (!po) return f;
+    for (let i = 0; i < Mn; i++) if (pl[i + 1] > pl[i] && f <= pl[i + 1] + 1e-9 && (f >= pl[i] - 1e-9)) return bb[i] + (f - pl[i]) / (pl[i + 1] - pl[i]) * (bb[i + 1] - bb[i]);
+    return f;
+  };
+  const angN = (v, tt = T) => A0 + 2 * Math.PI * warp(pn, v / tt), angO = (v, tt = To) => A0 + 2 * Math.PI * warp(po, v / tt);
+  const ang = angN, layers = mo ? [[mo, angO, 1 - oE], [m, angN, oE]] : [[m, angN, 1]];
   // 背景と、時計の本体（金属のふち・文字盤）はキャッシュ
   const bg = orbitCache([W, ah, K, R, cyC].join('|'), W, ah, c => {
     let g = c.createLinearGradient(0, 0, 0, ah); g.addColorStop(0, '#161c29'); g.addColorStop(1, '#0c1018'); c.fillStyle = g; c.fillRect(0, 0, W, ah);
@@ -3769,11 +3910,14 @@ function drawOrbit(st, now, ah) {
     cx.save(); cx.globalCompositeOperation = 'lighter'; const g0 = cx.createRadialGradient(cxC, cyC, Ro * 0.9, cxC, cyC, Ro * 1.6);
     g0.addColorStop(0, `rgba(255,200,90,${0.3 * P.f3 * (0.8 + 0.2 * Math.sin(tt * 3))})`); g0.addColorStop(1, 'rgba(255,200,90,0)'); cx.fillStyle = g0; cx.beginPath(); cx.arc(cxC, cyC, Ro * 1.6, 0, Math.PI * 2); cx.fill(); cx.restore();
   }
-  txt(`光の球が1周 ＝ ${m.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
+  layers.forEach(([M, , al]) => txt(`光の球が1周 ＝ ${M.nBars}小節`, W / 2, 84 * K, Math.max(13, 13 * K), hexA('#f1f5f9', al), 700));
 
   // セクター：色ガラス（ふちに近いほど色がこい）と、溝の中のLED
-  m.groups.forEach((L, i) => {
-    const a0 = ang(m.starts[i]), a1 = ang(m.starts[i] + L), cur = st.has && i === st.g, col = COLORS[L];
+  for (let i = 0; i < Mn; i++) {
+    const a0 = A0 + 2 * Math.PI * bb[i], a1 = A0 + 2 * Math.PI * bb[i + 1], inO = !!mo && i < mo.groups.length, inN = i < m.groups.length, cur = st.has && inN && i === st.g;
+    if (a1 - a0 < 1e-4) continue;
+    const cN = inN ? COLORS[m.groups[i]] : null, cO = inO ? COLORS[mo.groups[i]] : null, col = cN && cO ? drawOrbitMix(cO, cN, oE) : cN || cO;
+    cx.save(); cx.globalAlpha = inN && inO || !mo ? 1 : inN ? oE : 1 - oE;
     cx.beginPath(); cx.moveTo(cxC, cyC); cx.arc(cxC, cyC, R - 6 * K, a0, a1); cx.closePath();
     const gr = cx.createRadialGradient(cxC, cyC, R * 0.2, cxC, cyC, R);
     gr.addColorStop(0, hexA(col, 0)); gr.addColorStop(1, hexA(col, cur ? 0.42 : 0.13)); cx.fillStyle = gr; cx.fill();
@@ -3783,36 +3927,46 @@ function drawOrbit(st, now, ah) {
     cx.strokeStyle = hexA(cur ? shade(col, 0.25) : col, cur ? 1 : 0.42); cx.lineWidth = (cur ? 6 : 5) * K;
     cx.beginPath(); cx.arc(cxC, cyC, R, a0 + 0.02, a1 - 0.02); cx.stroke();
     if (cur) { cx.restore(); cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = 1.5 * K; cx.beginPath(); cx.arc(cxC, cyC, R - 1 * K, a0 + 0.03, a1 - 0.03); cx.stroke(); }
+    cx.restore();
     const am = (a0 + a1) / 2, lx = cxC + Math.cos(am) * R * 0.62, ly = cyC + Math.sin(am) * R * 0.62;
-    if (ptOn()) {   // 学ぶ画面：長さ（2・3）と角度
-      txt(String(L), lx, ly - 8 * K, 30 * K, hexA(col, cur ? 1 : 0.7), 900);
-      txt(`${Math.round(360 * L / T)}°`, lx, ly + 18 * K, 13 * K, hexA(col, 0.85), 700);
-    } else txt(String(i - m.barStartGroup[m.barOfGroup[i]] + 1), lx, ly, 30 * K, hexA(col, cur ? 1 : 0.7), 900);   // メトロノーム：何拍目か
-  });
-  // 目盛り（金属の植字）・境界線
-  for (let s = 0; s < T; s++) {
-    const a = ang(s), isStart = m.starts.includes(s), ca = Math.cos(a), sa = Math.sin(a);
-    if (isStart) {
-      cx.lineWidth = 2 * K; cx.strokeStyle = 'rgba(226,232,240,0.35)';
-      cx.beginPath(); cx.moveTo(cxC + ca * R * 0.26, cyC + sa * R * 0.26); cx.lineTo(cxC + ca * (R - 8 * K), cyC + sa * (R - 8 * K)); cx.stroke();
-      cx.lineWidth = 3.5 * K; cx.strokeStyle = '#000'; cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 15 * K), cyC + sa * (R + 15 * K)); cx.stroke();
-      cx.lineWidth = 2.5 * K; cx.strokeStyle = '#e5e7eb'; cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K) - 0.5); cx.lineTo(cxC + ca * (R + 15 * K), cyC + sa * (R + 15 * K) - 0.5); cx.stroke();
-    } else {
-      cx.lineWidth = 1.5 * K; cx.strokeStyle = 'rgba(203,213,225,0.55)';
-      cx.beginPath(); cx.moveTo(cxC + ca * (R - 14 * K), cyC + sa * (R - 14 * K)); cx.lineTo(cxC + ca * (R - 8 * K), cyC + sa * (R - 8 * K)); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 12 * K), cyC + sa * (R + 12 * K)); cx.stroke();
-    }
+    layers.forEach(([M, , al]) => {
+      if (i >= M.groups.length || al < 0.02) return;
+      const L = M.groups[i], c1 = COLORS[L], cu = M === m && cur;
+      if (ptOn()) {   // 学ぶ画面：長さ（2・3）と角度
+        txt(String(L), lx, ly - 8 * K, 30 * K, hexA(c1, (cu ? 1 : 0.7) * al), 900);
+        txt(`${Math.round(360 * L / M.total)}°`, lx, ly + 18 * K, 13 * K, hexA(c1, 0.85 * al), 700);
+      } else txt(String(i - M.barStartGroup[M.barOfGroup[i]] + 1), lx, ly, 30 * K, hexA(c1, (cu ? 1 : 0.7) * al), 900);   // メトロノーム：何拍目か
+    });
   }
-  // 小節の区切り（交互パターンのとき）
-  if (m.nBars > 1) m.barStartSub.forEach((bs, b) => {
-    const a = ang(bs), ca = Math.cos(a), sa = Math.sin(a);
-    cx.strokeStyle = 'rgba(248,250,252,0.9)'; cx.lineWidth = 4 * K;
-    cx.beginPath(); cx.moveTo(cxC + ca * (R - 20 * K), cyC + sa * (R - 20 * K)); cx.lineTo(cxC + ca * (R + 22 * K), cyC + sa * (R + 22 * K)); cx.stroke();
-    txt(`${b + 1}小節目`, cxC + ca * (R - 34 * K) + (Math.abs(ca) < 0.3 ? 30 * K : 0), cyC + sa * (R - 34 * K), 11 * K, '#e2e8f0', 700);
-  });
+  // 目盛り（金属の植字）・境界線
+  for (const [M, angF, al] of layers) {
+    if (al < 0.02) continue;
+    cx.save(); cx.globalAlpha = al;
+    for (let s = 0; s < M.total; s++) {
+      const a = angF(s, M.total), isStart = M.starts.includes(s), ca = Math.cos(a), sa = Math.sin(a);
+      if (isStart) {
+        cx.lineWidth = 2 * K; cx.strokeStyle = 'rgba(226,232,240,0.35)';
+        cx.beginPath(); cx.moveTo(cxC + ca * R * 0.26, cyC + sa * R * 0.26); cx.lineTo(cxC + ca * (R - 8 * K), cyC + sa * (R - 8 * K)); cx.stroke();
+        cx.lineWidth = 3.5 * K; cx.strokeStyle = '#000'; cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 15 * K), cyC + sa * (R + 15 * K)); cx.stroke();
+        cx.lineWidth = 2.5 * K; cx.strokeStyle = '#e5e7eb'; cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K) - 0.5); cx.lineTo(cxC + ca * (R + 15 * K), cyC + sa * (R + 15 * K) - 0.5); cx.stroke();
+      } else {
+        cx.lineWidth = 1.5 * K; cx.strokeStyle = 'rgba(203,213,225,0.55)';
+        cx.beginPath(); cx.moveTo(cxC + ca * (R - 14 * K), cyC + sa * (R - 14 * K)); cx.lineTo(cxC + ca * (R - 8 * K), cyC + sa * (R - 8 * K)); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 12 * K), cyC + sa * (R + 12 * K)); cx.stroke();
+      }
+    }
+    // 小節の区切り（交互パターンのとき）
+    if (M.nBars > 1) M.barStartSub.forEach((bs, b) => {
+      const a = angF(bs, M.total), ca = Math.cos(a), sa = Math.sin(a);
+      cx.strokeStyle = 'rgba(248,250,252,0.9)'; cx.lineWidth = 4 * K;
+      cx.beginPath(); cx.moveTo(cxC + ca * (R - 20 * K), cyC + sa * (R - 20 * K)); cx.lineTo(cxC + ca * (R + 22 * K), cyC + sa * (R + 22 * K)); cx.stroke();
+      txt(`${b + 1}小節目`, cxC + ca * (R - 34 * K) + (Math.abs(ca) < 0.3 ? 30 * K : 0), cyC + sa * (R - 34 * K), 11 * K, '#e2e8f0', 700);
+    });
+    cx.restore();
+  }
   // 境界を通過した瞬間のパルス（中心→境界線）
   for (const a of accents) {
     const age = now - a.t; if (age < 0 || age > 0.55) continue;
-    const an = ang(a.meta.starts[a.g], a.meta.total), ca = Math.cos(an), sa = Math.sin(an);
+    const an = (a.meta.shape === m.shape ? angN : mo && a.meta.shape === mo.shape ? angO : (v, tt) => A0 + 2 * Math.PI * v / tt)(a.meta.starts[a.g], a.meta.total), ca = Math.cos(an), sa = Math.sin(an);
     const reach = clamp(age / 0.2, 0, 1), fade = age < 0.2 ? 1 : 1 - (age - 0.2) / 0.35;
     cx.save(); cx.shadowColor = LIME; cx.shadowBlur = 20 * K;
     cx.strokeStyle = hexA(LIME, 0.85 * fade); cx.lineWidth = 5 * K;
@@ -3836,14 +3990,15 @@ function drawOrbit(st, now, ah) {
   }
   // コンボ（4〜）：ふちの外の小さなランプが、光の球を追いかけて灯る
   if (P.f1 > 0.01) {
-    const n = Math.max(24, T * 4), rr2 = (Ro + Ri) / 2 + 1.5 * K;
+    const rr2 = (Ro + Ri) / 2 + 1.5 * K;
     cx.save(); cx.globalCompositeOperation = 'lighter';
+    for (const [M, , wl] of layers) { const n = Math.max(24, M.total * 4); if (wl < 0.02) continue;
     for (let i = 0; i < n; i++) {
       const a = A0 + 2 * Math.PI * i / n, back = ((pa - a) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI), lit = Math.max(0, 1 - back / (Math.PI * 0.9)) ** 1.5 * P.f1, tw = 0.15 * P.f1;
-      const al = Math.max(lit, tw), lx = cxC + Math.cos(a) * rr2, ly = cyC + Math.sin(a) * rr2;
+      const al = Math.max(lit, tw) * wl, lx = cxC + Math.cos(a) * rr2, ly = cyC + Math.sin(a) * rr2;
       cx.fillStyle = `rgba(255,226,140,${0.3 * al})`; cx.beginPath(); cx.arc(lx, ly, 4 * K, 0, Math.PI * 2); cx.fill();
       cx.fillStyle = `rgba(255,248,220,${al})`; cx.beginPath(); cx.arc(lx, ly, 1.5 * K, 0, Math.PI * 2); cx.fill();
-    }
+    } }
     cx.restore();
   }
   // タップの反応：はやい／おそい → 光の球がふるえる、ぴったり → 金色にはじける
@@ -3852,7 +4007,7 @@ function drawOrbit(st, now, ah) {
   const ox = cxC + Math.cos(pa) * (R + jit), oy = cyC + Math.sin(pa) * (R + jit), orb = 10 * K * (1 + 0.35 * gold * gold);
   // 光の球の近くの目盛りが照らされる
   if (st.has) for (let s2 = 0; s2 < T; s2++) {
-    const a = ang(s2), dd = Math.abs(Math.atan2(Math.sin(a - pa), Math.cos(a - pa))); if (dd > 0.5) continue;
+    const a = angN(s2), dd = Math.abs(Math.atan2(Math.sin(a - pa), Math.cos(a - pa))); if (dd > 0.5) continue;
     const q = 1 - dd / 0.5, ca = Math.cos(a), sa = Math.sin(a); cx.strokeStyle = hexA(shade(col, 0.6), 0.7 * q); cx.lineWidth = 2 * K;
     cx.beginPath(); cx.moveTo(cxC + ca * (R + 8 * K), cyC + sa * (R + 8 * K)); cx.lineTo(cxC + ca * (R + 13 * K), cyC + sa * (R + 13 * K)); cx.stroke();
   }
@@ -5765,16 +5920,24 @@ function trainLantern(x, y, r, a, col, now, i) {
   cx.restore(); cx.globalAlpha = 1;
 }
 /* @@BEGIN drawTrain */
+let trainU = 0, trainUt = 0, trainSh = 0, trainS = -1, trainW = 0;
 function drawTrain(st, now, ah) {
   const m = st.m, T = m.total, G = m.groups.length, dur = 60 / bpm;
-  const u = W / clamp(T * 1.3, 10, 26);                       // 刻み1つぶんの長さ（画面上）
   const s = st.has ? st.sc + st.frac : 0;                     // 走った距離（8分音符いくつぶんか）
-  const shift = s * u;                                        // 景色が右へ流れた量
+  const seg = st.seg || { sc0: 0, st0: 0, prev: null }, pseg = seg.prev, ssl = s - seg.sc0;
+  // 拍子が変わったら、前の車両から新しい車両へ重ねて入れかえる。刻み1つの長さ・景色の流れはなめらかにつづける
+  const pm = st.has && st.changed && pseg ? pseg.meta : null, mt = pm ? clamp(st.segAge / 0.6, 0, 1) : 1, morph = mt < 1, ez = mt * mt * (3 - 2 * mt);
+  const uT = W / clamp(T * 1.3, 10, 26), pnw = performance.now();
+  if (!trainU || trainW !== W || pnw - trainUt > 600) trainU = uT; else trainU += (uT - trainU) * (1 - Math.exp(-(pnw - trainUt) / 1000 / 0.3));
+  trainUt = pnw; trainW = W;
+  const u = trainU;                                           // 刻み1つぶんの長さ（画面上）
+  if (!st.has || s < trainS || trainS < 0 || s - trainS > 6) trainSh = s * u; else trainSh += (s - trainS) * u;
+  trainS = s;
+  const shift = trainSh;                                      // 景色が右へ流れた量（通しで足していく）
   const railY = ah * 0.76, wr = clamp(u * 0.13, 5, 18);
   const carBot = railY - wr * 1.75, carH = clamp(Math.min(ah * 0.22, u * 1.9 + 24), 34, 170), carTop = carBot - carH;
   const A = Math.max(2.6 * u, W * 0.17);                      // 先頭（機関車のうしろ）の画面上の位置
   const X = c => A + c * u;                                   // 編成の中の位置 c（8分音符単位）→ 画面
-  const isBarHead = gi => m.barStartGroup.includes(gi);
   const tshadow = (on) => { if (on) { cx.shadowColor = 'rgba(0,0,0,0.8)'; cx.shadowBlur = 3 * K; cx.shadowOffsetY = 1 * K; } else { cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0; } };
   // 🎮 たたいた反応
   const pf = gearsPlay('G'), pa = pf.a, pOff = pf.kind === 'e' || pf.kind === 'l';
@@ -5878,9 +6041,15 @@ function drawTrain(st, now, ah) {
 
   /* ----- レールの継ぎ目（1小節ごと） ----- */
   const k0 = Math.floor(s), fs = s - k0, ageS = fs * dur;   // いちばん最近、継ぎ目が車輪を通ってからの時間
-  const lastPos = mod(k0, T), strongNow = m.starts.includes(lastPos);
-  const gaps = [];
-  for (let c = mod(s, T) - 2 * T; X(c) < W + 20; c += T) if (X(c) > -20) gaps.push(c);
+  const ta0 = st.has ? tlAt(k0) : null, strongNow = ta0 ? ta0.head : m.starts.includes(mod(k0, T));
+  // 小節の頭（継ぎ目）の通しの刻み番号：拍子が変わっても、前の継ぎ目は動かない
+  const joints = [];
+  { let j0 = ta0 ? k0 - ta0.n : 0; joints.push(j0);
+    for (let i = 0, j = j0; i < 4; i++) { const tj = ta0 ? tlAt(j) : null; j += tj ? tj.m.total : T; joints.push(j); }
+    const cMax = (W - A) / u + 3;
+    for (let i = 0, j = j0; i < 24 && s - j < cMax; i++) { const tb = ta0 ? tlAt(j - 1) : null; if (!tb || j - 1 < 0) { if (!ta0) j -= T; else break; } else j = j - 1 - tb.n; joints.unshift(j); }
+  }
+  const gaps = []; joints.forEach(J => { const c = s - J; if (X(c) > -20 && X(c) < W + 20) gaps.push(c); });
   gaps.forEach(c => {
     const x = X(c), glow = Math.exp(-ageS / (strongNow ? 0.16 : 0.08));
     cx.fillStyle = '#0b0d10'; cx.fillRect(x - 1.2 * K, railY - 1.5 * K, 2.4 * K, 4.5 * K);   // すき間
@@ -5897,7 +6066,8 @@ function drawTrain(st, now, ah) {
 
   /* ----- 車両のゆれ（継ぎ目を通った車輪がはねる） ----- */
   const bumpAt = (w, strong) => {                             // 位置 w の車輪のゆれ
-    const age = mod(s - w, T) * dur;
+    let Jl = joints[0]; for (let i = joints.length - 1; i >= 0; i--) if (joints[i] <= s - w + 1e-9) { Jl = joints[i]; break; }
+    const age = Math.max(0, s - w - Jl) * dur;
     return (strong ? 1 : 0.45) * Math.exp(-age / 0.07) * Math.cos(age * 40);
   };
   const amp = 5 * K;
@@ -5909,7 +6079,7 @@ function drawTrain(st, now, ah) {
   // 光った窓の明かりが、砂利に落ちる
   if (st.has) {
     cx.save(); cx.globalCompositeOperation = 'lighter'; cx.translate(0, railY + 14 * K); cx.scale(1, 0.3);
-    for (let c = mod(k0, T); X(c) < W + u; c += T) gearsSoftAt(X(c) + 0.5 * u, 0, u * 0.9, '#ffd98a', 0.28);
+    for (let c = mod(Math.floor(ssl), T); X(c) < W + u; c += T) gearsSoftAt(X(c) + 0.5 * u, 0, u * 0.9, '#ffd98a', 0.28);
     cx.restore();
   }
 
@@ -5917,8 +6087,8 @@ function drawTrain(st, now, ah) {
   [-1.8, -0.7].forEach(c => drawWheel(X(c), railY - wr, wr, s));
   for (let c = 0; X(c) < W + wr; c++) {
     if (X(c) < -wr) continue;
-    const gi = m.subToGroup[mod(c, T)], joint = m.starts[gi] === mod(c, T);
-    drawWheel(X(c), railY - wr, wr * (joint ? 1.15 : 0.9), s);
+    const jn = mm => mm.starts.includes(mod(c, mm.total)) ? 1 : 0, jv = morph ? jn(pm) * (1 - ez) + jn(m) * ez : jn(m);
+    drawWheel(X(c), railY - wr, wr * (0.9 + 0.25 * jv), s);
   }
 
   /* ----- 機関車（先頭） ----- */
@@ -5974,7 +6144,8 @@ function drawTrain(st, now, ah) {
     g.addColorStop(0.11, shade(col, 0.55)); g.addColorStop(0.3, shade(col, 0.12)); g.addColorStop(0.7, col); g.addColorStop(0.92, shade(col, -0.35)); g.addColorStop(1, shade(col, -0.55));
     return (bodyG[key] = g);
   };
-  const firstCycle = 0, lastCycle = Math.ceil((W - A) / (T * u)) + 1;
+  const trainCars = (m, T, G, sl) => {
+  const isBarHead = gi => m.barStartGroup.includes(gi), firstCycle = 0, lastCycle = Math.ceil((W - A) / (T * u)) + 1;
   for (let cyc = firstCycle; cyc <= lastCycle; cyc++) {
     for (let gi = 0; gi < G; gi++) {
       const L = m.groups[gi], cs = cyc * T + m.starts[gi], x0 = X(cs), x1 = X(cs + L);
@@ -6010,7 +6181,7 @@ function drawTrain(st, now, ah) {
       // 窓（刻み1つに1枚）：いま継ぎ目の上にある拍の窓が光る
       for (let k = 0; k < L; k++) {
         const wx0 = X(cs + k) + 0.14 * u, ww = 0.72 * u, wy = carTop + carH * 0.2, wh = carH * 0.36;
-        const lit = st.has && mod(s - (cs + k), T) < 1;
+        const lit = st.has && mod(sl - (cs + k), T) < 1;
         rr(wx0 - 1.5 * K, wy - 1.5 * K, ww + 3 * K, wh + 3 * K, 6 * K); cx.fillStyle = 'rgba(10,14,22,0.75)'; cx.fill();   // 窓わくのゴム
         rr(wx0, wy, ww, wh, 5 * K);
         if (lit) { cx.shadowColor = '#fde047'; cx.shadowBlur = 18 * K; cx.fillStyle = litG; cx.fill(); cx.shadowBlur = 0; }
@@ -6035,6 +6206,11 @@ function drawTrain(st, now, ah) {
       cx.fillStyle = 'rgba(255,255,255,0.25)'; cx.fillRect(x0 - 5 * K, carBot - carH * 0.3, 10 * K, 1.2 * K);
     }
   }
+  };
+  if (morph) trainCars(pm, pm.total, pm.groups.length, s - pseg.sc0);
+  cx.save(); if (morph) cx.globalAlpha = ez;
+  trainCars(m, T, G, ssl);
+  cx.restore();
 
   /* ----- 「ガタン」「コトン」 ----- */
   if (st.has && ageS < 0.5) {
@@ -7123,97 +7299,72 @@ function gearsRays(x, y, R, a, now, col) {
   cx.fill(); cx.restore();
 }
 /* @@BEGIN drawGears */
-let gearsFx = [], gearsVigC = null, gearsVigKey = '';
-function drawGears(st, now, ah) {
-  const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
-  const M = G * Math.ceil(6 / G);                           // 拍の歯車の歯の数（グループの数の倍数＝周期ごとに同じ並び）
-  const pad = 12 * K, top = 112 * K, bottom = ah - 8 * K, ta = GT.ta;
-  const aW = W - 2 * pad, aH = bottom - top - 16 * K;
-  // 3つ目＝小節の歯車：拍の歯車の前にある小さな歯車（小節の頭の拍にだけ歯）とかみ合い、1小節で歯1つぶん回る
-  const Q = 4, kp = 0.72;                                   // 小節の歯車の歯の数（1回転＝4小節）・小さな歯車の大きさ（拍の歯車にくらべて）
+let gearsFx = [], gearsVigC = null, gearsVigKey = '', gearsLayC = {};
+const gearsMs = m => m.groups.length * Math.ceil(6 / m.groups.length);   // 拍の歯車の歯の数
+const gearsAng = (a, b, t) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t;
+// 画面にちょうど入る歯車3つの並べ方（歯の数ごとにキャッシュ）
+function gearsLay(N, M, ah) {
+  const key = N + '_' + M + '_' + W + '_' + ah + '_' + K; let r = gearsLayC[key]; if (r) return r;
+  const pad = 12 * K, top = 112 * K, bottom = ah - 8 * K, ta = GT.ta, aW = W - 2 * pad, aH = bottom - top - 16 * K, Q = 4, kp = 0.72;
   let best = null;
   for (const vert of [false, true]) for (const psi of [0, Math.PI / 4, -Math.PI / 4, Math.PI / 2, -Math.PI / 2, 3 * Math.PI / 4, -3 * Math.PI / 4, Math.PI]) {
     const bx = vert ? 0 : N + M, by = vert ? N + M : 0, D = (M + Q) * kp, qx = bx + Math.cos(psi) * D, qy = by + Math.sin(psi) * D, rq = (Q + ta) * kp;
-    if (Math.hypot(qx, qy) < N + ta + rq + 0.6) continue;     // 刻みの歯車とぶつかる向きはやめる
+    if (Math.hypot(qx, qy) < N + ta + rq + 0.6) continue;
     const cs = [[0, 0, N + ta], [bx, by, M + ta], [qx, qy, rq]];
     const x0 = Math.min(...cs.map(c => c[0] - c[2])), x1 = Math.max(...cs.map(c => c[0] + c[2]));
     const y0 = Math.min(...cs.map(c => c[1] - c[2])), y1 = Math.max(...cs.map(c => c[1] + c[2]));
     const sc = Math.min(aW / (x1 - x0), aH / (y1 - y0));
-    if (!best || sc > best.sc * 1.04) best = { sc, vert, psi, x0, x1, y0, y1, bx, by, qx, qy };
+    if (!best || sc > best.sc * 1.04) best = { sc, vert, psi, x0, x1, y0, y1 };
   }
-  const vert = best.vert, s = Math.max(3, best.sc), psi = best.psi, sp = s * kp;
-  const phi = vert ? Math.PI / 2 : 0;                        // 刻みの歯車から見た、かみ合う点の向き
+  const s = Math.max(3, best.sc);
+  r = { s, phi: best.vert ? Math.PI / 2 : 0, psi: best.psi, xs: (W - (best.x1 - best.x0) * s) / 2 - best.x0 * s, ys: top + 8 * K + (aH - (best.y1 - best.y0) * s) / 2 - best.y0 * s };
+  if (Object.keys(gearsLayC).length > 60) gearsLayC = {};
+  return (gearsLayC[key] = r);
+}
+// 3つの歯車の中心と大きさ（刻み＝(xs,ys)、拍＝phi の向き、小節＝拍の歯車から psi の向き）
+function gearsGeo(m, s, xs, ys, phi, psi) {
+  const N = m.total, M = gearsMs(m), Q = 4, kp = 0.72, sp = s * kp;
   const gs = gearGeom(N, s), gt = gearGeom(M, s), gp = gearGeom(M, sp), gq = gearGeom(Q, sp), dist = gs.rp + gt.rp;
-  const ox = (W - (best.x1 - best.x0) * s) / 2 - best.x0 * s, oy = top + 8 * K + (aH - (best.y1 - best.y0) * s) / 2 - best.y0 * s;
-  const xs = ox, ys = oy, xt = ox + best.bx * s, yt = oy + best.by * s, xq = ox + best.qx * s, yq = oy + best.qy * s;
-  const ws = gs.w, wt = gt.w, wq = gq.w;
-
-  // いま、どこまで進んだか（S＝刻みの歯車の進み、A＝拍の歯車の進み。どちらも歯1つぶんを1とする）
-  const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0;
-  const S = has ? st.sc + st.frac : 0, P = has ? st.sc - kCur : 0, gAbs = has ? st.step : 0;
-  const A = gAbs + clamp(S - (P - 0.5), 0, 1) + clamp(S - (P + L - 0.5), 0, 1);   // 歯がかみ合っている間だけ進む
-  const moving = Math.abs(A - Math.round(A)) > 0.002;
-  const ageS = has ? st.frac * dur : 9;
-  // 🎮 たたいた反応：早い・遅いは歯車が「ガクッ」とつまずく（早い＝もどる向き、遅い＝進む向き）
-  const pf = gearsPlay('J'), pa = pf.a, pOff = pf.kind === 'e' || pf.kind === 'l';
-  const wob = pOff && pa < 0.7 ? (pf.kind === 'e' ? -1 : 1) * 0.07 * Math.exp(-pa * 6) * Math.sin(pa * 30 + 0.6) : 0;
-  const rotS = phi - S * ws - wob * 0.35, rotT = phi + Math.PI + A * wt + wob;
-  // 小節の歯車の進み：小節の頭の拍で、拍の歯車が歯1つぶん回る間だけ、歯1つぶん回る
-  const nB = m.barStartGroup.length, isBarStep = b => m.barStartGroup.includes(mod(b, G));
-  const barsBefore = b => Math.floor(b / G) * nB + m.barStartGroup.filter(x => x < mod(b, G)).length;
-  const iA = Math.floor(A), Bv = has ? barsBefore(iA) + (isBarStep(iA) ? A - iA : 0) : 0;
-  const movingB = has && isBarStep(iA) && A - iA > 0.002 && A - iA < 0.998;
-  const rotQ = psi + Math.PI - Bv * wq;
-  let barFlash = 0, headFlash = 0;
-  for (const a of accents) {
-    if (a.meta !== m) continue;
-    const age = now - a.t; if (age < 0 || age > 0.8) continue;
-    const q = 1 - age / 0.8; headFlash = Math.max(headFlash, q);
-    if (m.barStartGroup.includes(a.g)) barFlash = Math.max(barFlash, q);
-  }
-  const isBarHead = h => m.barStartSub.includes(h);
-
-  // ===== 背板（ヘアラインの金属板） =====
-  gearsBg(ah);
-  // 連続ぴったりでにぎやかに：歯車の後ろの暖かい光（2）と、回る光のすじ（3）
-  if (pf.f2 > 0) { cx.save(); cx.globalCompositeOperation = 'lighter'; gearsSoftAt(xt, yt, gt.rt * 1.9, '#ffb547', 0.35 * pf.f2); gearsSoftAt(xs, ys, gs.rt * 1.7, '#ffd27a', 0.22 * pf.f2); cx.restore(); }
-  gearsRays((xs + xt) / 2, (ys + yt) / 2, Math.max(W, ah) * 0.75, pf.f3, now, '#ffe39a');
-  // 左上の窓からの光の帯と、ただようほこり
-  { cx.save(); cx.globalCompositeOperation = 'lighter';
-    const bx0 = W * 0.08, bx1 = W * 0.42, lg = cx.createLinearGradient(0, 0, W * 0.3, ah); lg.addColorStop(0, 'rgba(255,236,200,0.07)'); lg.addColorStop(1, 'rgba(255,236,200,0)');
-    cx.fillStyle = lg; cx.beginPath(); cx.moveTo(bx0, 0); cx.lineTo(bx1, 0); cx.lineTo(bx1 + W * 0.3, ah); cx.lineTo(bx0 + W * 0.12, ah); cx.closePath(); cx.fill();
-    for (let i = 0; i < 14; i++) {
-      const t = now * (0.012 + hash01(i + 5) * 0.02) + hash01(i), yy = mod(t, 1) * ah, xx = bx0 + (bx1 - bx0) * hash01(i + 40) + yy * 0.35 + Math.sin(now * 0.7 + i) * 8 * K;
-      cx.globalAlpha = 0.25 + 0.35 * hash01(i + 9); cx.fillStyle = '#fff3d6'; cx.beginPath(); cx.arc(xx, yy, (0.6 + hash01(i + 77)) * K, 0, Math.PI * 2); cx.fill();
-    }
-    cx.globalAlpha = 1; cx.restore(); }
-  // 軸を受ける座金（背板にねじ止め）と、2つの軸をむすぶ刻線
-  cx.strokeStyle = 'rgba(0,0,0,0.35)'; cx.lineWidth = 1.5 * K;
-  cx.beginPath(); cx.moveTo(xs, ys + 1); cx.lineTo(xt, yt + 1); cx.stroke();
-  cx.strokeStyle = 'rgba(255,255,255,0.06)';
-  cx.beginPath(); cx.moveTo(xs, ys); cx.lineTo(xt, yt); cx.stroke();
-
+  const xt = xs + Math.cos(phi) * dist, yt = ys + Math.sin(phi) * dist, D = (M + Q) * kp * s;
+  return { N, M, Q, s, sp, gs, gt, gp, gq, xs, ys, xt, yt, xq: xt + Math.cos(psi) * D, yq: yt + Math.sin(psi) * D, ws: gs.w, wt: gt.w, wq: gq.w };
+}
+// これまでに数えた「小節の頭の拍」の数（拍子が変わっても通しで数える）
+function gearsBarsAt(sg) {
+  if (sg._gb !== undefined) return sg._gb;
+  const p = sg.prev; if (!p) return (sg._gb = 0);
+  const G = p.meta.groups.length, nB = p.meta.barStartGroup.length, n = sg.st0 - p.st0, r = n % G;
+  return (sg._gb = gearsBarsAt(p) + Math.floor(n / G) * nB + p.meta.barStartGroup.filter(x => x < r).length);
+}
+function gearsBarInfo(b, sub) {   // b：通しの拍の番号、sub：その拍の頭の刻み
+  let i = tl.length - 1; while (i > 0 && tl[i].st0 > b) i--;
+  const sg = tl[i], ta = tlAt(sub); if (!sg || !ta) return { before: 0, isBar: false };
+  const mm = sg.meta, G = mm.groups.length, nB = mm.barStartGroup.length, loc = Math.max(0, b - sg.st0), r = loc % G;
+  return { before: gearsBarsAt(sg) + Math.floor(loc / G) * nB + mm.barStartGroup.filter(x => x < r).length, isBar: ta.m.barStartGroup.includes(ta.g) };
+}
+// 歯車の一式（刻み・拍・小節）を描く。拍子が変わる間は、前の拍子の一式と重ねて、すこしずつ入れかえる
+function gearsSet(c) {
+  const { m, geo, rotS, rotT, rotQ, hl, has, g, L, kCur, moving, movingB, headFlash, barFlash, bno, phi, psi } = c;
+  const { N, M, Q, s, sp, gs, gt, gp, gq, xs, ys, xt, yt, xq, yq, ws, wt, wq } = geo, G = m.groups.length;
+  const isBarHead = h => m.barStartSub.includes(h), isBarStep = b => m.barStartGroup.includes(mod(b, G));
   // ===== 刻みの歯車（はがね） =====
   const mask = [];
   for (let k = 0; k < N; k++) mask.push(m.starts.includes(k));
   gearsBody(xs, ys, N, s, rotS, mask, 'steel', 1);
   gearsRecess(xs, ys, gs.rr * 0.93, 2 * K);
-  // グループの帯（パン＝2マス、トマト＝3マス）：刻んだ溝にエナメルを流しこんだ帯
   const bandR = gs.rr * 0.84, bandW = Math.max(4 * K, Math.min(0.55 * s, 12 * K));
   cx.lineCap = 'butt';
   m.groups.forEach((Lg, gi) => {
-    const h = m.starts[gi], a0 = rotS + (h - 0.5 + 0.06) * ws, a1 = rotS + (h + Lg - 0.5 - 0.06) * ws, cur = has && gi === g;
+    const h = m.starts[gi], a0 = rotS + (h - 0.5 + 0.06) * ws, a1 = rotS + (h + Lg - 0.5 - 0.06) * ws, cur = gi === hl;
     cx.strokeStyle = 'rgba(0,0,0,0.6)'; cx.lineWidth = bandW + 3 * K;
     cx.beginPath(); cx.arc(xs + 0.6 * K, ys + 0.8 * K, bandR, a0, a1); cx.stroke();
     if (cur) { cx.shadowColor = COLORS[Lg]; cx.shadowBlur = 12 * K; }
     cx.strokeStyle = cur ? COLORS[Lg] : shade(COLORS[Lg], -0.45); cx.lineWidth = bandW;
     cx.beginPath(); cx.arc(xs, ys, bandR, a0, a1); cx.stroke(); cx.shadowBlur = 0;
-    cx.strokeStyle = 'rgba(255,255,255,0.35)'; cx.lineWidth = Math.max(1, bandW * 0.18);   // エナメルのつや
+    cx.strokeStyle = 'rgba(255,255,255,0.35)'; cx.lineWidth = Math.max(1, bandW * 0.18);
     cx.beginPath(); cx.arc(xs, ys, bandR - bandW * 0.25, a0, a1); cx.stroke();
     const am = (a0 + a1) / 2, fs = Math.min(14 * K, 0.85 * s, (Lg * ws * gs.rr * 0.56) / 3.4);
     if (fs >= 7) gearsTxt(pw(Lg), xs + Math.cos(am) * gs.rr * 0.6, ys + Math.sin(am) * gs.rr * 0.6, fs, cur ? shade(COLORS[Lg], 0.35) : hexA(shade(COLORS[Lg], 0.2), 0.85), 800);
   });
-  // マス目の点（1拍＝1マス）：打ちこんだ印
   for (let k = 0; k < N; k++) {
     const a = rotS + k * ws, head = mask[k], r = Math.min((head ? 0.2 : 0.12) * s + 1.2 * K, 6 * K);
     const px = xs + Math.cos(a) * gs.rr * 0.97, py = ys + Math.sin(a) * gs.rr * 0.97;
@@ -7221,12 +7372,10 @@ function drawGears(st, now, ah) {
     cx.fillStyle = isBarHead(k) ? LIME : head ? '#f8fafc' : 'rgba(203,213,225,0.6)';
     cx.beginPath(); cx.arc(px + 0.3 * K, py + 0.4 * K, r, 0, Math.PI * 2); cx.fill();
   }
-  // 歯（拍の頭のマスにだけある）
   m.groups.forEach((Lg, gi) => {
     const h = m.starts[gi];
     gearsTooth(xs, ys, N, s, rotS + h * ws, COLORS[Lg], isBarHead(h), gs.rp);
   });
-  // 中心：軸のボス・ボルト・いまの音
   { const hubR = gs.rr * 0.3, nb = 6;
     for (let i = 0; i < nb; i++) { const a = rotS + (i + 0.5) * Math.PI * 2 / nb; gearsBolt(xs + Math.cos(a) * hubR * 1.32, ys + Math.sin(a) * hubR * 1.32, Math.min(hubR * 0.12, 5 * K)); }
     gearsCap(xs, ys, hubR, '#94a3b8', 0);
@@ -7235,7 +7384,7 @@ function drawGears(st, now, ah) {
 
   // ===== 拍の歯車（真ちゅう） =====
   gearsBody(xt, yt, M, s, rotT, null, 'brass', 1);
-  for (let j = 0; j < M; j++) {   // 歯の色＝その歯が受けもつグループ（周期ごとに同じ並び）
+  for (let j = 0; j < M; j++) {
     const gi = mod(-j - 1, G), Lg = m.groups[gi], bar = m.barStartGroup.includes(gi);
     toothPoly(xt, yt, M, s, rotT + j * wt);
     cx.fillStyle = hexA(COLORS[Lg], 0.5); cx.fill();
@@ -7243,18 +7392,17 @@ function drawGears(st, now, ah) {
     if (bar) { cx.strokeStyle = LIME; cx.lineWidth = 2.5 * K; cx.stroke(); }
   }
   gearsRecess(xt, yt, gt.rr * 0.9, 2 * K);
-  for (let k = 0; k < M; k++) {   // ふちのボルト（回っているのが見えるように）
+  for (let k = 0; k < M; k++) {
     const a = rotT + (k + 0.5) * wt;
     gearsBolt(xt + Math.cos(a) * gt.rr * 0.82, yt + Math.sin(a) * gt.rr * 0.82, Math.min(gt.rr * 0.045, 5 * K));
   }
-  if (moving) {   // 回っている間：光沢がゆれる
+  if (moving) {
     cx.strokeStyle = 'rgba(255,240,200,0.35)'; cx.lineWidth = 2.5 * K;
     cx.beginPath(); cx.arc(xt, yt, gt.rr * 0.95, Math.PI * 1.05, Math.PI * 1.45); cx.stroke();
   }
 
   // ===== 小節の歯車 =====
-  { // 拍の歯車の前にある小さな歯車（小節の頭の拍にだけ歯がある）：はがねの円板
-    cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 10 * K; cx.shadowOffsetX = 4 * K; cx.shadowOffsetY = 6 * K;
+  { cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 10 * K; cx.shadowOffsetX = 4 * K; cx.shadowOffsetY = 6 * K;
     cx.fillStyle = '#3a404b'; cx.beginPath(); cx.arc(xt, yt, gp.rr, 0, Math.PI * 2); cx.fill(); cx.restore();
     { const lg = cx.createLinearGradient(xt - gp.rr, yt - gp.rr, xt + gp.rr, yt + gp.rr);
       lg.addColorStop(0, gearsMats.pinion[0]); lg.addColorStop(0.45, gearsMats.pinion[1]); lg.addColorStop(1, gearsMats.pinion[2]);
@@ -7271,25 +7419,83 @@ function drawGears(st, now, ah) {
     gearsCap(xt, yt, hubR, COLORS[L], moving || headFlash > 0 ? Math.max(moving ? 1 : 0, headFlash) : 0);
     const fs = Math.min(hubR * 0.62, 22 * K);
     if (fs >= 7) txt(pw(L), xt, yt + 0.5, fs, COLORS[L], 900);
-    // 小節の歯車（ふつうの歯車。歯1つ＝1小節）：緑のアルマイト
     gearsBody(xq, yq, Q, sp, rotQ, null, 'green', 1);
     if (movingB || barFlash > 0) {
       cx.save(); gearPoly(xq, yq, Q, sp, rotQ); cx.shadowColor = LIME; cx.shadowBlur = 20 * K;
       cx.strokeStyle = hexA(LIME, movingB ? 0.9 : 0.6 * barFlash); cx.lineWidth = 2 * K; cx.stroke(); cx.restore();
     }
-    for (let i = 0; i < Q; i++) {   // 肉ぬきの穴（回っているのが見えるように）
+    for (let i = 0; i < Q; i++) {
       const a0 = rotQ + (i + 0.5) * wq - wq * 0.32, a1 = rotQ + (i + 0.5) * wq + wq * 0.32, r0 = gq.rr * 0.6, r1 = gq.rr * 0.84;
       cx.beginPath(); cx.arc(xq, yq, r1, a0, a1); cx.arc(xq, yq, r0, a1, a0, true); cx.closePath();
       cx.fillStyle = 'rgba(8,10,14,0.82)'; cx.fill();
       cx.strokeStyle = 'rgba(0,0,0,0.55)'; cx.lineWidth = 1.2 * K; cx.stroke();
     }
-    const bno = has ? st.measure * m.nBars + m.barOfGroup[g] + 1 : 0, hq = gq.rr * 0.5;
+    const hq = gq.rr * 0.5;
     gearsCap(xq, yq, hq, LIME, 0);
     const fq = Math.min(hq * 0.9, 30 * K);
     if (fq >= 7) txt(has ? String(bno) : '1', xq, yq - hq * 0.12, fq, '#ecfccb', 900);
     if (fq >= 9) txt('小節目', xq, yq + hq * 0.5, Math.min(hq * 0.3, 12 * K), '#bef264', 800);
     if (barFlash > 0) { cx.strokeStyle = hexA(LIME, 0.85 * barFlash); cx.lineWidth = 3 * K; cx.beginPath(); cx.arc(xq, yq, gq.rt + 5 * K, 0, Math.PI * 2); cx.stroke(); }
   }
+}
+function drawGears(st, now, ah) {
+  const m = st.m, G = m.groups.length, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
+  const M = gearsMs(m);
+  const seg = st.seg || { sc0: 0, st0: 0, prev: null }, pseg = seg.prev;
+  // 拍子が変わった直後：前の拍子の歯車から、いまの歯車へ、大きさ・位置・向きをなめらかに移しかえる
+  const pm = has && st.changed && pseg ? pseg.meta : null, mt = pm ? clamp(st.segAge / 0.6, 0, 1) : 1, morph = mt < 1, ez = mt * mt * (3 - 2 * mt);
+  const layN = gearsLay(N, M, ah), layO = morph ? gearsLay(pm.total, gearsMs(pm), ah) : null;
+  const lay = morph ? { s: layO.s + (layN.s - layO.s) * ez, xs: layO.xs + (layN.xs - layO.xs) * ez, ys: layO.ys + (layN.ys - layO.ys) * ez, phi: gearsAng(layO.phi, layN.phi, ez), psi: gearsAng(layO.psi, layN.psi, ez) } : layN;
+  const s = lay.s, psi = lay.psi, phi = lay.phi, xsC = lay.xs, ysC = lay.ys;
+  const geo = gearsGeo(m, s, xsC, ysC, phi, psi), geoO = morph ? gearsGeo(pm, s, xsC, ysC, phi, psi) : null;
+  const { gs, gt, gp, gq, xs, ys, xt, yt, xq, yq } = geo, vert = Math.abs(Math.sin(phi)) > 0.5;
+
+  // いま、どこまで進んだか（S＝刻みの歯車の進み、A＝拍の歯車の進み。どちらも歯1つぶんを1とする）。いまの拍子の最初からの数で見る
+  const g = has ? st.g : 0, L = m.groups[g], kCur = has ? st.sub - m.starts[g] : 0;
+  const S = has ? st.sc + st.frac : 0, P = has ? st.sc - kCur : 0, gAbs = has ? st.step : 0;
+  const A = gAbs + clamp(S - (P - 0.5), 0, 1) + clamp(S - (P + L - 0.5), 0, 1);
+  const moving = Math.abs(A - Math.round(A)) > 0.002;
+  const ageS = has ? st.frac * dur : 9;
+  const pf = gearsPlay('J'), pa = pf.a, pOff = pf.kind === 'e' || pf.kind === 'l';
+  const wob = pOff && pa < 0.7 ? (pf.kind === 'e' ? -1 : 1) * 0.07 * Math.exp(-pa * 6) * Math.sin(pa * 30 + 0.6) : 0;
+  const rotS = phi - (S - seg.sc0) * geo.ws - wob * 0.35, rotT = phi + Math.PI + (A - seg.st0) * geo.wt + wob;
+  // 小節の歯車の進み：小節の頭の拍で、拍の歯車が歯1つぶん回る間だけ、歯1つぶん回る（小節の数は拍子をまたいで通しで数える）
+  const iA = Math.floor(A), bi = has ? gearsBarInfo(iA, iA === gAbs ? P : P + L) : null;
+  const Bv = has ? bi.before + (bi.isBar ? A - iA : 0) : 0;
+  const movingB = has && bi.isBar && A - iA > 0.002 && A - iA < 0.998;
+  const rotQ = psi + Math.PI - Bv * geo.wq;
+  const bc = has ? gearsBarInfo(gAbs, P) : null, bno = has ? bc.before + (bc.isBar ? 1 : 0) : 0;
+  let barFlash = 0, headFlash = 0;
+  for (const a of accents) {
+    const age = now - a.t; if (age < 0 || age > 0.8) continue;
+    const q = 1 - age / 0.8; headFlash = Math.max(headFlash, q);
+    if (a.meta.barStartGroup.includes(a.g)) barFlash = Math.max(barFlash, q);
+  }
+
+  // ===== 背板（ヘアラインの金属板） =====
+  gearsBg(ah);
+  if (pf.f2 > 0) { cx.save(); cx.globalCompositeOperation = 'lighter'; gearsSoftAt(xt, yt, gt.rt * 1.9, '#ffb547', 0.35 * pf.f2); gearsSoftAt(xs, ys, gs.rt * 1.7, '#ffd27a', 0.22 * pf.f2); cx.restore(); }
+  gearsRays((xs + xt) / 2, (ys + yt) / 2, Math.max(W, ah) * 0.75, pf.f3, now, '#ffe39a');
+  { cx.save(); cx.globalCompositeOperation = 'lighter';
+    const bx0 = W * 0.08, bx1 = W * 0.42, lg = cx.createLinearGradient(0, 0, W * 0.3, ah); lg.addColorStop(0, 'rgba(255,236,200,0.07)'); lg.addColorStop(1, 'rgba(255,236,200,0)');
+    cx.fillStyle = lg; cx.beginPath(); cx.moveTo(bx0, 0); cx.lineTo(bx1, 0); cx.lineTo(bx1 + W * 0.3, ah); cx.lineTo(bx0 + W * 0.12, ah); cx.closePath(); cx.fill();
+    for (let i = 0; i < 14; i++) {
+      const t = now * (0.012 + hash01(i + 5) * 0.02) + hash01(i), yy = mod(t, 1) * ah, xx = bx0 + (bx1 - bx0) * hash01(i + 40) + yy * 0.35 + Math.sin(now * 0.7 + i) * 8 * K;
+      cx.globalAlpha = 0.25 + 0.35 * hash01(i + 9); cx.fillStyle = '#fff3d6'; cx.beginPath(); cx.arc(xx, yy, (0.6 + hash01(i + 77)) * K, 0, Math.PI * 2); cx.fill();
+    }
+    cx.globalAlpha = 1; cx.restore(); }
+  cx.strokeStyle = 'rgba(0,0,0,0.35)'; cx.lineWidth = 1.5 * K;
+  cx.beginPath(); cx.moveTo(xs, ys + 1); cx.lineTo(xt, yt + 1); cx.stroke();
+  cx.strokeStyle = 'rgba(255,255,255,0.06)';
+  cx.beginPath(); cx.moveTo(xs, ys); cx.lineTo(xt, yt); cx.stroke();
+
+  const base = { has, g, L, kCur, moving, movingB, headFlash, barFlash, bno, phi, psi };
+  if (morph) {   // 前の拍子の歯車は、そのまま回りつづけながら消えていく
+    gearsSet({ ...base, m: pm, geo: geoO, hl: -1, rotS: phi - (S - pseg.sc0) * geoO.ws - wob * 0.35, rotT: phi + Math.PI + (A - pseg.st0) * geoO.wt + wob, rotQ });
+    cx.save(); cx.globalAlpha = ez;
+  }
+  gearsSet({ ...base, m, geo, hl: has ? g : -1, rotS, rotT, rotQ });
+  if (morph) cx.restore();
 
   // かみ合う点：拍の頭で火花、刻みは小さな「カチ」
   const cpx = xs + Math.cos(phi) * gs.rp, cpy = ys + Math.sin(phi) * gs.rp;
@@ -7297,14 +7503,14 @@ function drawGears(st, now, ah) {
     const q = ageS / 0.28, head = kCur === 0, bar = head && m.barStartSub.includes(st.sub);
     const n = head ? 9 : 3, big = head ? (bar ? 2 : 1.5) : 0.5;
     cx.save(); cx.globalCompositeOperation = 'lighter'; cx.lineCap = 'round';
-    if (head) {   // 一瞬の閃光
+    if (head) {
       const fl = cx.createRadialGradient(cpx, cpy, 0, cpx, cpy, (18 + 20 * big) * K);
       fl.addColorStop(0, hexA(bar ? LIME : '#fff3c4', 0.7 * (1 - q))); fl.addColorStop(1, hexA(bar ? LIME : '#ffb347', 0));
       cx.fillStyle = fl; cx.beginPath(); cx.arc(cpx, cpy, (18 + 20 * big) * K, 0, Math.PI * 2); cx.fill();
     }
     for (let i = 0; i < n; i++) {
       const an = phi + Math.PI / 2 + (i - (n - 1) / 2) * (head ? 0.34 : 0.5) + (i % 2 ? Math.PI : 0), d0 = (3 + 10 * q * big) * K, d1 = (6 + 24 * q * big) * K;
-      const fall = q * q * 10 * K;   // 火花は重力で少し落ちる
+      const fall = q * q * 10 * K;
       cx.strokeStyle = hexA(bar ? LIME : head ? (i % 3 ? '#ffd27a' : '#ffffff') : '#cbd5e1', 1 - q); cx.lineWidth = (head ? 2 : 1.4) * K * (1 - q * 0.5);
       cx.beginPath(); cx.moveTo(cpx + Math.cos(an) * d0, cpy + Math.sin(an) * d0 + fall * 0.5); cx.lineTo(cpx + Math.cos(an) * d1, cpy + Math.sin(an) * d1 + fall); cx.stroke();
     }
@@ -7356,7 +7562,7 @@ function drawGears(st, now, ah) {
     cx.shadowColor = 'rgba(0,0,0,0.85)'; cx.shadowBlur = 3 * K; cx.shadowOffsetY = 1 * K;
     if (vert) txt('拍の歯車', xt - gt.rt * 0.75, yt + gt.rt * 0.95, nfs, '#f3e2b0', 800, 'right');
     else txt('拍の歯車', xt, tY, nfs, '#f3e2b0', 800);
-    const ql = '小節の歯車（歯1つ＝1小節）'; cx.font = `800 ${nfs}px ${FONT}`; const qw = textW(ql);
+    const ql = '小節の歯車（歯1つ＝1小節）'; cx.font = `800 ${nfs}px ${FONT}`; const qw = cx.measureText(ql).width;
     if (Math.cos(psi) > 0.5 && xq + gq.rt + 10 * K + qw < W - 8 * K) txt(ql, xq + gq.rt + 10 * K, yq, nfs, '#d9f99d', 800, 'left');   // 外側（右）に
     else if (Math.cos(psi) < -0.5 && xq - gq.rt - 10 * K - qw > 8 * K) txt(ql, xq - gq.rt - 10 * K, yq, nfs, '#d9f99d', 800, 'right');
     else {   // 上か下に（画面からはみ出さないよう、左右をおさめる）
@@ -7873,16 +8079,22 @@ function dominoPiece(px, gy, th, w, h, D, ox, oy, base, d, opt) {
   return [A, B, C, Dd];
 }
 /* @@BEGIN drawDomino */
-let dominoGold = new Map(), dominoFx = [];   // ぴったりで金色になったドミノ（番号 → 時刻）
+let dominoGold = new Map(), dominoFx = [], dominoU = 0, dominoUt = 0, dominoUW = 0;   // ぴったりで金色になったドミノ（番号 → 時刻）
 function drawDomino(st, now, ah) {
   const m = st.m, N = m.total, dur = 60 / bpm, narrow = W < 640, has = st.has;
   const top = 112 * K, gy = ah - Math.max(48 * K, ah * 0.13);
   const Hmax = Math.max(40, gy - top - 24 * K);
   // 本物のドミノに近い形：高さは間かくの1.5〜2.3倍、厚みは間かくの0.35倍くらい
-  const u = Math.max(12, Math.min(W * 0.82 / ((narrow ? 1.05 : 1.55) * N / m.nBars + 1.2), Hmax / 2.4, 70 * K));   // ドミノの間隔（スマホは少し大きく）
-  const info = j => {
-    const sj = mod(j, N), g = m.subToGroup[sj], L = m.groups[g], k = sj - m.starts[g], head = k === 0;
-    return { g, L, k, head, bar: head && m.barStartSub.includes(sj), h: u * (head ? (L === 3 ? 2.3 : 1.9) : 1.45) };
+  const uT = Math.max(12, Math.min(W * 0.82 / ((narrow ? 1.05 : 1.55) * N / m.nBars + 1.2), Hmax / 2.4, 70 * K));   // ドミノの間隔（スマホは少し大きく）
+  const pnw = performance.now();   // 拍子が変わっても、間隔はなめらかに変わる（並んだドミノの位置は連続）
+  if (!dominoU || dominoUW !== W || pnw - dominoUt > 600) dominoU = uT; else dominoU += (uT - dominoU) * (1 - Math.exp(-(pnw - dominoUt) / 1000 / 0.3));
+  dominoUt = pnw; dominoUW = W;
+  const u = dominoU, tcache = new Map();
+  const info = j => {   // j番めの刻みのドミノ（過去も先も、その時の拍子で）
+    let r = tcache.get(j); if (r) return r;
+    const ta = has ? tlAt(j) : null, mm = ta ? ta.m : m, sj = ta ? ta.n : mod(j, N), g = mm.subToGroup[sj], L = mm.groups[g], k = sj - mm.starts[g], head = k === 0;
+    r = { g, L, k, head, bar: head && mm.barStartSub.includes(sj), h: u * (head ? (L === 3 ? 2.3 : 1.9) : 1.45), step: ta ? ta.step : 0, blen: mm.total / mm.nBars };
+    tcache.set(j, r); return r;
   };
   const w = Math.max(5, Math.min(u * 0.36, 26 * K));                                      // ドミノの厚み
   const S = has ? st.sc + st.frac : -0.6, k0 = has ? st.sc : 0;
@@ -7944,17 +8156,17 @@ function drawDomino(st, now, ah) {
   const tsh = on => { if (on) { cx.shadowColor = 'rgba(0,0,0,0.75)'; cx.shadowBlur = 3 * K; cx.shadowOffsetY = 1 * K; } else { cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0; } };
   const barXs = [];
   for (let j = j0; j <= j1; j++) {
-    const d = info(j), x = sx(j), col = COLORS[d.L], cur = has && d.g === st.g && Math.floor(j / N) === Math.floor(k0 / N);
+    const d = info(j), x = sx(j), col = COLORS[d.L], cur = has && d.step === st.step;
     const bx = x - u / 2 + 1.5 * K, bw = u - 3 * K, by = gy + 5 * K;
     cx.fillStyle = 'rgba(0,0,0,0.35)'; cx.fillRect(bx + 0.8 * K, by + 1.2 * K, bw, 7 * K);
     cx.fillStyle = cur ? col : shade(col, -0.35); cx.fillRect(bx, by, bw, 7 * K);
     cx.fillStyle = 'rgba(255,255,255,0.35)'; cx.fillRect(bx, by, bw, 1.2 * K);
     if (cur) { cx.fillStyle = hexA(col, 0.18); cx.fillRect(bx - 2 * K, by - 3 * K, bw + 4 * K, 13 * K); }
     tsh(true); txt(syl(d.L, d.k), x, gy + 24 * K, Math.max(12, Math.min(u * 0.5, 16 * K)), d.head ? shade(col, 0.15) : hexA(shade(col, 0.3), 0.8), d.head ? 900 : 600); tsh(false);
-    if (d.bar) barXs.push(x - u / 2);
+    if (d.bar) barXs.push([x - u / 2, d.blen]);
   }
   for (let i = 0; i < barXs.length; i++) {
-    const xa = barXs[i], xb = i + 1 < barXs.length ? barXs[i + 1] : xa + (N / m.nBars) * u, y = gy + 40 * K;
+    const xa = barXs[i][0], xb = i + 1 < barXs.length ? barXs[i + 1][0] : xa + barXs[i][1] * u, y = gy + 40 * K;
     cx.strokeStyle = 'rgba(190,242,100,0.7)'; cx.lineWidth = 2 * K;
     cx.beginPath(); cx.moveTo(xa + 2 * K, y - 5 * K); cx.lineTo(xa + 2 * K, y); cx.lineTo(xb - 2 * K, y); cx.lineTo(xb - 2 * K, y - 5 * K); cx.stroke();
     if (xb - xa > 50 * K) { tsh(true); txt('1小節', (xa + xb) / 2, y + 1, Math.max(12, 11 * K), 'rgba(217,249,157,0.95)', 800); tsh(false); }
@@ -9297,7 +9509,12 @@ function drawNotes(st, now, ah) {
   const dL = -lineX / (u + k * lineX) - 0.05, dR = Math.min(60, (W - lineX) / Math.max(1e-3, u - k * (W - lineX))) + 0.05;
   const P = { laneY, laneH, lineX, u, k, vy, s, X, yc, dL, dR };
   const sx = j => X(j - S);
-  const info = j => { const i = mod(j, N), g = m.subToGroup[i], L = m.groups[g], k = i - m.starts[g]; return { i, g, L, k, head: k === 0, bar: k === 0 && m.barStartSub.includes(i) }; };
+  const icache = new Map();   // 刻み j のノーツ：そのときの拍子で決まる（拍子が変わっても、過去・先のノーツはそのまま）
+  const info = j => {
+    let r = icache.get(j); if (r) return r;
+    const ta = has ? tlAt(j) : null, mm = ta ? ta.m : m, i = ta ? ta.n : mod(j, N), g = mm.subToGroup[i], L = mm.groups[g], k = i - mm.starts[g];
+    r = { i, g, L, k, head: k === 0, bar: k === 0 && mm.barStartSub.includes(i) }; icache.set(j, r); return r;
+  };
   // 見のがし：判定ラインを過ぎても叩かれなかった頭のノーツ → 連続がとぎれる
   if (playing) for (const n of noteLog) {
     if (!n.head || n.hit || n.miss) continue;
@@ -10185,13 +10402,20 @@ function karakuriTube(tube, r, pass) {   // ガラス（アクリル）の管
   }
 }
 /* @@BEGIN drawKarakuri */
-let karakuriFx = [];
+let karakuriFx = [], karakuriM = { key: '', gs: null, alt: false, step: 0, lt: -9, from: null, t0: -9 };
 function drawKarakuri(st, now, ah) {
   const m = st.m, dur = 60 / bpm, has = st.has;
   const g = has ? st.g : 0, b = has ? m.barOfGroup[g] : 0, bs = m.barStartSub[b];
   const gs = m.bars[b], Nb = gs.reduce((a, v) => a + v, 0), alt = b % 2 === 1;
   const top = 116 * K, pad = 18 * K;
-  const x0 = pad + 36 * K, span = W - x0 - pad - 70 * K, step = span / Nb;
+  const x0 = pad + 36 * K, span = W - x0 - pad - 70 * K;
+  // 小節が変わる（装置がかわる）とき：前の装置と入れかえ、刻みの間かくもなめらかに変える（玉の道すじは切れない）
+  const KM = karakuriM, ckey = gs.join(',') + '|' + alt;
+  if (has && KM.key && KM.key !== ckey && now - KM.lt < 0.5 && KM.gs) { KM.from = { gs: KM.gs, alt: KM.alt, step: KM.step }; KM.t0 = now; }
+  if (!has) KM.from = null;
+  const kmt = KM.from ? clamp((now - KM.t0) / 0.5, 0, 1) : 1, kmorph = kmt < 1, kez = kmt * kmt * (3 - 2 * kmt);
+  const stepN = span / Nb, step = kmorph ? KM.from.step + (stepN - KM.from.step) * kez : stepN;
+  KM.key = ckey; KM.gs = gs; KM.alt = alt; KM.step = step; KM.lt = now;
   const yTop = top + (ah - top) * 0.3, yBot = ah - Math.max(34 * K, (ah - top) * 0.2);
   const ptX = i => x0 + (i + 0.5) * step, ptY = i => yTop + (yBot - yTop) * (Nb > 1 ? i / (Nb - 1) : 0);
   const r = Math.max(6, Math.min(step * 0.17, 14 * K));
@@ -10204,7 +10428,7 @@ function drawKarakuri(st, now, ah) {
   const tsh = on => { if (on) { cx.shadowColor = 'rgba(0,0,0,0.8)'; cx.shadowBlur = 3 * K; cx.shadowOffsetY = 1 * K; } else { cx.shadowColor = 'transparent'; cx.shadowBlur = 0; cx.shadowOffsetY = 0; } };
 
   // 背景のボード（2小節目は木の色がかわる）
-  karakuriBg(ah, top, pad, alt);
+  if (kmorph) { karakuriBg(ah, top, pad, KM.from.alt); cx.globalAlpha = kez; } karakuriBg(ah, top, pad, alt); cx.globalAlpha = 1;
   const pf = gearsPlay('L'), pa = pf.a, pOff = pf.kind === 'e' || pf.kind === 'l';
   // ランプの光（左上）と、ただようほこり
   { cx.save(); cx.globalCompositeOperation = 'lighter';
@@ -10226,6 +10450,12 @@ function drawKarakuri(st, now, ah) {
   karakuriTube(tube, r, 0);
   // 仕掛け
   const XYLO = ['#f87171', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#a78bfa'];
+  const drawDev = (gs, alt, old, al) => {
+  const Nb = gs.reduce((a, v) => a + v, 0), ptX = i => x0 + (i + 0.5) * step, ptY = i => yTop + (yBot - yTop) * (Nb > 1 ? i / (Nb - 1) : 0);
+  const kinds = [];
+  gs.forEach(L => { for (let k = 0; k < L; k++) kinds.push({ L, k, kind: k === 0 ? (L === 2 ? (alt ? 'drum' : 'spring') : (alt ? 'bowl' : 'bell')) : (L === 2 ? 'domino' : 'xylo') }); });
+  const ageOf = old ? (i => (iL + Nb - i + f) * dur) : (i => i <= iL ? (iL - i + f) * dur : -1);
+  cx.save(); cx.globalAlpha = al;
   kinds.forEach((d, i) => {
     const x = ptX(i), y = ptY(i), age = ageOf(i), hitQ = age >= 0 ? Math.exp(-age / 0.12) : 0, col = COLORS[d.L];
     karakuriRod(x, y + r * 0.6 + 12 * K, ah - 4 * K, 4 * K);   // 支える柱
@@ -10305,8 +10535,12 @@ function drawKarakuri(st, now, ah) {
       cx.fillStyle = 'rgba(255,255,255,0.55)'; cx.fillRect(x - w / 2 + 3 * K, y + vib + 1.2 * K, w - 6 * K, 1 * K);
       cx.fillStyle = '#d1d5db'; [-0.35, 0.35].forEach(t => { cx.beginPath(); cx.arc(x + w * t + (t < 0 ? 2 : -2) * K, y + vib + h / 2, 1.3 * K, 0, Math.PI * 2); cx.fill(); });
     }
-    if (d.k === 0) { tsh(true); txt(pw(d.L), x, yBot + 30 * K > ah - 6 * K ? y - 26 * K : y + 46 * K, Math.max(12, 13 * K), hexA(col, has && i <= iL && i + d.L > iL ? 1 : 0.75), 900); tsh(false); }
+    if (d.k === 0) { tsh(true); txt(pw(d.L), x, yBot + 30 * K > ah - 6 * K ? y - 26 * K : y + 46 * K, Math.max(12, 13 * K), hexA(col, !old && has && i <= iL && i + d.L > iL ? 1 : 0.75), 900); tsh(false); }
   });
+  cx.restore();
+  };
+  if (kmorph) drawDev(KM.from.gs, KM.from.alt, true, 1 - kez * 0);
+  drawDev(gs, alt, false, kmorph ? kez : 1);
   // ゴールと旗
   const lastBeat = iL === Nb - 1, flagUp = has ? (lastBeat ? clamp((f - 0.35) / 0.2, 0, 1) : barT < 0.6 * dur * 2 && iL >= 0 && st.sc > 0 ? 1 - clamp(barT / (dur * 1.2), 0, 1) : 0) : 0;
   cx.fillStyle = 'rgba(0,0,0,0.35)'; rr(goalX - 13 * K, goalY - 2 * K, 32 * K, 18 * K, 6 * K); cx.fill();
@@ -10555,27 +10789,56 @@ function blocksCityGet(ah, cs) {   // 背景（星・遠くの街・高層ビル
   blocksCity = { stars: sc, far: fc, fh, tall, S, ground: gc, gh }; blocksCityKey = key; return blocksCity;
 }
 /* @@BEGIN drawBlocks */
+let blocksRows = {}, blocksLastBar = -1, blocksNm = 0, blocksNmT = 0, blocksPrevCs = 0;
+function blocksBarsAt(sg) {   // その拍子が始まるまでに積んだ段の数（拍子が変わっても通しで数える）
+  if (sg._bb !== undefined) return sg._bb;
+  const p = sg.prev; if (!p) return (sg._bb = 0);
+  const pm = p.meta, G = pm.groups.length, n = sg.st0 - p.st0, r = n % G;
+  return (sg._bb = blocksBarsAt(p) + Math.floor(n / G) * pm.nBars + (r > 0 ? pm.barOfGroup[r - 1] + 1 : 0));
+}
 function drawBlocks(st, now, ah) {
-  const m = st.m, N = m.total, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
+  const m = st.m, B = m.nBars, dur = 60 / bpm, has = st.has, auto = SET.blockAuto;
   const top = 112 * K;
-  const Nmax = Math.max(...m.bars.map(b => b.reduce((a, v) => a + v, 0)));
+  const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0;
+  const seg = st.seg || { sc0: 0, st0: 0, prev: null };
+  const barNo = has ? blocksBarsAt(seg) + Math.floor((st.step - seg.st0) / m.groups.length) * B + m.barOfGroup[g] : 0;
+  // 段（行）の構成：その段が積まれたときの拍子のまま残る（段ごとにまとまりの並び・幅がちがってよい）
+  if (!has || barNo < blocksLastBar) blocksRows = {};
+  blocksLastBar = has ? barNo : -1;
+  const mkRow = (mm, gi, headSc) => { const b = mm.barOfGroup[gi], b0 = mm.barStartGroup[b]; return { groups: mm.bars[b], heads: mm.bars[b].map((_, i) => headSc + mm.starts[b0 + i] - mm.starts[gi]) }; };
+  let tn = null;
+  if (has) {
+    const P0 = st.sc - kCur;
+    if (!blocksRows[barNo]) blocksRows[barNo] = mkRow(m, g, P0);
+    tn = tlAt(P0 + m.groups[g]);
+    if (tn && tn.gl === 0) blocksRows[barNo + 1] = mkRow(tn.m, tn.g, P0 + m.groups[g]);
+    const ks = Object.keys(blocksRows); if (ks.length > 300) ks.forEach(k => { if (+k < barNo - 100) delete blocksRows[k]; });
+  }
+  const rowOf = bn => blocksRows[bn] || (blocksRows[bn] = { groups: m.bars[mod(bn, B)], heads: m.bars[mod(bn, B)].map(() => -1) });
+  const rowW = bn => rowOf(bn).groups.reduce((a, v) => a + v, 0);
+  let NmaxT = Math.max(...m.bars.map(b => b.reduce((a, v) => a + v, 0)));
+  if (has) for (let bn = Math.max(0, barNo - 9); bn <= barNo + 1; bn++) if (blocksRows[bn]) NmaxT = Math.max(NmaxT, rowW(bn));
+  const pnw = performance.now();   // 幅が変わっても、ブロックの大きさ・位置はなめらかに変わる
+  if (!blocksNm || pnw - blocksNmT > 600) blocksNm = NmaxT; else blocksNm += (NmaxT - blocksNm) * (1 - Math.exp(-(pnw - blocksNmT) / 1000 / 0.3));
+  blocksNmT = pnw;
+  const Nmax = blocksNm;
   const cs = Math.round(Math.max(16, Math.min((W * (W < 640 ? 0.6 : 0.4)) / Nmax, (ah - top) / 7.5, 72 * K)));
+  if (blocksPrevCs && blocksPrevCs !== cs) blocksCam *= cs / blocksPrevCs;   // カメラは「段の数」で持つので、大きさが変わってもずれない
+  blocksPrevCs = cs;
   const wellW = cs * Nmax, wx = Math.round((W - wellW) / 2 - (W < 640 ? cs * 0.35 : 0)), groundY = ah - 18 * K;
   const dz = Math.round(cs * 0.16);
-  const g = has ? st.g : 0, kCur = has ? st.sub - m.starts[g] : 0;
-  const barNo = has ? st.measure * B + m.barOfGroup[g] : 0;
-  const headScOf = (bn, i) => { const cyc = Math.floor(bn / B), b = mod(bn, B); return cyc * N + m.starts[m.barStartGroup[b] + i]; };
+  const headScOf = (bn, i) => rowOf(bn).heads[i];
   if (playing && !auto) for (const n of noteLog) { if (!n.head || n.res || n.miss || n.sc === undefined) continue; if (now - n.time > 0.18) { n.miss = true; if (!blockRes[n.sc]) { blockRes[n.sc] = 'm'; blockCombo = 0; } } }
   const resOf = sc => auto ? 'p' : blockRes[sc];
-  const okRow = bn => { const b = mod(bn, B); return m.bars[b].every((L, i) => { const r = resOf(headScOf(bn, i)); return r && r !== 'm'; }); };
+  const okRow = bn => rowOf(bn).groups.every((L, i) => { const r = resOf(headScOf(bn, i)); return r && r !== 'm'; });
   for (let bn = Math.max(0, barNo - 3); bn < barNo; bn++) if (has && okRow(bn) && !blockDone[bn]) { blockDone[bn] = true; blockScore += auto ? 0 : 300; blockFx.push({ t: performance.now(), bn }); }
   // 落ちてくるブロック：次のまとまりが、いまのまとまりの間に落ちて、次の頭で着地
   let fall = null;
   if (has) {
-    const L = m.groups[g], gp = clamp((kCur + st.frac) / L, 0, 1), gNext = (g + 1) % G_(m), bNext = m.barOfGroup[gNext];
-    const nextBar = gNext === m.barStartGroup[bNext] ? barNo + 1 : barNo, iNext = gNext - m.barStartGroup[bNext];
-    let c = 0; for (let i = 0; i < iNext; i++) c += m.bars[bNext][i];
-    fall = { gp, Ln: m.groups[gNext], c, row: nextBar };
+    const L = m.groups[g], gp = clamp((kCur + st.frac) / L, 0, 1);
+    const nextBar = tn.gl === 0 ? barNo + 1 : barNo;
+    let c = 0; for (let i = 0; i < tn.gl; i++) c += tn.m.bars[tn.bar][i];
+    fall = { gp, Ln: tn.m.groups[tn.g], c, row: nextBar };
   }
   // カメラ：いちばん上の段が、画面の上から45%くらいに来るよう、なめらかに上がる
   const hiRow = fall ? fall.row : barNo, focusY = top + (ah - top) * 0.42;
@@ -10645,10 +10908,10 @@ function drawBlocks(st, now, ah) {
     cx.restore();
   };
   const rowBlocks = (bn, upto, al, fresh = -1, sq = 0, rot = 0) => {
-    const b = mod(bn, B), y = rowY(bn); let c = 0, used = 0;
-    m.bars[b].forEach((L, i) => { if (i <= upto) used = c + L; c += L; });
+    const rw = rowOf(bn).groups, y = rowY(bn); let c = 0, used = 0;
+    rw.forEach((L, i) => { if (i <= upto) used = c + L; c += L; });
     if (used > 0) { const sg = cx.createLinearGradient(0, y + cs - 5 * K, 0, y + cs + 1); sg.addColorStop(0, 'rgba(0,0,0,0)'); sg.addColorStop(1, 'rgba(0,0,0,0.45)'); cx.fillStyle = sg; cx.fillRect(wx, y + cs - 5 * K, used * cs + dz * 0.5, 5 * K + 1); }
-    c = 0; m.bars[b].forEach((L, i) => { if (i <= upto) drawBlock(wx + c * cs, y, L, resOf(headScOf(bn, i)), 0, al, i === fresh ? sq : 0, i === fresh ? rot : 0); c += L; });
+    c = 0; rw.forEach((L, i) => { if (i <= upto) drawBlock(wx + c * cs, y, L, resOf(headScOf(bn, i)), 0, al, i === fresh ? sq : 0, i === fresh ? rot : 0); c += L; });
   };
   // 下の段から順に（古い段は少し暗く。窓のように光るものも）
   if (has) for (let bn = r0; bn < barNo; bn++) {
@@ -10658,11 +10921,11 @@ function drawBlocks(st, now, ah) {
   }
   let blocksLand = null;
   if (has) {
-    const b = mod(barNo, B), iCur = g - m.barStartGroup[b], ageH = (kCur + st.frac) * dur, q = clamp(ageH / 0.35, 0, 1);
+    const rwC = rowOf(barNo).groups, iCur = g - m.barStartGroup[m.barOfGroup[g]], ageH = (kCur + st.frac) * dur, q = clamp(ageH / 0.35, 0, 1);
     const sq = ageH < 0.35 ? Math.exp(-q * 3) * Math.cos(q * 9) : 0;
     const rot = pOff && pa < 0.7 ? (pf.kind === 'e' ? -1 : 1) * 0.12 * Math.exp(-pa * 5) * Math.abs(Math.sin(pa * 18)) : 0;
     rowBlocks(barNo, iCur, 1, iCur, Math.max(0, sq), rot);
-    let c = 0; for (let i = 0; i < iCur; i++) c += m.bars[b][i];
+    let c = 0; for (let i = 0; i < iCur; i++) c += rwC[i];
     blocksLand = { x: wx + c * cs, y: rowY(barNo), w: m.groups[g] * cs, near: ageH < dur * m.groups[g] / 2 };
     if (ageH < 0.35) {
       const L = m.groups[g], yb = rowY(barNo) + cs;
@@ -10890,6 +11153,34 @@ function metroBallDotRow(m, y, x0, x1, b, r, py) {
   return pos;
 }
 /* @@BEGIN drawMetroBall */
+// 拍子が変わった直後：前の拍子のボタンが、新しい拍子のボタンへ動きながら入れかわる
+function drawMetroBallMorphRow(m, mo, e, y, x0, x1, b, r, ro, py) {
+  const xs = M => M.groups.map((L, g) => x0 + (x1 - x0) * (M.starts[g] + L / 2) / M.total);
+  const xo = xs(mo), xn = xs(m), no = xo.length, nn = xn.length, ao = accOf(mo), an = accOf(m);
+  const prOf = (rr, lv) => rr * (lv === 3 ? 1 : lv === 2 ? 0.8 : lv === 1 ? 0.6 : 0.5);
+  const draw = (M, g, x, lv, rr, on, al) => {
+    if (al <= 0.01) return;
+    const L = M.groups[g], col = metCol(M, g, lv);
+    cx.save(); cx.globalAlpha = al;
+    metroBallPad(x, y, prOf(rr, lv), col, lv, on, py);
+    txt(['', '弱', '中', '強'][lv] || '', x, y + rr * 1.7, Math.max(10, 11 * K), on > 0 ? '#e2e8f0' : '#8b95a7', 700);
+    if (metF(M) !== 2) txt(String(L), x, y - rr * 1.6, Math.max(11, 12 * K), hexA(col, 0.9), 900);
+    cx.restore();
+  };
+  metDots = []; const pos = [];
+  for (let i = 0; i < Math.max(no, nn); i++) {
+    if (i < nn) {
+      const xf = xo[Math.min(i, no - 1)], x = xf + (xn[i] - xf) * e, on = b.g === i && !b.muted ? Math.max(0, 1 - b.age / 0.25) : 0;
+      if (i < no) draw(mo, i, x, ao[i], ro, 0, 1 - e);
+      draw(m, i, x, an[i], r, on, i < no ? e : e);
+      pos.push({ x, y }); metDots.push({ x, y, r: Math.max(prOf(r, an[i]), 22), g: i, m });
+    } else {
+      const xt = xn[nn - 1], x = xo[i] + (xt - xo[i]) * e;
+      draw(mo, i, x, ao[i], ro, 0, 1 - e);
+    }
+  }
+  return pos;
+}
 function drawMetroBall(st, now, ah) {
   const b = metBeatInfo(st, now), m = b.m, top = 70 * K, y = top + (ah - top) * 0.74;
   const r = clamp(Math.min(W / (m.groups.length * 3.2), ah * 0.06), 9, 30 * K);
@@ -10979,7 +11270,8 @@ function drawMetroBall(st, now, ah) {
     }
     cx.restore();
   }
-  const pos = metroBallDotRow(m, y, W * 0.08, W * 0.92, b, r, 0.62);
+  const mbE = st.changed && st.prevMeta && st.segAge < 0.45 ? (x => x * x * (3 - 2 * x))(clamp(st.segAge / 0.45, 0, 1)) : 1;
+  const pos = mbE >= 1 ? metroBallDotRow(m, y, W * 0.08, W * 0.92, b, r, 0.62) : drawMetroBallMorphRow(m, st.prevMeta, mbE, y, W * 0.08, W * 0.92, b, r, clamp(Math.min(W / (st.prevMeta.groups.length * 3.2), ah * 0.06), 9, 30 * K), 0.62);
   // ぴったり：ボタンからボタンへ、光の波がかけぬける
   if (k === 'p' && ag < 0.7 && b.g >= 0) {
     cx.save(); cx.globalCompositeOperation = 'lighter';
@@ -11260,7 +11552,8 @@ function drawMetroPend(st, now, ah) {
   const tf = (fn) => { cx.save(); if (tilt) { cx.translate(pivX, baseY); cx.rotate(tilt); cx.translate(-pivX, -baseY); } if (bump) cx.translate(0, bump); fn(); cx.restore(); };
   // 机に映る姿
   cx.save(); if (tilt) { cx.translate(pivX, baseY); cx.rotate(-tilt); cx.translate(-pivX, -baseY); } metroPendDraw(refl); cx.restore();
-  const Lr = dTop + Hb * 0.04, tShow = Math.round(bpm / (metF(m) || 1)), dW = distOf(tShow);
+  const mpE = st.changed && st.prevMeta && st.segAge < 0.5 ? (x => x * x * (3 - 2 * x))(clamp(st.segAge / 0.5, 0, 1)) : 1;   // 拍子が変わった直後は、前の拍子から移りかわる
+  const Lr = dTop + Hb * 0.04, tShow = Math.round(bpm / (metF(m) || 1)), dW = mpE < 1 ? distOf(Math.round(bpm / (metF(st.prevMeta) || 1))) * (1 - mpE) + distOf(tShow) * mpE : distOf(tShow);
   const ww = clamp(Wt * 1.25, 22 * K, 44 * K), wh = ww * 1.05;
   pendGhost.push(ang); if (pendGhost.length > 4) pendGhost.shift();
   const perfect = k === 'p' && ag < 1.1 ? 1 - ag / 1.1 : 0;
@@ -11395,7 +11688,10 @@ function drawMetroPend(st, now, ah) {
   const dr = clamp(ah * 0.02, 6, 12 * K), dY = ah - Math.max(26 * K, dr * 3.4);
   cx.save(); cx.shadowColor = 'rgba(30,12,2,0.35)'; cx.shadowBlur = 6 * K; cx.shadowOffsetY = 2 * K;
   cx.fillStyle = lightT ? 'rgba(252,246,232,0.82)' : 'rgba(12,8,5,0.55)'; rr(W * 0.2 - dr * 2.6, dY - dr * 1.8, W * 0.6 + dr * 5.2, dr * 4.2, dr * 1.8); cx.fill(); cx.restore();
-  metDotRow(m, dY, W * 0.2, W * 0.8, b, dr);
+  if (mpE < 1) {   // 拍の点：前の拍子の点がうすれ、新しい拍子の点があらわれる
+    cx.save(); cx.globalAlpha = 1 - mpE; metDotRow(st.prevMeta, dY, W * 0.2, W * 0.8, { m: st.prevMeta, g: -1, age: 9, muted: false }, dr); cx.restore();
+    cx.save(); cx.globalAlpha = mpE; metDotRow(m, dY, W * 0.2, W * 0.8, b, dr); cx.restore();
+  } else metDotRow(m, dY, W * 0.2, W * 0.8, b, dr);
   metBigNum(b, W * 0.12, top + 50 * K, Math.min(ah * 0.18, 90 * K));
 }
 /* @@END drawMetroPend */
@@ -11542,7 +11838,8 @@ function drawMetroFlash(st, now, ah) {
   cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 10 * K; cx.shadowOffsetY = 4 * K;
   cx.fillStyle = metalGrad(0, dotY - rh / 2, 0, dotY + rh / 2, 'steel'); rr(x0 - dr * 1.6, dotY - rh / 2, x1 - x0 + dr * 3.2, rh, rh / 2); cx.fill(); cx.restore();
   cx.fillStyle = 'rgba(10,12,18,0.82)'; rr(x0 - dr * 1.6 + 2 * K, dotY - rh / 2 + 2 * K, x1 - x0 + dr * 3.2 - 4 * K, rh - 4 * K, rh / 2); cx.fill();
-  metroBallDotRow(m, dotY, x0, x1, b, dr, 1);
+  const mfE = st.changed && st.prevMeta && st.segAge < 0.45 ? (x => x * x * (3 - 2 * x))(clamp(st.segAge / 0.45, 0, 1)) : 1;
+  if (mfE < 1) drawMetroBallMorphRow(m, st.prevMeta, mfE, dotY, x0, x1, b, dr, dr, 1); else metroBallDotRow(m, dotY, x0, x1, b, dr, 1);
 }
 /* @@END drawMetroFlash */
 
