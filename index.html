@@ -1501,7 +1501,7 @@ const MODE_INFO = {
   J: { g: 'g2', em: '⚙️', name: '歯車', line: '刻み→拍→小節の3つの歯車。歯がかみ合うときだけ、次の歯車が回る', short: '刻み→拍→小節。かみ合うときだけ次が回る',
        detail: ['刻みの歯車：1刻みで1マス進み、1回転でちょうど1小節（交互パターンは2小節）。', '歯は拍の頭のマスにだけある。歯のあいだは、パン＝2マス、トマト＝3マス。', '拍の歯車：歯がかみ合う拍の頭のときだけ回り、刻みのあいだは止まっている。', '小節の歯車（緑）：拍の歯車の前の小さな歯車には、小節の頭の拍にだけ歯がある。だから小節の頭のときだけ、歯1つぶん回る（歯1つ＝1小節、1回転＝4小節）。まん中は何小節目か。', '歯の真ん中どうしがかみ合う瞬間に音が鳴る。小節の頭の歯は緑。'] },
   K: { g: 'g3', em: '💃', name: '踊る人', line: 'バレエダンサー。1拍で1歩：拍の頭でつま先に立ち（ピケ）、うしろの脚を上げる（アラベスク）。長い拍はゆったり大きく', short: '1拍で1歩、拍の頭でピケ',
-       detail: ['1拍で1歩。短い拍（パン）は四分音符のように軽やかに、長い拍（トマト）は付点四分音符のようにゆったり大きく。', '拍の頭で、まっすぐの脚でつま先に立つ（ピケ）。うしろの脚はアラベスクへ上がり、前へ運ばれて、次の拍の前にひざをやわらかく曲げる。足あとのあいだの小さな点＝刻み。', '腕は拍のグループごとに、ゆっくり形を変える：短い拍＝横にひらく、長い拍＝頭の上へ、小節の頭＝アラベスク。', '色つきの大きな足あと＝拍の頭、小さな点＝刻み。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
+       detail: ['1拍で1歩。短い拍（パン）は四分音符のように軽やかに、長い拍（トマト）は付点四分音符のようにゆったり大きく。', '拍の頭で、まっすぐの脚でつま先に立つ（ピケ）。短い拍と小節の頭は、うしろの脚をアラベスクへ。長い拍は、ひざの横につま先をつけてピルエット（1回転）。次の拍の前にひざをやわらかく曲げる。足あとのあいだの小さな点＝刻み。', '腕は拍のグループごとに、ゆっくり形を変える：短い拍＝横にひらく、長い拍＝頭の上へ、小節の頭＝アラベスク。', '色つきの大きな足あと＝拍の頭、小さな点＝刻み。足あとの並びは小節ごとに同じになる。', '5/8・7/8はバルカン半島の民族舞踊でも使われる。'] },
 };
 MODE_INFO.N = { g: 'g3', em: '🁢', name: 'ドミノ', line: '倒れたドミノが次に当たる瞬間に音。背の高いドミノ＝拍の頭', short: '当たる瞬間に音。高いドミノ＝頭',
   detail: ['刻み1つ＝ドミノ1枚。刻み1つぶんの時間で倒れ、次のドミノに当たった瞬間に音が鳴る。', '拍の頭は背の高いドミノ（点の数＝2か3）。トマトの頭がいちばん高い。', '地面の色の帯が拍の長さ（パン＝2枚、トマト＝3枚）。', '小節の頭には旗が立つ。同じ並びのドミノが小節ごとにくり返される。'] };
@@ -8435,38 +8435,54 @@ function drawDancer(st, now, ah) {
   // ===== 人 =====
   const barNow = has && m.barStartSub.includes(st.sub);
   // バレエの動き：1拍で1歩（短い拍＝四分音符で軽やかに、長い拍＝付点四分音符でゆったり大きく）。刻みでは歩かない
-  //   拍の頭＝ピケ（まっすぐの脚でつま先に立つ）→ うしろの脚をアラベスクへ上げる → 前へ運んでタンデュ → 拍の前にドゥミ・プリエ → 次の拍の頭でピケ
+  //   短い拍・小節の頭：ピケ（つま先で立つ）→ うしろの脚をアラベスクへ → 前へ運んでタンデュ → ドゥミ・プリエ → 次の拍の頭でピケ
+  //   長い拍：ピケ → ルティレ（ひざの横につま先）でピルエット（1回転）→ 脚を前へのばして次のピケへ
+  //   すべての量は、拍の頭（gp＝0 と 1）で前後の動きとぴったりつながる（コマが飛ばない）
   const subDur = dur, gDur = L * dur;
   const hC = k - kCur, hN = hC + L;                                         // いまの拍の頭・次の拍の頭（通しの刻み番号）
   const aPv = has && hC - 1 >= loTl ? A(hC - 1) : null, hP = aPv && aPv.m.groups[aPv.g] ? hC - aPv.m.groups[aPv.g] : hC - 2;   // 前の拍の頭（うしろの足がいた場所）
   const nextHead = has && isHead(k + 1);
   const gp = has ? clamp((kCur + f) / L, 0, 1) : 0;                        // 1歩の進みぐあい（0＝着地、1＝次の着地）
-  const s = gp, se = s * s * s * (s * (6 * s - 15) + 10);
-  const ttp = clamp((gp - 0.3) / 0.7, 0, 1), tte = ttp * ttp * ttp * (ttp * (6 * ttp - 15) + 10);   // 前へ運ぶのは後半
+  const sm = (x0, x1, v) => { const t = clamp((v - x0) / (x1 - x0), 0, 1); return t * t * t * (t * (6 * t - 15) + 10); };
+  const s = gp, se = sm(0, 1, gp);
+  const barG = has && m.barStartGroup.includes(g);
+  const spinOn = has && L === 3 && !barG && gDur > 0.32;                   // 長い拍はピルエット（速すぎるテンポのときは、アラベスク）
+  const tte = spinOn ? sm(0.56, 0.94, gp) : sm(0.3, 0.86, gp);                     // 前へ運ぶのは後半
   let ankWx, ankWy;
   if (!has) { ankWx = ax - 0.3 * u; ankWy = fy - 0.9 * 0.075 * hB; }
   else { const xa = sx(X(hP)), xb = sx(X(hN)); ankWx = xa + (xb - xa) * tte; ankWy = fy - 0.07 * hB; }
-  // ドゥミ・プリエ（次の拍の頭の前に、ひざをやわらかく曲げる）。拍の頭でまっすぐ伸びてつま先立ち
-  const prep = has ? Math.pow(Math.sin(Math.PI * clamp((gp - 0.72) / 0.32, 0, 1)), 1.4) * clamp(gDur / 0.4, 0.4, 1) : 0;
-  const rise = has ? Math.pow(1 - clamp(gp / 0.3, 0, 1), 2) : 0;          // ピケで、すっと上へ伸び上がる
+  // ドゥミ・プリエ：次の拍の頭の前にひざをやわらかく曲げ、拍の頭ちょうどで伸びきる（0 で終わる）
+  const prep = has ? Math.pow(Math.sin(Math.PI * sm(0.7, 1, gp)), 1.3) * clamp(gDur / 0.4, 0.4, 1) : 0;
+  const rise = has ? Math.pow(1 - clamp(gp / 0.3, 0, 1), 2) : 0;          // ピケで、すっと伸び上がった光
   const subDip = tDip * Lt;
   const fl = 0.075 * hB, toeH = 0.92 * fl;
   const relS = has ? 1 - 0.45 * prep : 0.85;                                // 1＝つま先立ち（ポワント）、0.55＝ドゥミ・ポワント
-  const xS = has ? sx(X(hC)) : ax + 0.3 * u;
+  const xS = has ? sx(X(hC)) : ax + 0.3 * u, xN = has ? sx(X(hN)) : xS;
   const ankS = [xS - fl * (1 - 0.8 * relS) * 0.6, fy - toeH * relS - 1.5 * K];
   const ankW = [ankWx, ankWy];
-  const d = Math.abs(ankW[0] - ankS[0]);
-  const hh = Math.sqrt(Math.max(0, Math.pow(0.975 * Lt, 2) - Math.pow(Math.min(d, 0.9 * Lt), 2) / 4));   // 脚はほとんどまっすぐ（バレエ）
-  const wt = 0.2 + 0.25 * tte;                                               // 体重は立っている脚の上。次の一歩の前に、少しずつ前へ
-  const hxp = (ankS[0] * (1 - wt) + Math.min(Math.max(ankW[0], ankS[0] - 0.45 * Lt), ankS[0] + 0.45 * Lt) * wt) + fl * 0.25;
-  const hhS = Math.sqrt(Math.max(0, Math.pow(0.985 * Lt, 2) - Math.pow(hxp - ankS[0], 2)));   // 立っている脚がまっすぐになる高さ
-  const hyp = ankS[1] - Math.min(hh, hhS) * 0.15 - hhS * 0.85 + prep * 0.06 * Lt - rise * 0.015 * Lt + subDip;
-  const araUp = has ? Math.pow(Math.sin(Math.PI * clamp(gp / 0.72, 0, 1)), 0.85) : 0;   // アラベスクの高さ（拍の前半で上がり、後半でおりる）
+  // こし：立っている足の上から、次の足の上へ、なめらかに体重を移す（拍の頭で次の足の真上＝そのまま、次の拍の立ち足）
+  const wt = has ? (spinOn ? 0.12 * sm(0, 0.7, gp) + 0.88 * sm(0.72, 1, gp) : 0.3 * sm(0, 0.8, gp) + 0.7 * sm(0.6, 1, gp)) : 0;   // 体は1拍をかけて前へすべるように（最後に体重をあずける）
+  const hxp = xS + (xN - xS) * wt + fl * 0.25;
+  const R0 = 0.985 * Lt, hgt = x => Math.sqrt(Math.max(0, R0 * R0 - x * x));
+  const onFl = has ? (spinOn ? sm(0.74, 0.95, gp) : sm(0.62, 0.92, gp)) : 0;                                     // 前の足が床についてから、こしは前の足でも支えられる
+  const hS = hgt(hxp - fl * 0.25 - ankS[0] - fl * 0.15), hF = hgt(hxp - fl * 0.25 - xN);
+  const hyp = ankS[1] - (hS + (Math.max(hS, hF) - hS) * onFl) + prep * 0.06 * Lt + subDip;
+  const araUp = has && !spinOn ? Math.pow(Math.sin(Math.PI * clamp(gp / 0.72, 0, 1)), 0.85) : 0;   // アラベスクの高さ（拍の前半で上がり、後半でおりる）
+  // ピルエット：ルティレの形と回転の角度
+  const retW = spinOn ? sm(0, 0.18, gp) * (1 - sm(0.56, 0.9, gp)) : 0;
+  const spinA = spinOn ? 2 * Math.PI * sm(0.08, 0.6, gp) : 0;
+  if (has) {   // 立ち足も、体重が前へうつると、かかとから床をはなれる（運ぶ脚と同じ決まりで、拍の頭で入れかわってもつながる）
+    const R = 0.975 * Lt, dxS = ankS[0] - hxp; if (Math.abs(dxS) < R) { const yC = hyp + Math.sqrt(R * R - dxS * dxS); if (ankS[1] > yC) ankS[1] = yC; }
+  }
   if (has) {
     const R = 0.975 * Lt, dx = ankW[0] - hxp; if (Math.abs(dx) < R) { const yC = hyp + Math.sqrt(R * R - dx * dx); if (ankW[1] > yC) ankW[1] = yC; }   // 運ぶ脚もひざを伸ばしたまま、つま先で床をなでる（タンデュ）
     if (araUp > 0) {   // アラベスク：脚をまっすぐのまま、うしろへ高く上げてから、前へ運んでおろす
-      const th0 = Math.atan2(ankW[0] - hxp, ankW[1] - hyp), thPk = -(L === 3 ? 1.5 : 1.15) * (m.barStartGroup.includes(g) ? 1.1 : 1), th = th0 + (thPk - th0) * araUp;
+      const th0 = Math.atan2(ankW[0] - hxp, ankW[1] - hyp), thPk = -(L === 3 ? 1.5 : 1.15) * (barG ? 1.1 : 1), th = th0 + (thPk - th0) * araUp;
       ankW[0] = hxp + Math.sin(th) * R; ankW[1] = Math.min(fy - 0.07 * hB, hyp + Math.cos(th) * R);
+    }
+    if (retW > 0) {   // ルティレ：つま先を、立っている脚のひざの横へ
+      const kS = ikLimb(hxp, hyp, ankS[0], ankS[1], Lt, 1), rx = kS.kx + 0.03 * hB, ry = kS.ky + 0.015 * hB;
+      ankW[0] += (rx - ankW[0]) * retW; ankW[1] += (ry - ankW[1]) * retW;
     }
   }
   const headNow = has && gp < 0.999 && kCur === 0;                          // 拍の頭の刻みのあいだ（光る・きらめく）
@@ -8486,6 +8502,7 @@ function drawDancer(st, now, ah) {
     aA = pC[0] + (pN[0] - pC[0]) * e; aB = pC[1] + (pN[1] - pC[1]) * e;
     aA += (1.45 - aA) * dip * 0.45; aB += (1.2 - aB) * dip * 0.45;
   } else { aA = 0.35; aB = 0.25; }   // アン・バ（下でまるく）
+  if (spinOn) { const w1 = sm(0.02, 0.16, gp) * (1 - sm(0.62, 0.9, gp)); aA += (1.5 - aA) * w1; aB += (1.3 - aB) * w1; }   // ピルエットの間は、腕を胸の前でまるく（アン・ナヴァン）
   if (tJoy > 0) { aA += (2.9 - aA) * tJoy * 0.85; aB += (2.7 - aB) * tJoy * 0.75; }   // 両うでを高く（アン・オー）
   if (tWob) { aA += 0.4 * tWob; aB -= 0.35 * tWob; }   // バランスをとろうと、うでがゆれる
   aA = dSpr('aA', aA, 70, 16.7); aB = dSpr('aB', aB, 62, 15.7);   // ばねでなめらかに（はねかえらない）
@@ -8500,7 +8517,7 @@ function drawDancer(st, now, ah) {
     return [kk.kx, kk.ky, kk.fx, kk.fy, kk.fx + fl * (1 - 0.8 * rel), kk.fy + toeH * rel + (1 - rel) * 1.5 * K];
   };
   const armPts = ang => { const hx2 = shx + Math.sin(ang) * al * 0.965, hy2 = shy + Math.cos(ang) * al * 0.965; const kk = ikLimb(shx, shy, hx2, hy2, al, -1); return [kk.kx, kk.ky, kk.fx, kk.fy]; };
-  const legW = legPts(ankW, 1, has && ankW[1] < fy - 0.085 * hB), legS = legPts(ankS, relS), armB = armPts(aB), armA = armPts(aA);
+  const legW = (() => { const pF = legPts(ankW, 1, true), pG = legPts(ankW, 1, false), w = has ? clamp((fy - 0.07 * hB - ankW[1]) / (0.05 * Lt), 0, 1) : 0; return pG.map((v, i) => v + (pF[i] - v) * w); })(), legS = legPts(ankS, relS), armB = armPts(aB), armA = armPts(aA);
   const SKIN = '#e7b493', TIGHT = '#d9a08a', SHOE = '#efc1b4', SUIT = '#1c2130';
   const drawLeg = (p, c, sh) => {
     dancerSeg(hxp, hyp, p[0], p[1], lw * 1.25, lw * 0.85, c);
@@ -8512,7 +8529,9 @@ function drawDancer(st, now, ah) {
     dancerSeg(p[0], p[1], p[2], p[3], aw * 0.8, aw * 0.55, c);
     cx.fillStyle = c; cx.beginPath(); cx.ellipse(p[2] + (p[2] - p[0]) * 0.12, p[3] + (p[3] - p[1]) * 0.12, aw * 0.42, aw * 0.3, Math.atan2(p[3] - p[1], p[2] - p[0]), 0, Math.PI * 2); cx.fill();
   };
-  const figure = (refl) => {
+  const spinC = Math.cos(spinA), spinSx = Math.abs(spinC) < 0.14 ? (spinC < 0 ? -0.14 : 0.14) : spinC;   // 回転：横の幅をちぢめて、裏がえる
+  const figure = refl => { if (spinSx === 1) return figure0(refl); cx.save(); cx.translate(hxp, 0); cx.scale(spinSx, 1); cx.translate(-hxp, 0); figure0(refl); cx.restore(); };
+  const figure0 = (refl) => {
     const dk = refl ? -0.1 : -0.28;
     drawArm(armB, shade(SKIN, dk)); drawLeg(legW, shade(TIGHT, dk), shade(SHOE, dk));
     drawLeg(legS, TIGHT, SHOE);
@@ -8541,6 +8560,7 @@ function drawDancer(st, now, ah) {
       cx.fillStyle = fill; cx.fill();
     };
     if (!refl && (headNow || tJoy > 0)) { const tc = qb(hb, hm, hf, 0.5); drawCharBallGlow((tc[0] + wc[0]) / 2, (tc[1] + wc[1]) / 2, hB * (0.35 + 0.15 * rise), tJoy > 0.3 ? '#ffd54a' : col, 0.55 * Math.max(rise, tJoy)); }
+    if (spinSx !== 1) { cx.save(); cx.translate(hxp, 0); cx.scale(1 / spinSx, 1); cx.translate(-hxp, 0); }   // チュチュは円盤なので、回っても幅は同じ
     if (refl) { cx.globalAlpha *= 0.9; tutu(1, 0, col); cx.globalAlpha /= 0.9; }
     else {
       const ga = cx.globalAlpha, sg = cx.createLinearGradient(w0[0], w0[1], hf[0], hf[1]);
@@ -8558,6 +8578,7 @@ function drawDancer(st, now, ah) {
       // 拍の頭：すそに光の粒がきらめく
       if (headNow && rise > 0.05) for (let i = 0; i < 5; i++) { const pe = qb(hb, hm, hf, (i + 0.5) / 5 + 0.05 * Math.sin(now * 3 + i)); drawCharBallGlint(pe[0], pe[1], (3 + 3 * hash01(i + st.sc)) * K * rise, rise, '#ffffff'); }
     }
+    if (spinSx !== 1) cx.restore();
     cx.fillStyle = shade(col, -0.25); cx.beginPath(); const b0 = P(0.2, -0.068), b1 = P(0.2, 0.062), b2 = P(0.13, 0.064), b3 = P(0.13, -0.07);
     cx.moveTo(b0[0], b0[1]); cx.lineTo(b1[0], b1[1]); cx.lineTo(b2[0], b2[1]); cx.lineTo(b3[0], b3[1]); cx.closePath(); cx.fill();   // 腰の帯
     // 首と頭（髪はおだんご）
@@ -8666,7 +8687,7 @@ function drawDancer(st, now, ah) {
   // 上の説明は1行だけ：小節の頭の直後は「小節の頭！」、それ以外は今の拍の動き
   const dfs = Math.max(13, 14 * K);
   if (barFlash > 0.35) txt(barCap(st, narrow ? '小節の頭！ アラベスク' : '小節の頭！ アラベスク（足あとの並びが、もう一度）'), W / 2, 84 * K, dfs, hexA('#a3e635', Math.min(1, barFlash * 1.4)), 900);
-  else if (has) txt((pw(L) || '拍の頭') + (L === 3 ? ' ＝ 付点四分音符で、ゆったり大きく1歩' : ' ＝ 四分音符で、かろやかに1歩'), W / 2, 84 * K, dfs, col, 900);
+  else if (has) txt((pw(L) || '拍の頭') + (L === 3 ? (spinOn ? ' ＝ 付点四分音符で、ゆったりピルエット（1回転）' : ' ＝ 付点四分音符で、ゆったり大きく1歩') : ' ＝ 四分音符で、かろやかに1歩'), W / 2, 84 * K, dfs, col, 900);
   else txt('▶ 再生すると、踊りはじめます', W / 2, 84 * K, dfs, '#e2e8f0', 700);
 }
 /* @@END drawDancer */
