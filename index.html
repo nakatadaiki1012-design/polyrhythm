@@ -2206,17 +2206,22 @@ function tlSeg(j) {   // j をふくむ区間（いちばん新しい区間よ�
   for (let i = tl.length - 1; i >= 0; i--) if (tl[i].sc0 <= j) return tl[i];
   return tl[0] || null;
 }
-function tlNextMeta() {   // 次に来る拍子（プログラム・予約された拍子・同じ拍子のくり返し）
+function tlNextMeta(k = 0) {   // k 番めに来る拍子（0＝次の小節）。プログラムなら、あとに続く小節を順に（くり返し・最後まで考える）
   const last = tl[tl.length - 1]; if (!last) return activeMeta;
   if (pendingMeta) return pendingMeta;
-  if (typeof song !== 'undefined' && song && songOnNow() && songMetas.length) { const i = songPos > song.to || songPos < song.from ? song.from : songPos; return songMetas[i] || last.meta; }
+  if (typeof song !== 'undefined' && song && songOnNow() && songMetas.length) {
+    let i0 = songJump !== null ? songJump : (songNew ? song.from : (songPos > song.to || songPos < song.from ? song.from : songPos)), i = i0 + k;
+    if (i > song.to) { if (SET.songLoop) i = song.from + (i - song.from) % (song.to - song.from + 1); else i = song.to; }
+    return songMetas[clamp(i, 0, songMetas.length - 1)] || last.meta;
+  }
   return last.meta;
 }
 function tlAt(j) {
   let s = tlSeg(j); if (!s) return null;
   let loc = j - s.sc0, m = s.meta, st0 = s.st0, ms0 = s.ms0;
-  while (loc >= m.total && s === tl[tl.length - 1]) {   // いまの区間より先：次の拍子を順につなぐ（予測）
-    const nm = tlNextMeta(); loc -= m.total; st0 += m.groups.length; ms0 += 1; m = nm; s = { sc0: j - loc, st0, ms0, meta: nm, predicted: true };
+  if (s === tl[tl.length - 1]) {   // いまの区間より先：次の小節（プログラムなら、そのあとの小節も順に）をつなぐ
+    let k = 0;
+    while (loc >= m.total && k < 64) { const nm = tlNextMeta(k++); loc -= m.total; st0 += m.groups.length; ms0 += 1; m = nm; s = { sc0: j - loc, st0, ms0, meta: nm, predicted: true }; }
   }
   const n = loc % m.total, cyc = Math.floor(loc / m.total), g = m.subToGroup[n], head = m.starts[g] === n;
   return { m, n, cyc, g, head, gl: g - m.barStartGroup[m.barOfGroup[g]], bar: m.barOfGroup[g], barHead: m.barStartSub.includes(n), step: s.st0 + cyc * m.groups.length + g, seg: s, loc };
@@ -10291,7 +10296,7 @@ function drawFrog(st, now, ah) {
     cx.beginPath(); cx.ellipse(fx, waterY + 5 * K, fs * (0.4 + 0.6 * q), fs * (0.12 + 0.15 * q), 0, 0, Math.PI * 2); cx.stroke();
   }
   cx.restore();
-  if (barFlash > 0) txt('小節の頭！ ハスの花の葉にもどってきた', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
+  if (barFlash > 0) txt('小節の頭！ ハスの花の葉', W / 2, 84 * K, Math.max(13, 13 * K), hexA(LIME, Math.min(1, barFlash * 1.6)), 900);
   else if (!has) txt('▶ 再生すると、カエルが跳びはじめます', W / 2, 84 * K, Math.max(13, 13 * K), '#e2e8f0', 700);
   else txt(W < 640 ? '葉の間かく：パン＝2、トマト＝3' : '葉の間かく：パン＝2マス、トマト＝3マス。トマトは遠く高く跳ぶ', W / 2, 84 * K, Math.max(13, 13 * K), '#f1f5f9', 700);
 }
