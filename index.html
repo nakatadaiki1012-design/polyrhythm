@@ -865,7 +865,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
         <button class="chip" id="barRhythm"><span class="k">拍子</span><span class="v" id="barR1">4/4</span><span id="barR2" hidden></span></button>
         <button class="chip" id="cSub"><span class="k">細分</span><span class="v" id="vSub">なし</span></button>
         <button class="chip" id="cSound"><span class="k">音</span><span class="v" id="vSound">クリック</span></button>
-        <button class="chip" id="modeCur"><span class="k">見せ方</span><span class="v" id="vView">ボール</span></button>
+        <button class="chip" id="modeCur"><span class="k">テーマ</span><span class="v" id="vView">ボール</span></button>
       </div>
       <div class="prac" id="prac">
         <button class="pchip" data-p="count">カウントイン</button>
@@ -1035,7 +1035,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
         <b class="c-white">キーボード</b><br>
         スペース：スタート／ストップ　F：全画面<br>
         ← →：テンポ ±5　↑ ↓：テンポ ±1　T：タップでテンポ<br>
-        , .：見せ方を切り替え（絵の横スワイプと同じ）<br>
+        , .：テーマを切り替え（絵の横スワイプと同じ）<br>
         [ ]：拍子を切り替え　J・Enter：ズレ判定でたたく<br>
         PageDown／PageUp：レッスンを進める・もどる
       </div>
@@ -1043,7 +1043,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
 
 
 
-    <div class="dr-group">モードごとの設定</div>
+    <div class="dr-group">テーマごとの設定</div>
     <!-- ポリリズム -->
     <details class="sec" id="secPoly">
       <summary><span class="sum-main">🎶 ポリリズム<span class="sum-sub">3対2・4対3 などの組み合わせ</span></span></summary>
@@ -1158,7 +1158,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   </section>
   <div class="home-h">なにをする？</div>
   <div class="home-grid">
-    <button class="hcard rec rec-card" data-go="rec"><span class="hc-em">🏆</span><b>きろく・今日のお題</b><span class="hc-d">毎日のお題・練習した日のカレンダー・ごほうび（ひみつの見た目）</span><span class="hc-p" id="homeRecP"></span></button>
+    <button class="hcard rec rec-card" data-go="rec"><span class="hc-em">🏆</span><b>きろく・今日のお題</b><span class="hc-d">毎日のお題・練習した日のカレンダー・ごほうび（バッジ）</span><span class="hc-p" id="homeRecP"></span></button>
     <button class="hcard" data-go="ens"><span class="hc-em">👥</span><b>みんなで合わせる</b><span class="hc-d">QRコードで、部員みんなのスマホを同じタイミングで鳴らす（合奏モード）</span></button>
     <button class="hcard rec" data-go="lesson"><span class="hc-em">📘</span><b>変拍子レッスン</b><span class="hc-d">9ステップで変拍子のしくみを学ぶ。授業にもそのまま使える</span><span class="hc-p" id="homeLessonP"></span></button>
     <button class="hcard rec game" data-go="game"><span class="hc-em">👏</span><b>まねっこゲーム</b><span class="hc-d">お手本のあとに、同じリズムで手をたたく</span></button>
@@ -1183,7 +1183,7 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
   <div class="row"><span class="lbl">4分音符の拍の数</span><span class="stepper"><button class="sq" id="nDn">−</button><span class="val" id="nVal">4</span><button class="sq" id="nUp">＋</button></span></div>
   <div class="hint">変拍子は「くわしい設定 → リズムを作る」で、2（短い拍）と 3（長い拍）を並べて作れます。</div>
   <div class="sh">拍の強さ</div>
-  <div class="hint">押すと「強 → 中 → 弱 → 鳴らさない」と変わります（ボールの見せ方では、絵の点をタップしても変えられます）。</div>
+  <div class="hint">押すと「強 → 中 → 弱 → 鳴らさない」と変わります（ボールのテーマでは、絵の点をタップしても変えられます）。</div>
   <div class="row"><div><div class="lbl">1拍目（小節の頭）を強く</div><div class="hint">OFF：強拍なし。どの拍も同じ強さで鳴る</div></div><button class="sw" id="downSw"></button></div>
   <div class="accrow" id="accRow"></div>
   <div class="btns"><button class="btn" id="accReset">強さを元にもどす</button><button class="btn" id="moreRhythm">🎼 曲の進行・民謡・保存したリズム →</button></div>
@@ -1263,20 +1263,20 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
 </div></div>
 <div id="shPreset" class="modal hidden"><div class="modal-box">
   <div class="mhead"><h3>★ プリセット</h3><button class="dr-close" data-close>✕</button></div>
-  <div class="hint">いまのテンポ・拍子・細分・音・強さ・見せ方を保存して、ワンタッチで呼び出せます（曲ごと・練習メニューごとに）。🎼 テンポのプログラムを鳴らしているときは、プログラムもいっしょに保存されます。</div>
+  <div class="hint">いまのテンポ・拍子・細分・音・強さ・テーマを保存して、ワンタッチで呼び出せます（曲ごと・練習メニューごとに）。🎼 テンポのプログラムを鳴らしているときは、プログラムもいっしょに保存されます。</div>
   <div style="display:flex;gap:6px;margin:10px 0"><input class="song-name" id="pName" maxlength="30" placeholder="名前（例：課題曲 A の練習）" style="margin:0;flex:1"><button class="btn main" id="pSave">保存</button></div>
   <div id="pList"></div>
 </div></div>
 
 <!-- モードの一覧（スマホ） -->
-<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>見せ方を選ぶ</h3><div class="row" style="margin:-4px 0 6px"><div><div class="lbl">楽譜・カウント帯・説明も出す</div><div class="hint">OFF（はじめ）：絵と拍の番号だけのシンプルな画面</div></div><button class="sw" id="simpleSw"></button></div><div class="row" style="margin:0 0 6px"><div><div class="lbl">🔀 シャッフル</div><div class="hint">鳴らしている間、○小節ごとに見た目が次々かわる</div></div><div class="seg" id="shufSel"><button data-v="0">なし</button><button data-v="4">4小節</button><button data-v="8">8小節</button><button data-v="16">16小節</button></div></div><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
+<div id="modeSheet" class="modal hidden"><div class="modal-box wide" id="sheetBox"><h3>テーマを選ぶ</h3><div class="row" style="margin:-4px 0 6px"><div><div class="lbl">楽譜・カウント帯・説明も出す</div><div class="hint">OFF（はじめ）：絵と拍の番号だけのシンプルな画面</div></div><button class="sw" id="simpleSw"></button></div><div class="row" style="margin:0 0 6px"><div><div class="lbl">🔀 シャッフル</div><div class="hint">鳴らしている間、○小節ごとにテーマが次々かわる</div></div><div class="seg" id="shufSel"><button data-v="0">なし</button><button data-v="4">4小節</button><button data-v="8">8小節</button><button data-v="16">16小節</button></div></div><div id="sheetBody"></div><div class="more-hint" id="moreHint">▼ 下にもまだあります（スクロール）</div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- くわしい説明 -->
 <div id="helpPop" class="modal hidden"><div class="modal-box"><h3 id="helpTitle"></h3><ul id="helpList"></ul><div class="mnote" id="helpNote"></div>
   <div class="modal-foot"><button class="btn" data-close>閉じる</button></div></div></div>
 <!-- この設定を配る -->
 <div id="sharePop" class="modal hidden"><div class="modal-box"><h3>この設定を配る</h3>
-  <div class="mnote" style="margin-top:0">このURLを開くと、いまのリズム・テンポ・モードで始まります。</div>
+  <div class="mnote" style="margin-top:0">このURLを開くと、いまのリズム・テンポ・テーマで始まります。</div>
   <input id="shareUrl" class="share-url" readonly style="margin-top:10px">
   <div class="btns"><button class="btn main" id="shareCopy">URLをコピー</button><span class="hint" id="shareMsg" style="align-self:center"></span></div>
   <div class="qr-wrap"><canvas id="qr" width="220" height="220"></canvas></div>
@@ -1537,10 +1537,10 @@ MODE_INFO.W = { g: 'g4', em: '👂', name: '当てる', line: '音だけを聞�
   detail: ['映像をかくして、音だけ2小節鳴らす。「2+3？ 3+2？」「何拍子？」などを選ぶ。', '答えると、映像（円軌道）と楽譜バーつきで、もう一度鳴る。', 'むずかしさは3段階：やさしい（2択・刻みあり）／ふつう（3択）／むずかしい（3択・刻みなし・テンポ速め）。「連符」を選ぶと、1拍がいくつに分かれているかを当てる。', '10問で結果が出る。まちがえた問題は、もう一度聞ける。'] };
 MODE_INFO.X = { g: 'g4', em: '🍡', name: '連符', line: '1拍（♩）を 2〜7 つに等しく分ける。針が円を1周する間が1拍', short: '1拍を等しく分ける。1周＝1拍',
   detail: ['1拍（♩＝刻み2つぶん）を、同じ長さの n 個に分けたものが「n連符」。3連符＝トマト、5連符＝さつまいも、7連符＝いちごだいふく。', '3連符は、6/8 の拍（♩.＝刻み3つ）と同じ分け方。「くらべる」の「6/8 と 2/4 の3連符」で聞きくらべられる。', '円：針が1周する間が1拍。円は n 等分され、区切りを通るたびに音が鳴る。拍の頭は強い音。', '帯：1小節ぶん。「ふつうの刻みとくらべる」をONにすると、下の段の8分音符（パン）が太鼓の音で鳴り、ずれ方が見える。', '練習の順番（2→3→4→5→6→7 など）と、1つを何小節続けるかは「🎛 連符の設定」で選ぶ。次に変わるときは予告が出る。', 'タップ判定をONにすると、連符を自分で叩いて「ぴったり／早い／遅い」がわかる。「当てる」には連符クイズもある。'] };
-MODE_INFO.Z1 = { g: 'g3', em: '🚀', name: 'ロケット', secret: true, line: '拍の頭でエンジンが火をふき、ロケットが宇宙へ。刻みで小さな噴射', short: '拍の頭でエンジン点火',
-  detail: ['ひみつの見せ方（練習の合計30分で出てくる）。', '拍の頭でエンジンが大きく火をふく。刻みでは小さく噴射。', '小節の頭で、ブースターが切りはなされる。'] };
-MODE_INFO.Z2 = { g: 'g3', em: '🌌', name: 'オーロラ', secret: true, line: '拍の頭でオーロラが光り、流れ星が流れる', short: '拍の頭でオーロラが光る',
-  detail: ['ひみつの見せ方（3日続けて練習すると出てくる）。', '拍の頭でオーロラのカーテンが波打って明るくなる。', '小節の頭で、流れ星が流れる。'] };
+MODE_INFO.Z1 = { g: 'g3', em: '🚀', name: 'ロケット', line: '拍の頭でエンジンが火をふき、ロケットが宇宙へ。刻みで小さな噴射', short: '拍の頭でエンジン点火',
+  detail: ['拍の頭でエンジンが大きく火をふく。刻みでは小さく噴射。', '小節の頭で、ブースターが切りはなされる。'] };
+MODE_INFO.Z2 = { g: 'g3', em: '🌌', name: 'オーロラ', line: '拍の頭でオーロラが光り、流れ星が流れる', short: '拍の頭でオーロラが光る',
+  detail: ['拍の頭でオーロラのカーテンが波打って明るくなる。', '小節の頭で、流れ星が流れる。'] };
 MODE_INFO.JR = { g: 'g3', em: '🪢', name: '縄跳び', line: '縄が足の下を通って、とびこえる瞬間＝拍の頭。長い拍は縄がゆっくり大きく回る', short: '縄をとびこえる瞬間＝頭',
   detail: ['縄が1回まわる＝1拍。足の下を通る瞬間に、とんで「トン」と着地＝拍の頭。', '刻みでは、その場で小さくはずむ。パンは2回、トマトは3回（長い拍は縄がゆっくり大きく回る）。', '小節の頭は、うでを交差させる「あやとび」。'] };
 MODE_INFO.BK = { g: 'g3', em: '🏀', name: 'ドリブル', line: 'ボールが床につく瞬間＝拍の頭。長い拍は高く大きくドリブル', short: '床につく瞬間＝頭',
@@ -17227,7 +17227,7 @@ function renderModes() {
   if (MODE_REC.length) sheet.appendChild(rg);
   if (!more) {
     const mb = document.createElement('button'); mb.className = 'more-btn';
-    mb.textContent = `▼ ほかのモードも見る（あと ${MODE_ORDER.length - MODE_REC.length} こ）`;
+    mb.textContent = `▼ ほかのテーマも見る（あと ${MODE_ORDER.length - MODE_REC.length} こ）`;
     mb.onclick = () => { sheetMore = true; renderModes(); document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.mode === mode)); updateMoreHint(); };
     sheet.appendChild(mb);
   }
@@ -17472,7 +17472,7 @@ const LESSON = [
     q: '音だけでわかったのは、どの音のおかげ？', opts: ['拍の頭の強い音と、小節の頭のベル', 'メロディーの高さ', '音をのばす長さ'], ans: 0,
     a: '拍の頭の強い音で拍の数が、小節の頭のベルで1小節の長さがわかる' },
   { title: 'まとめ', mode: 'C', presets: [4], summary: true, goal: '学んだことを5枚のカードでふり返ろう',
-    act: 'カードを1枚ずつ大きく出して、言葉で説明してみよう。「▶ 見る」で、そのカードに合うモードに切りかわる' },
+    act: 'カードを1枚ずつ大きく出して、言葉で説明してみよう。「▶ 見る」で、そのカードに合うテーマに切りかわる' },
 ];
 /* まとめの5枚のカード（▶ 見る：そのカードに合うモードとリズム） */
 const SUMMARY = [
@@ -17545,7 +17545,7 @@ function renderLesson() {
     <div class="ls-dots">${LESSON.map((s, k) => `<button class="ls-dot ${k === i ? 'on' : k < i || k <= lessonProg.max ? 'done' : ''}" data-step="${k}" title="${s.title}${lessonProg.ok.includes(k) ? '（確かめ ⭕）' : ''}">${lessonProg.ok.includes(k) && k !== i ? '✓' : k + 1}</button>`).join('')}</div>
     <h3 class="ls-title">${i + 1}. ${st.title}</h3>
     <div class="ls-blk"><span class="ls-tag goal">めあて</span>${st.goal}</div>
-    <div class="ls-blk"><span class="ls-tag mode">見るモード</span>${MODE_INFO[st.mode].em} ${MODE_INFO[st.mode].name}
+    <div class="ls-blk"><span class="ls-tag mode">見るテーマ</span>${MODE_INFO[st.mode].em} ${MODE_INFO[st.mode].name}
       ${st.presets && st.presets.length > 1 ? `<div class="ls-pre">${st.presets.map(pi => `<button class="btn small ${presetKey(PRESETS[pi]) === presetKey(selected) ? 'main' : ''}" data-pre="${pi}">${PRESETS[pi].sig || PRESETS[pi].sigs.join('→')} [${PRESETS[pi].bars.map(b => b.join('+')).join(' → ')}]</button>`).join('')}</div>` : ''}</div>
     <div class="ls-blk"><span class="ls-tag act">やってみよう</span>${st.act}
       ${st.build ? '<div class="ls-pre"><button class="btn small main" id="lsBuild">🃏 リズムを作る画面を開く</button></div>' : ''}</div>
@@ -17897,7 +17897,7 @@ cv.addEventListener('pointerup', e => {
 cv.addEventListener('pointercancel', () => { swipe0 = null; });
 if (!SET.swipeHint) {   // はじめての人に、スワイプできることを1回だけ知らせる
   setTimeout(() => { const tip = $('#swipeTip'); if (VIEW_ORDER.indexOf(mode) < 0) return;
-    tip.innerHTML = `← 絵を横にスワイプ →<small>見せ方（電車・歯車・花火…）が切り替わります</small>`; tip.classList.add('on');
+    tip.innerHTML = `← 絵を横にスワイプ →<small>テーマ（電車・歯車・花火…）が切り替わります</small>`; tip.classList.add('on');
     setTimeout(() => tip.classList.remove('on'), 3000); SET.swipeHint = true; saveSet(); }, 900);
 }
 cv.addEventListener('click', () => {
@@ -18044,7 +18044,7 @@ $('#tnum').onclick = () => {   // 数字を直接入力
 };
 const MSUB_Q = [[1, 'なし', '拍だけ'], [2, '8分', '♫ 2つ'], [3, '3連符', '3つ'], [4, '16分', '♬ 4つ'], ['sw', 'スイング', '跳ねる']];
 const MSUB_E = [[1, 'なし', '拍だけ'], [2, '8分', '♪ ぜんぶ'], [4, '16分', '♬ その半分']];
-const MSOUNDS = [['click', 'クリック', '電子音'], ['wood', 'ウッド', '木の音'], ['beep', 'ビープ', 'やわらかい'], ['bell', 'カウベル', 'よく通る'], ['perc', 'ドラム', 'キック＋スネア'], ['voice', '声', 'パ・ン・ト・マ・ト'], ['mode', '見せ方の音', '電車・花火などの音']];
+const MSOUNDS = [['click', 'クリック', '電子音'], ['wood', 'ウッド', '木の音'], ['beep', 'ビープ', 'やわらかい'], ['bell', 'カウベル', 'よく通る'], ['perc', 'ドラム', 'キック＋スネア'], ['voice', '声', 'パ・ン・ト・マ・ト'], ['mode', 'テーマの音', '電車・花火などの音']];
 const subList = () => metF(makeMetaCached(selected)) === 2 ? MSUB_Q : MSUB_E;
 const optB = (on, html, fn) => { const b = document.createElement('button'); b.className = 'opt' + (on ? ' on' : ''); b.innerHTML = html; b.onclick = fn; return b; };
 const mP = (sig, groups) => PRESETS.find(p => p.sig === sig && !p.sigs && p.bars.length === 1 && p.bars[0].join() === groups.join()) || { cat: 'metro', sig, bars: [groups], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
@@ -18173,7 +18173,7 @@ function recStreak() {   // 何日続けて練習したか（1日1分以上）�
   return n;
 }
 const fmtMin = s => s >= 3600 ? `${Math.floor(s / 3600)}時間${Math.floor(s % 3600 / 60)}分` : `${Math.floor(s / 60)}分`;
-const SECRET_RULE = { Z1: { need: '練習の合計 30分', ok: () => REC.total >= 1800 }, Z2: { need: '3日続けて練習', ok: () => recStreak() >= 3 } };
+const SECRET_RULE = {};   // ひみつのテーマはなし（ぜんぶ最初から使える）
 const viewUnlocked = k => !MODE_INFO[k] || !MODE_INFO[k].secret || REC.unl.includes(k);
 const BADGES = [
   ['m1', '🎵', 'はじめの1分', '合計1分 練習', r => r.total >= 60], ['m10', '⏱️', '10分', '合計10分', r => r.total >= 600],
@@ -18181,7 +18181,7 @@ const BADGES = [
   ['s3', '🔥', '3日連続', '3日続けて練習', () => recStreak() >= 3], ['s7', '🌟', '7日連続', '7日続けて練習', () => recStreak() >= 7],
   ['c10', '👏', 'コンボ10', 'ぴったり10回連続', r => r.best >= 10], ['c30', '💥', 'コンボ30', 'ぴったり30回連続', r => r.best >= 30], ['c50', '👑', 'コンボ50', 'ぴったり50回連続', r => r.best >= 50],
   ['p100', '🎯', 'ぴったり100回', '合計100回', r => r.perfect >= 100], ['odd5', '🌀', '変拍子5分', '変拍子で合計5分', r => r.odd >= 300],
-  ['v10', '🎨', '見た目10種類', '10種類の見た目で鳴らした', r => r.views.length >= 10],
+  ['v10', '🎨', 'テーマ10種類', '10種類のテーマで鳴らした', r => r.views.length >= 10],
   ['ch1', '📅', 'はじめてのお題', '今日のお題をクリア', r => r.chalCnt >= 1], ['ch5', '🗓️', 'お題5回', 'お題を5回クリア', r => r.chalCnt >= 5],
 ];
 let toastT = 0, toastQ = [];
