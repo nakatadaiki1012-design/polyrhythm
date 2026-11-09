@@ -1346,6 +1346,12 @@ const songOf = p => { const sg = (p.sigs || p.bars.map(() => p.sig)).join('→')
 const CATS = [['basic', 'ふつうの拍子'], ['odd', '変拍子'], ['alt', '交互にくり返す']];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const mod = (a, n) => ((a % n) + n) % n;
+// 光の玉などの画像を色ごとに作りおくとき：色を少しまるめて、なめらかに色が変わっても画像を作りなおしつづけないように
+function glowQ(col) {
+  if (typeof col !== 'string' || col.length !== 7 || col[0] !== '#') return col;
+  const n = parseInt(col.slice(1), 16), q = x => Math.min(255, Math.round(x / 24) * 24).toString(16).padStart(2, '0');
+  return '#' + q((n >> 16) & 255) + q((n >> 8) & 255) + q(n & 255);
+}
 function hexA(hex, a) {
   const n = parseInt(hex.slice(1), 16);
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
@@ -2492,15 +2498,17 @@ const rawFill = c => _fillDesc.set.call(cx, c);   // 置きかえをしないで
   } catch (e) {} }
 let W = 300, H = 300, K = 1;
 /* ===== 処理落ちしないように：重いときは自動で画質を下げる（解像度 → ぼかし効果 → 30コマ）。軽くなったら少しずつ戻す ===== */
-const PERF_LV = [{ s: 1 }, { s: 0.85 }, { s: 0.72 }, { s: 0.62, low: true }, { s: 0.55, low: true, skip: true }];
-const perfQ = { lv: 0, ema: 16.7, last: 0, slow: 0, fast: 0, changed: 0, upHold: 6000, upAt: 0, tick: 0 };
+// 画質の段階：1段目は光の効果だけへらす（解像度はそのまま＝切りかえてもカクッとしない）。2段目からは解像度を下げる。30コマにはしない（カクカクに見えるので）
+const PERF_LV = [{ s: 1 }, { s: 1 }, { s: 0.85 }, { s: 0.74, low: true }, { s: 0.64, low: true }];
+const perfQ = { lv: 0, ema: 16.7, last: 0, slow: 0, fast: 0, changed: 0, upHold: 8000, upAt: 0, tick: 0 };
 function perfSet(lv) {
   const now = performance.now();
-  if (lv > perfQ.lv && now - perfQ.upAt < 15000) perfQ.upHold = Math.min(60000, perfQ.upHold * 2);   // 上げてすぐ重くなったら、次は上げるのを待つ
+  if (lv > perfQ.lv && now - perfQ.upAt < 20000) perfQ.upHold = Math.min(120000, perfQ.upHold * 2);   // 上げてすぐ重くなったら、次は上げるのを長く待つ（行ったり来たりしない）
   if (lv < perfQ.lv) perfQ.upAt = now;
+  const sOld = PERF_LV[perfQ.lv].s;
   perfQ.lv = lv; perfQ.changed = now; perfQ.slow = perfQ.fast = 0;
   SCHEDULE_AHEAD = lv >= 2 ? 0.2 : lv >= 1 ? 0.14 : 0.1;
-  resize();
+  if (PERF_LV[lv].s !== sOld) resize();   // 解像度が変わるときだけ、キャンバスを作りなおす
 }
 function perfTick(ts) {   // 毎フレームよぶ。true を返したら、このフレームは絵をかかない（30コマにする）
   const d = perfQ.last ? ts - perfQ.last : 16.7; perfQ.last = ts;
@@ -2508,14 +2516,14 @@ function perfTick(ts) {   // 毎フレームよぶ。true を返したら、こ�
     perfQ.ema += (d - perfQ.ema) * 0.08;
     if (perfQ.ema > 20.5) { perfQ.slow += d; perfQ.fast = 0; } else if (perfQ.ema < 17.8) { perfQ.fast += d; perfQ.slow = 0; } else { perfQ.slow = perfQ.fast = 0; }
     const since = ts - perfQ.changed;
-    if (perfQ.slow > 1200 && since > 1500 && perfQ.lv < PERF_LV.length - 1) perfSet(perfQ.lv + 1);
+    if ((perfQ.slow > 2000 || (perfQ.slow > 700 && perfQ.ema > 40)) && since > 2500 && perfQ.lv < PERF_LV.length - 1) perfSet(perfQ.lv + 1);
     else if (perfQ.fast > perfQ.upHold && since > perfQ.upHold && perfQ.lv > 0) perfSet(perfQ.lv - 1);
   }
   perfQ.tick++;
-  return !!PERF_LV[perfQ.lv].skip && perfQ.tick % 2 === 1;
+  return false;
 }
 function resize() {
-  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.max(0.6, renderDpr() * (typeof perfQ === 'undefined' ? 1 : PERF_LV[perfQ.lv].s));
+  const r = cv.parentElement.getBoundingClientRect(), dpr = Math.max(0.6, Math.min(window.devicePixelRatio || 1, r.width < 700 ? 1.5 : 2) * (typeof perfQ === 'undefined' ? 1 : PERF_LV[perfQ.lv].s));   // 画面のこまかさ（最大2倍）× 画質の段階（重いときだけ下げ、軽くなったら戻す）
   W = Math.max(50, r.width); H = Math.max(50, r.height);
   cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -2548,6 +2556,67 @@ function txt(s, x, y, size, color, weight = 700, align = 'center', base = 'middl
 }
 
 let prevStage = 0, returnBanner = null, lastSongBar = -1, shufBar = -1;
+/* いまのテーマの絵をかく（mode ごとの関数へ） */
+function drawScene(st, now, sceneH, qPanH) {
+  if (mode === 'A') drawRoll(st, now, sceneH);
+  else if (mode === 'B') drawBounce(st, now, sceneH);
+  else if (mode === 'C') drawOrbit(st, now, sceneH);
+  else if (mode === 'D') drawConduct(st, now, sceneH);
+  else if (mode === 'G') drawTrain(st, now, sceneH);
+  else if (mode === 'H') drawEmblem(st, now, sceneH);
+  else if (mode === 'I') drawFireworks(st, now, sceneH);
+  else if (mode === 'J') drawGears(st, now, sceneH);
+  else if (mode === 'K') drawDancer(st, now, sceneH);
+  else if (mode === 'N') drawDomino(st, now, sceneH);
+  else if (mode === 'O') drawJuggle(st, now, sceneH);
+  else if (mode === 'P') drawDrops(st, now, sceneH);
+  else if (mode === 'Q') drawJelly(st, now, sceneH);
+  else if (mode === 'R') drawPendulum(st, now, sceneH);
+  else if (mode === 'S') drawNotes(st, now, sceneH);
+  else if (mode === 'T') drawFlowers(st, now, sceneH);
+  else if (mode === 'U') drawFrog(st, now, sceneH);
+  else if (mode === 'JR') drawJumpRope(st, now, sceneH);
+  else if (mode === 'BK') drawDribble(st, now, sceneH);
+  else if (mode === 'DR') drawTaiko(st, now, sceneH);
+  else if (mode === 'RW') drawRowing(st, now, sceneH);
+  else if (mode === 'KZ') drawKaleido(st, now, sceneH);
+  else if (mode === 'EQ') drawWave(st, now, sceneH);
+  else if (mode === 'L') drawKarakuri(st, now, sceneH);
+  else if (mode === 'M') drawBlocks(st, now, sceneH);
+  else if (mode === 'Y') drawMane(st, now, sceneH);
+  else if (mode === 'MB') drawMetroBall(st, now, sceneH);
+  else if (mode === 'MP') drawMetroPend(st, now, sceneH);
+  else if (mode === 'MF') drawMetroFlash(st, now, sceneH);
+  else if (mode === 'Z1') drawRocket(st, now, sceneH);
+  else if (mode === 'Z2') drawAurora(st, now, sceneH);
+  else if (mode === 'V') drawCompare(st, now, sceneH);
+  else if (mode === 'W') { if (quiz.cmpOn) drawCompare(st, now, sceneH - qPanH); else drawOrbit(st, now, sceneH - qPanH); }
+  else drawStairs(st, now, sceneH);
+}
+/* テーマの下ごしらえ：止まっていて、さわっていない間に、ほかのテーマの絵を1つずつ見えない所でかいておく
+   （背景などの画像が先にできるので、あとでテーマを切りかえたときにカクッと止まらない） */
+const prewarm = { q: [], done: new Set(), key: '', lastInput: 0, at: 0 };
+['pointerdown', 'keydown', 'wheel'].forEach(ev => addEventListener(ev, () => { prewarm.lastInput = performance.now(); }, { capture: true, passive: true }));
+function prewarmStep(now, sceneH) {
+  const pn = performance.now(), key = [W, H, K, cv.width].join('|');
+  if (key !== prewarm.key) { prewarm.key = key; prewarm.done.clear(); prewarm.q = []; prewarm.at = pn + 1500; return false; }   // 大きさが変わったら、やりなおし
+  if (playing || pn < prewarm.at || pn - prewarm.lastInput < 2500 || document.visibilityState !== 'visible' || lessonOpen || LEARN_MODES.includes(mode)) return false;
+  if (!prewarm.q.length) {   // いまのテーマのとなりから順に
+    const i0 = Math.max(0, VIEW_ORDER.indexOf(mode)), n = VIEW_ORDER.length, list = [];
+    for (let d = 1; d < n; d++) for (const s of [1, -1]) { const k = VIEW_ORDER[mod(i0 + s * d, n)]; if (!list.includes(k)) list.push(k); }
+    prewarm.q = list.filter(k => k !== mode && !prewarm.done.has(k));
+    if (!prewarm.q.length) { prewarm.at = pn + 60000; return false; }
+  }
+  const k = prewarm.q.shift(), om = mode, t0 = performance.now();
+  prewarm.done.add(k);
+  const st = { m: activeMeta, pos: 0, g: 0, gp: 0, step: 0, sc: 0, measure: 0, sub: 0, frac: 0, has: false };
+  const ol = canvasLight;
+  cx.save(); mode = k; canvasLight = document.documentElement.dataset.theme === 'light' && !DARK_SCENES.has(k);
+  try { drawScene(st, now, sceneH, 0); } catch (e) {}
+  mode = om; canvasLight = ol; cx.restore();
+  prewarm.at = pn + Math.max(250, (performance.now() - t0) * 3);   // 重いテーマのあとは、少し長く休む
+  return true;
+}
 function frame(ts) {
   if (perfTick(ts || performance.now())) { requestAnimationFrame(frame); return; }
   const now = audioNow();
@@ -2619,40 +2688,8 @@ function frame(ts) {
     }
     if (st.songBar !== lastSongBar) { lastSongBar = st.songBar; updateBarRhythm(); }
     try {
-    if (mode === 'A') drawRoll(st, now, sceneH);
-    else if (mode === 'B') drawBounce(st, now, sceneH);
-    else if (mode === 'C') drawOrbit(st, now, sceneH);
-    else if (mode === 'D') drawConduct(st, now, sceneH);
-    else if (mode === 'G') drawTrain(st, now, sceneH);
-    else if (mode === 'H') drawEmblem(st, now, sceneH);
-    else if (mode === 'I') drawFireworks(st, now, sceneH);
-    else if (mode === 'J') drawGears(st, now, sceneH);
-    else if (mode === 'K') drawDancer(st, now, sceneH);
-    else if (mode === 'N') drawDomino(st, now, sceneH);
-    else if (mode === 'O') drawJuggle(st, now, sceneH);
-    else if (mode === 'P') drawDrops(st, now, sceneH);
-    else if (mode === 'Q') drawJelly(st, now, sceneH);
-    else if (mode === 'R') drawPendulum(st, now, sceneH);
-    else if (mode === 'S') drawNotes(st, now, sceneH);
-    else if (mode === 'T') drawFlowers(st, now, sceneH);
-    else if (mode === 'U') drawFrog(st, now, sceneH);
-    else if (mode === 'JR') drawJumpRope(st, now, sceneH);
-    else if (mode === 'BK') drawDribble(st, now, sceneH);
-    else if (mode === 'DR') drawTaiko(st, now, sceneH);
-    else if (mode === 'RW') drawRowing(st, now, sceneH);
-    else if (mode === 'KZ') drawKaleido(st, now, sceneH);
-    else if (mode === 'EQ') drawWave(st, now, sceneH);
-    else if (mode === 'L') drawKarakuri(st, now, sceneH);
-    else if (mode === 'M') drawBlocks(st, now, sceneH);
-    else if (mode === 'Y') drawMane(st, now, sceneH);
-    else if (mode === 'MB') drawMetroBall(st, now, sceneH);
-    else if (mode === 'MP') drawMetroPend(st, now, sceneH);
-    else if (mode === 'MF') drawMetroFlash(st, now, sceneH);
-    else if (mode === 'Z1') drawRocket(st, now, sceneH);
-    else if (mode === 'Z2') drawAurora(st, now, sceneH);
-    else if (mode === 'V') drawCompare(st, now, sceneH);
-    else if (mode === 'W') { if (quiz.cmpOn) drawCompare(st, now, sceneH - qPanH); else drawOrbit(st, now, sceneH - qPanH); }
-    else drawStairs(st, now, sceneH);
+    if (!playing && prewarmStep(now, sceneH)) { cx.clearRect(0, 0, W, sceneH); cx.fillStyle = bg; cx.fillRect(0, 0, W, sceneH); }   // 下ごしらえでかいた絵は、すぐ上からぬりつぶす
+    drawScene(st, now, sceneH, qPanH);
     } catch (e) { if (!frame.errShown) { frame.errShown = true; console.error(e); } }   // 絵の途中でまちがいがあっても、画面ぜんぶが消えないように
     drawHeader(st);
     if (cmp2) drawScore2(st, now, belowY + bandH, scoreH);
@@ -4293,7 +4330,7 @@ function drawOrbit(st, now, ah) {
 /* @@END drawOrbit */
 /* ---------- 共通：顔つきのボール ---------- */
 /* 🚀 ロケット／🌌 オーロラ 共通の小道具（キャッシュ・タイミング・タップの反応） */
-const rocketCv = {};
+const rocketCv = {}; let rocketGlowN = 0;
 function rocketCache(name, key, w, h, paint) {   // 重い絵は大きさが変わったときだけ描きなおす
   let e = rocketCv[name];
   if (!e || e.key !== key) {
@@ -4306,6 +4343,8 @@ function rocketCache(name, key, w, h, paint) {   // 重い絵は大きさが変�
 }
 // 光の粒（中心が白く、まわりが色でにじむ）
 function rocketGlow(col, core = 1) {
+  col = glowQ(col); core = Math.round(core * 10) / 10;
+  if (!rocketCv['gl' + col + core] && ++rocketGlowN > 160) { for (const k in rocketCv) if (k.startsWith('gl')) delete rocketCv[k]; rocketGlowN = 1; }   // ふえすぎたら作りなおす
   return rocketCache('gl' + col + core, '1', 64, 64, g => {
     const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     gr.addColorStop(0, `rgba(255,255,255,${core})`); gr.addColorStop(0.12, hexA(col, 0.9)); gr.addColorStop(0.38, hexA(col, 0.3)); gr.addColorStop(1, hexA(col, 0));
@@ -5397,11 +5436,13 @@ function drawCharBallTap(life = 0.8) {
     dir: k === 'e' ? -1 : k === 'l' ? 1 : 0, combo: c, fest: drawCharBallFest, head: on && !!playFx.head };
 }
 // やわらかい光の玉（色ごとに1枚だけ作っておく画像を、大きさをかえて置く。グラデーションを毎回作らない）
-const drawCharBallGlows = {};
+const drawCharBallGlows = {}; let drawCharBallGlowN = 0;
 function drawCharBallGlow(x, y, r, col, a = 1) {
   if (a <= 0.003 || r <= 0) return;
+  col = glowQ(col);
   let c = drawCharBallGlows[col];
   if (!c) {
+    if (++drawCharBallGlowN > 160) { for (const k in drawCharBallGlows) delete drawCharBallGlows[k]; drawCharBallGlowN = 1; }   // ふえすぎたら作りなおす
     c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
     gr.addColorStop(0, hexA(col, 1)); gr.addColorStop(0.25, hexA(col, 0.45)); gr.addColorStop(0.6, hexA(col, 0.12)); gr.addColorStop(1, hexA(col, 0));
     g.fillStyle = gr; g.fillRect(0, 0, 64, 64); drawCharBallGlows[col] = c;
@@ -7166,7 +7207,7 @@ const FW = {
 };
 // 花火：オフスクリーンのキャンバス（空・町・水面・光の粒）
 let fwBgCache = null, fwCityCache = null, fwLayer = null;
-const fwSprites = {};
+const fwSprites = {}; let fwSpriteN = 0;
 function fwCanvas(w, h) {
   const d = renderDpr(), c = document.createElement('canvas');
   c.width = Math.max(1, Math.ceil(w * d)); c.height = Math.max(1, Math.ceil(h * d));
@@ -7174,8 +7215,10 @@ function fwCanvas(w, h) {
 }
 // 光の粒（中心が白く、まわりが色でにじむ）
 function fwSprite(col, core = 1) {
+  col = glowQ(col); core = Math.round(core * 10) / 10;
   const key = col + core;
   if (fwSprites[key]) return fwSprites[key];
+  if (++fwSpriteN > 160) { for (const k in fwSprites) delete fwSprites[k]; fwSpriteN = 1; }   // ふえすぎたら作りなおす
   const c = document.createElement('canvas'); c.width = c.height = 64;
   const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
   gr.addColorStop(0, `rgba(255,255,255,${core})`); gr.addColorStop(0.1, hexA(col, 1)); gr.addColorStop(0.28, hexA(col, 0.42));
@@ -7566,7 +7609,7 @@ function drawFireworks(st, now, ah) {
     cx.save(); cx.globalCompositeOperation = 'lighter'; cx.fillStyle = cg; cx.fillRect(flashX - cw, horizon, cw * 2, hR); cx.restore();
   }
   // 水面に映る花火と町（さざ波で横にゆれる）
-  const strip = (lq ? 3 : 5) * K, sc0 = fwLayer.d, cc2 = city.c, sc1 = cc2.width / W;
+  const strip = (lq ? 4 : 7) * K, sc0 = fwLayer.d, cc2 = city.c, sc1 = cc2.width / W;
   for (let d0 = 0; d0 < hR; d0 += strip) {
     const sy = horizon - d0 - strip; if (sy < 0) break;
     const f = d0 / hR, off = Math.sin(d0 * 0.42 / K + now * 2.2) * (0.6 + 3 * f) * K + Math.sin(d0 * 0.13 / K - now * 1.3) * 1.5 * K * f;
@@ -7751,12 +7794,28 @@ function gearsSheen(x, y, R, a) {   // 旋盤仕上げの金属の光沢（光�
   return g;
 }
 // 歯車の本体：影 → 金属 → 光沢 → 面取り。パスは gearPoly で作る
+// 歯車の落ち影：ぼかしを毎回計算せず、作りおきのやわらかい円の影を置く（歯車の影は、ぼけるとほぼ円）
+let gearsDropCv = null;
+function gearsDrop(x, y, r, lift, a = 0.6) {
+  if (!gearsDropCv) {
+    gearsDropCv = document.createElement('canvas'); gearsDropCv.width = gearsDropCv.height = 128;
+    const g = gearsDropCv.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(0.72, 'rgba(0,0,0,0.92)'); gr.addColorStop(0.86, 'rgba(0,0,0,0.45)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  }
+  const R = r + 12 * K * lift, ga = cx.globalAlpha; cx.globalAlpha = ga * a;
+  cx.drawImage(gearsDropCv, x + 5 * K * lift - R, y + 8 * K * lift - R, R * 2, R * 2); cx.globalAlpha = ga;
+}
+// 光るふち：ぼかしの代わりに、太くうすい線を重ねる
+function gearsGlowStroke(col, a, w) {
+  cx.save(); cx.lineCap = 'round';
+  for (const [k, al] of [[5, 0.12], [3, 0.22], [1.8, 0.4]]) { cx.strokeStyle = hexA(col, a * al); cx.lineWidth = w * k; cx.stroke(); }
+  cx.restore();
+}
 function gearsBody(x, y, L, s, rot, mask, mat, lift) {
   const g = gearGeom(L, s), M = gearsMats[mat];
-  cx.save();
-  cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 12 * K * lift; cx.shadowOffsetX = 5 * K * lift; cx.shadowOffsetY = 8 * K * lift;
+  gearsDrop(x, y, g.rr, lift);
   gearPoly(x, y, L, s, rot, mask); cx.fillStyle = M[2]; cx.fill();
-  cx.restore();
   const lg = cx.createLinearGradient(x - g.rt, y - g.rt, x + g.rt, y + g.rt);
   lg.addColorStop(0, M[0]); lg.addColorStop(0.45, M[1]); lg.addColorStop(1, M[2]);
   cx.fillStyle = lg; cx.fill();
@@ -7944,9 +8003,9 @@ function gearsSet(c) {
     const h = m.starts[gi], a0 = rotS + (h - 0.5 + 0.06) * ws, a1 = rotS + (h + Lg - 0.5 - 0.06) * ws, cur = gi === hl;
     cx.strokeStyle = 'rgba(0,0,0,0.6)'; cx.lineWidth = bandW + 3 * K;
     cx.beginPath(); cx.arc(xs + 0.6 * K, ys + 0.8 * K, bandR, a0, a1); cx.stroke();
-    if (cur) { cx.shadowColor = COLORS[Lg]; cx.shadowBlur = 12 * K; }
-    cx.strokeStyle = cur ? COLORS[Lg] : shade(COLORS[Lg], -0.45); cx.lineWidth = bandW;
-    cx.beginPath(); cx.arc(xs, ys, bandR, a0, a1); cx.stroke(); cx.shadowBlur = 0;
+    cx.beginPath(); cx.arc(xs, ys, bandR, a0, a1);
+    if (cur) gearsGlowStroke(COLORS[Lg], 1, bandW * 0.9);
+    cx.strokeStyle = cur ? COLORS[Lg] : shade(COLORS[Lg], -0.45); cx.lineWidth = bandW; cx.stroke();
     cx.strokeStyle = 'rgba(255,255,255,0.35)'; cx.lineWidth = Math.max(1, bandW * 0.18);
     cx.beginPath(); cx.arc(xs, ys, bandR - bandW * 0.25, a0, a1); cx.stroke();
     const am = (a0 + a1) / 2, fs = Math.min(14 * K, 0.85 * s, (Lg * ws * gs.rr * 0.56) / 3.4);
@@ -7989,8 +8048,8 @@ function gearsSet(c) {
   }
 
   // ===== 小節の歯車 =====
-  { cx.save(); cx.shadowColor = 'rgba(0,0,0,0.6)'; cx.shadowBlur = 10 * K; cx.shadowOffsetX = 4 * K; cx.shadowOffsetY = 6 * K;
-    cx.fillStyle = '#3a404b'; cx.beginPath(); cx.arc(xt, yt, gp.rr, 0, Math.PI * 2); cx.fill(); cx.restore();
+  { gearsDrop(xt - 1 * K, yt - 2 * K, gp.rr, 0.85);
+    cx.fillStyle = '#3a404b'; cx.beginPath(); cx.arc(xt, yt, gp.rr, 0, Math.PI * 2); cx.fill();
     { const lg = cx.createLinearGradient(xt - gp.rr, yt - gp.rr, xt + gp.rr, yt + gp.rr);
       lg.addColorStop(0, gearsMats.pinion[0]); lg.addColorStop(0.45, gearsMats.pinion[1]); lg.addColorStop(1, gearsMats.pinion[2]);
       cx.fillStyle = lg; cx.fill();
@@ -8008,7 +8067,7 @@ function gearsSet(c) {
     if (fs >= 7) txt(pw(L), xt, yt + 0.5, fs, COLORS[L], 900);
     gearsBody(xq, yq, Q, sp, rotQ, null, 'green', 1);
     if (movingB || barFlash > 0) {
-      cx.save(); gearPoly(xq, yq, Q, sp, rotQ); cx.shadowColor = LIME; cx.shadowBlur = 20 * K;
+      cx.save(); gearPoly(xq, yq, Q, sp, rotQ); gearsGlowStroke(LIME, movingB ? 0.9 : 0.6 * barFlash, 2.6 * K);
       cx.strokeStyle = hexA(LIME, movingB ? 0.9 : 0.6 * barFlash); cx.lineWidth = 2 * K; cx.stroke(); cx.restore();
     }
     for (let i = 0; i < Q; i++) {
@@ -8193,10 +8252,8 @@ function drawGearsScene(st, now, ah, kk) {
   if (pf.f3 > 0 && has && ageS < 0.05 && kCur === 0 && Math.random() < 0.6) gearsBurst(gearsFx, cpx, cpy, 4, { v: 200, cols: ['#ffd27a', '#ffffff'], g: 380, life: 0.5, r: 1.8 });
   gearsParts(gearsFx);
   if (barFlash > 0) {   // 小節の頭：2つの歯車がいっせいに光る
-    cx.save(); cx.shadowColor = LIME; cx.shadowBlur = 14 * K;
-    cx.strokeStyle = hexA(LIME, 0.85 * barFlash); cx.lineWidth = 3 * K;
-    cx.beginPath(); cx.arc(xs, ys, gs.rt + 5 * K, 0, Math.PI * 2); cx.stroke();
-    cx.beginPath(); cx.arc(xt, yt, gt.rt + 5 * K, 0, Math.PI * 2); cx.stroke();
+    cx.save();
+    for (const [xx, yy, rr] of [[xs, ys, gs.rt + 5 * K], [xt, yt, gt.rt + 5 * K]]) { cx.beginPath(); cx.arc(xx, yy, rr, 0, Math.PI * 2); gearsGlowStroke(LIME, 0.85 * barFlash, 3 * K); cx.strokeStyle = hexA(LIME, 0.85 * barFlash); cx.lineWidth = 3 * K; cx.stroke(); }
     cx.restore();
   }
 
@@ -15729,7 +15786,7 @@ function drawMetroFlashDigit(num, col, pw, ph, cell, size, glow) {
   const d = renderDpr(), key = [num, col, Math.round(pw), Math.round(ph), cell.toFixed(2), Math.round(size), glow, d].join('|');
   let e = drawMetroFlashDigitCv.get(key);
   if (e) return e;
-  if (drawMetroFlashDigitCv.size > 12) drawMetroFlashDigitCv.delete(drawMetroFlashDigitCv.keys().next().value);
+  if (drawMetroFlashDigitCv.size > 72) drawMetroFlashDigitCv.delete(drawMetroFlashDigitCv.keys().next().value);
   // 数字の形を、小さなキャンバスで調べる
   const mw = Math.max(1, Math.round(pw)), mh = Math.max(1, Math.round(ph)), mc = document.createElement('canvas'); mc.width = mw; mc.height = mh;
   const mg = mc.getContext('2d'); mg.fillStyle = '#fff'; mg.font = `900 ${size}px ${FONT}`; mg.textAlign = 'center'; mg.textBaseline = 'middle'; mg.fillText(String(num), mw / 2, mh / 2 + size * 0.02);
@@ -17205,7 +17262,7 @@ function setMode(md) {
   { const VO = typeof viewsOpen === 'function' ? viewsOpen() : [], i = VO.indexOf(md), ok = i >= 0 && !lsOpen();   // 演出ボタン：学ぶ・あそぶの画面では出さない
     ['viewPrev', 'viewNext'].forEach(id => { const b = document.getElementById(id); if (b) b.hidden = !ok; });
     const vn = document.getElementById('viewName'); if (vn) { vn.hidden = !ok; if (ok) vn.textContent = `${MODE_INFO[md].em || ''} ${MODE_INFO[md].name}　${i + 1} / ${VO.length}`; } }
-  if (typeof perfQ !== 'undefined' && was !== md) { perfQ.upHold = 3000; perfQ.fast = perfQ.slow = 0; perfQ.upAt = 0; }   // 見た目を変えたら、画質はまた早めに戻せるように   // 学ぶ・あそぶから、ふつうの見せ方にもどった
+  if (typeof perfQ !== 'undefined' && was !== md) { perfQ.upHold = 6000; perfQ.fast = perfQ.slow = 0; perfQ.upAt = 0; }   // 見た目を変えたら、画質はまた早めに戻せるように   // 学ぶ・あそぶから、ふつうの見せ方にもどった
 }
 function stepMode(d) { const i = MODE_ORDER.indexOf(mode); setMode(MODE_ORDER[mod(i + d, MODE_ORDER.length)]); }
 /* モードの一覧：はじめは「まずはこれ」の6つだけ。ほかは「ほかのモードも見る」で出す */
