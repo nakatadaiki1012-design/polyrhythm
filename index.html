@@ -1138,6 +1138,15 @@ html[data-theme="light"] .mpreset .del { background:#eef2f7; color:#be123c }
         この補正はタップ判定にも使われます。
       </div>
     </details>
+
+    <!-- データの保存とバックアップ -->
+    <details class="sec" id="secData">
+      <summary><span class="sum-main">💾 データのバックアップ<span class="sum-sub">設定・きろく・プリセット・プログラムを、ファイルに保存／もどす</span></span></summary>
+      <div class="hint" style="margin-top:8px">データはこの端末のブラウザの中に保存されています。ブラウザのデータを消したり、機種を変えたりする前に、ファイルに書き出しておくと安心です。</div>
+      <div class="btns" style="margin-top:10px"><button class="btn main" id="dataExport">⬇ ファイルに書き出す</button><button class="btn" id="dataImport">⬆ ファイルからもどす</button></div>
+      <input type="file" id="dataFile" accept="application/json,.json" hidden>
+      <div class="hint" id="dataMsg" style="margin-top:6px"></div>
+    </details>
   </aside>
   </div>
 
@@ -1428,6 +1437,87 @@ function makeMeta(p) {
 }
 
 /* =========================================================
+   💾 保存（この端末のブラウザの中）：データがこわれないように
+   ・読むとき：こわれていたら、1つ前のよいデータ（~prev）から戻す。型のちがう値はすてて、決まった値を使う
+   ・書くとき：中身が変わったときだけ書き、前のよいデータを ~prev に残す。いっぱいで書けないときは知らせる
+   ・こわれたデータは ~bad に1つだけ残す（あとで調べられるように）
+   ・ほかのタブで書きかえられたら、知らせを受けて合わせる（古いデータで上書きしない）
+   ========================================================= */
+const STORE = (() => {
+  const ls = (() => { try { const t = '__vm_t'; localStorage.setItem(t, '1'); localStorage.removeItem(t); return localStorage; } catch (e) { return null; } })();
+  const last = {}, ext = {};
+  let warned = false, locked = false;   // locked：バックアップからもどした直後。読みこみなおすまで、いまの画面の古いデータで上書きしない
+  const parse = (raw, json) => json ? JSON.parse(raw) : raw;
+  const okFinite = v => typeof v !== 'number' || Number.isFinite(v);
+  function load(key, def, check, json = true) {
+    if (!ls) return def;
+    let raw = null; try { raw = ls.getItem(key); } catch (e) { return def; }
+    if (raw === null) return def;
+    try { const v = check ? check(parse(raw, json)) : parse(raw, json); if (v !== undefined && v !== null) { last[key] = raw; return v; } } catch (e) {}
+    // こわれている：中身をとっておき、1つ前のよいデータから戻す
+    try { ls.setItem(key + '~bad', raw); } catch (e) {}
+    try { const prev = ls.getItem(key + '~prev'); if (prev !== null) { const v = check ? check(parse(prev, json)) : parse(prev, json); if (v !== undefined && v !== null) { ls.setItem(key, prev); last[key] = prev; return v; } } } catch (e) {}
+    return def;
+  }
+  function save(key, value, json = true, force = false) {
+    if (!ls || (locked && !force)) return false;
+    let str; try { str = json ? JSON.stringify(value) : String(value); } catch (e) { return false; }
+    if (str === undefined || str === last[key]) return true;
+    try {
+      const old = ls.getItem(key);
+      if (old !== null && old !== str) { let good = true; if (json) try { JSON.parse(old); } catch (e) { good = false; } if (good) ls.setItem(key + '~prev', old); }
+      ls.setItem(key, str); last[key] = str; return true;
+    } catch (e) {
+      try {   // いっぱい：とっておきのこわれたデータなど、なくてもよいものを消してもう一度
+        for (let i = ls.length - 1; i >= 0; i--) { const k = ls.key(i); if (k && (k.endsWith('~bad') || k.endsWith('~prev'))) ls.removeItem(k); }
+        ls.setItem(key, str); last[key] = str; return true;
+      } catch (e2) {
+        if (!warned && typeof toast === 'function') { warned = true; toast('⚠️ データを保存できませんでした', 'ブラウザの保存場所がいっぱいか、プライベートモードかもしれません'); }
+        return false;
+      }
+    }
+  }
+  function remove(key) { if (!ls) return; try { ls.removeItem(key); delete last[key]; } catch (e) {} }
+  function onExternal(key, fn) { ext[key] = fn; }   // ほかのタブで、このキーが書きかえられたとき
+  addEventListener('storage', e => {
+    if (!e.key || !ext[e.key] || e.newValue === null) return;
+    last[e.key] = e.newValue;
+    try { ext[e.key](e.newValue); } catch (err) {}
+  });
+  // 型をそろえる道具
+  const num = (v, d, lo = -Infinity, hi = Infinity) => typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d;
+  const str = (v, d = '', max = 2000) => typeof v === 'string' ? v.slice(0, max) : d;
+  const arr = (v, f, max = 500) => Array.isArray(v) ? v.slice(0, max).map(f).filter(x => x !== undefined) : [];
+  const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : null;
+  const keys = () => { const out = []; if (ls) for (let i = 0; i < ls.length; i++) { const k = ls.key(i); if (k && /^(kr_|vm_)/.test(k) && !/~(bad|prev)$/.test(k)) out.push(k); } return out; };
+  return { ok: !!ls, load, save, remove, lock: () => { locked = true; }, onExternal, num, str, arr, obj, okFinite, keys, raw: k => { try { return ls ? ls.getItem(k) : null; } catch (e) { return null; } } };
+})();
+// 設定：決まった型の値だけを受け入れる（知らない項目は、数字・文字・true/false・単純な配列/オブジェクトだけ）
+function sanSettings(o, base) {
+  o = STORE.obj(o); if (!o) throw new Error('settings');
+  const out = {};
+  for (const k of Object.keys(o)) {
+    const v = o[k], d = base[k];
+    if (!STORE.okFinite(v)) continue;
+    if (k === 'accMap') { const a = STORE.obj(v); if (a) { out.accMap = {}; for (const mk of Object.keys(a)) if (Array.isArray(a[mk]) && a[mk].every(x => x === 0 || x === 1 || x === 2 || x === 3)) out.accMap[mk] = a[mk]; } continue; }
+    if (k === 'mPreset') { if (v === null || STORE.obj(v)) out.mPreset = v; continue; }
+    if (k === 'poly') { if (Array.isArray(v) && v.length === 2 && v.every(x => Number.isInteger(x) && x >= 1 && x <= 16)) out.poly = v; continue; }
+    const want = { theme: 'string', shuffle: 'number', vibe: 'boolean', swipeHint: 'boolean', v3: 'boolean', v4: 'boolean', micLat: 'number', micOn: 'boolean', micSens: 'number', ensAdj: 'number' }[k];
+    if (want && typeof v !== want) continue;
+    if (k === 'theme' && !['auto', 'light', 'dark'].includes(v)) continue;
+    if (d !== undefined && d !== null) {
+      if (Array.isArray(d) !== Array.isArray(v) || typeof d !== typeof v) {
+        if (!(typeof d === 'number' && typeof v === 'string' && ['msub'].includes(k))) continue;   // 細分は数字と文字（'sw'）の両方がある
+      }
+    } else if (v !== null && typeof v === 'object' && JSON.stringify(v).length > 20000) continue;
+    out[k] = v;
+  }
+  if ('msub' in out && !(typeof out.msub === 'number' || out.msub === 'sw')) delete out.msub;
+  for (const [k, lo, hi] of [['mBpm', 40, 600], ['rampStart', 20, 600], ['rampEnd', 20, 600], ['rampStep', 1, 50], ['rampEvery', 1, 64], ['fadeN', 1, 64], ['fadeS', 1, 64], ['mOn', 1, 64], ['mOff', 1, 64], ['rand', 0, 100], ['timerMin', 0, 600]])
+    if (k in out) out[k] = STORE.num(out[k], base[k], lo, hi);
+  return out;
+}
+/* =========================================================
    設定（次に開いたときも残す）
    ========================================================= */
 const SET = {
@@ -1438,10 +1528,12 @@ const SET = {
   bodyOn: false, countOn: false, stopMode: 'now', blockAuto: false, scoreOn: true, cmpPair: 0, cmpStyle: 'domino', cmpSound: 'both',
   tupSeq: 'up', tupN: 3, tupBars: 2, tupBeats: 4, tupCmp: false, slimStrip: true, beatRow: true, songLoop: false, homeAuto: true, band: false, fileOn: true, fileClick: true,
 };
-try { Object.assign(SET, JSON.parse(localStorage.getItem('kr_settings') || '{}')); } catch (e) {}
+const SET_DEFAULT = JSON.parse(JSON.stringify(SET));
+Object.assign(SET, STORE.load('kr_settings', {}, o => sanSettings(o, SET_DEFAULT)));
+STORE.onExternal('kr_settings', raw => { try { Object.assign(SET, sanSettings(JSON.parse(raw), SET_DEFAULT)); if (typeof applyTheme === 'function') applyTheme(); } catch (e) {} });   // ほかのタブで変えた設定に合わせる
 if (!SET.v3) { SET.countOn = false; SET.simpleView = true; SET.v3 = true; }   // メトロノームにしたとき：カウントインなし・シンプル表示から
 if (!SET.v4) { SET.stopMode = 'now'; SET.songLoop = false; SET.v4 = true; }      // ストップはすぐ止まる・プログラムはくり返さない
-function saveSet() { try { localStorage.setItem('kr_settings', JSON.stringify(SET)); } catch (e) {} }
+function saveSet() { STORE.save('kr_settings', SET); }
 /* ----- 画面の色：明るいモード／ダークモード（自動＝端末の設定に合わせる） ----- */
 const themeMQ = window.matchMedia ? matchMedia('(prefers-color-scheme: light)') : null;
 const themeNow = () => SET.theme === 'light' || SET.theme === 'dark' ? SET.theme : (themeMQ && themeMQ.matches ? 'light' : 'dark');
@@ -1468,8 +1560,10 @@ function metroBack(withMode) {
 }
 
 let customs = [];   // 自分で作ったリズム（まとまりの並び）
-try { customs = JSON.parse(localStorage.getItem('kr_custom') || '[]').filter(a => Array.isArray(a) && a.length >= 2); } catch (e) {}
-function saveCustoms() { try { localStorage.setItem('kr_custom', JSON.stringify(customs)); } catch (e) {} }
+const sanCustoms = v => { if (!Array.isArray(v)) throw new Error('customs'); return v.filter(a => Array.isArray(a) && a.length >= 2 && a.length <= 16 && a.every(L => L === 2 || L === 3)).slice(0, 40); };
+customs = STORE.load('kr_custom', [], sanCustoms);
+STORE.onExternal('kr_custom', raw => { try { customs = sanCustoms(JSON.parse(raw)); } catch (e) {} });
+function saveCustoms() { STORE.save('kr_custom', customs); }
 function customPreset(groups) {
   const total = groups.reduce((s, L) => s + L, 0);
   return { cat: 'custom', sig: `${total}/8`, bars: [groups.slice()], note: groups.map(L => L === 2 ? 'パン' : 'トマト').join('＋') };
@@ -1838,7 +1932,8 @@ function maneSound(t, head, L, k, barHead, resp, dur, noDrums) {
 let mfile = null, fileSrc = null, fileWaitEnd = 0, syncS = null;
 const fileOn = () => !!(mfile && SET.fileOn && mode !== 'W' && mode !== 'F' && mode !== 'X' && mode !== 'V');
 const fileKey = () => mfile ? mfile.name + '|' + mfile.buf.duration.toFixed(1) : '';
-function fileSaveSync() { try { const all = JSON.parse(localStorage.getItem('kr_filesync') || '{}'); all[fileKey()] = { offset: mfile.offset, bpm }; localStorage.setItem('kr_filesync', JSON.stringify(all)); } catch (e) {} }
+const sanFileSync = v => { const o = STORE.obj(v); if (!o) throw new Error('filesync'); const out = {}; Object.keys(o).slice(-60).forEach(k => { const e = STORE.obj(o[k]); if (e && Number.isFinite(e.offset) && Number.isFinite(e.bpm)) out[k] = { offset: e.offset, bpm: e.bpm }; }); return out; };
+function fileSaveSync() { const all = STORE.load('kr_filesync', {}, sanFileSync); delete all[fileKey()]; all[fileKey()] = { offset: mfile.offset, bpm }; const ks = Object.keys(all); ks.slice(0, Math.max(0, ks.length - 60)).forEach(k => delete all[k]); STORE.save('kr_filesync', all); }   // 曲ごとの合わせ位置（新しい60曲まで）
 function barSubs0() { const m = song && songOnNow() ? songMetas[0] : activeMeta; return m.nBars > 1 ? m.barStartSub[1] : m.total; }
 function songBarTime(n) {   // 1小節目の頭から、n 小節目の頭までの時間（曲の進行のテンポ変化もふくむ）
   if (!(song && songOnNow())) return 0;
@@ -1871,7 +1966,7 @@ async function fileLoad(f) {
     if (playing) stop();
     mfile = { name: f.name.replace(/\.[^.]+$/, ''), buf, offset: 0 };
     SET.fileOn = true; saveSet();
-    let saved = null; try { saved = JSON.parse(localStorage.getItem('kr_filesync') || '{}')[fileKey()]; } catch (e) {}
+    let saved = STORE.load('kr_filesync', {}, sanFileSync)[fileKey()] || null;
     if (saved) { mfile.offset = saved.offset; setBpm(saved.bpm); fileMsg('前に合わせた設定を使います。▶ 再生で、曲といっしょに動きます'); }
     else fileMsg('読みこみました。次に「🎯 タップで合わせる」をしよう');
     if (mode === 'W' || mode === 'F' || mode === 'X' || mode === 'V') setMode('A');
@@ -2216,7 +2311,7 @@ function scheduler() {
    ・描いた絵は次のフレームで画面に出るので、1フレームぶん先を描く
    ・ユーザーのズレ補正（Bluetooth・プロジェクターなど）を足す。この補正はタップ判定にも使う */
 let latencyMs = 0;
-try { latencyMs = +(localStorage.getItem('kr_latency') || 0) || 0; } catch (e) {}
+latencyMs = STORE.load('kr_latency', 0, v => STORE.num(+v, 0, -500, 500), false);
 function heardTime(perfT) {   // perfT（ミリ秒）の瞬間に、耳に届いていた音の時刻
   let t;
   if (ctx.getOutputTimestamp) {
@@ -5924,7 +6019,7 @@ const beatEase = t => clamp(t + 0.8 * Math.sin(2 * Math.PI * t) / (2 * Math.PI),
 const patPos = (pg, b, t) => patAt(pg.beats[b], beatEase(t));
 
 let mirrorView = false;
-try { mirrorView = localStorage.getItem('kr_mirror') === '1'; } catch (e) {}
+mirrorView = STORE.load('kr_mirror', '0', v => v === '1' || v === '0' ? v : undefined, false) === '1';
 
 // ホールの背景（暗い客席・舞台のあかり・指揮台の手すり・譜面台）をキャッシュ
 function conductHallPaint(g, w, h) {
@@ -16366,10 +16461,11 @@ function quizAct(a) {
 /* クイズのいちばんよい点を、むずかしさごとに残す（はじめの画面に出す） */
 const QUIZ_SHORT = { easy: 'やさしい', normal: 'ふつう', hard: 'むずかしい' };
 let quizBest = {};
-try { quizBest = JSON.parse(localStorage.getItem('kr_quizbest') || '{}') || {}; } catch (e) {}
+const sanQuizBest = v => { const o = STORE.obj(v); if (!o) throw new Error('quiz'); const out = {}; Object.keys(o).forEach(k => { if (Number.isFinite(o[k])) out[k] = o[k]; }); return out; };
+quizBest = STORE.load('kr_quizbest', {}, sanQuizBest);
 function quizSaveBest() {
   const ok = quiz.list.filter(q => q.user === q.answer).length;
-  if (!(quizBest[quiz.level] >= ok)) { quizBest[quiz.level] = ok; try { localStorage.setItem('kr_quizbest', JSON.stringify(quizBest)); } catch (e) {} }
+  if (!(quizBest[quiz.level] >= ok)) { quizBest[quiz.level] = ok; STORE.save('kr_quizbest', quizBest); }
 }
 function quizAnswer(i) {
   const q = quiz.list[quiz.i]; if (!q || q.user !== null) return;
@@ -16787,8 +16883,10 @@ const SONG_EX = [   // 拍子と並びが確かな例だけ
 ];
 let song = null, songPos = 0, songMetas = [], songNew = false, songJump = null;
 let savedSongs = [];
-try { savedSongs = JSON.parse(localStorage.getItem('kr_songs') || '[]').filter(s => s && typeof s.text === 'string'); } catch (e) {}
-function saveSongs() { try { localStorage.setItem('kr_songs', JSON.stringify(savedSongs)); } catch (e) {} }
+const sanSongs = v => { if (!Array.isArray(v)) throw new Error('songs'); return v.filter(s => s && typeof s.text === 'string' && s.text.length < 20000).map(s => ({ name: STORE.str(s.name, '', 80), text: s.text })).slice(0, 200); };
+savedSongs = STORE.load('kr_songs', [], sanSongs);
+STORE.onExternal('kr_songs', raw => { try { savedSongs = sanSongs(JSON.parse(raw)); } catch (e) {} });
+function saveSongs() { STORE.save('kr_songs', savedSongs); }
 function barSig(g) { const t = g.reduce((a, v) => a + v, 0); if (g.every(L => L === 2)) return `${g.length}/4`; return `${t}/8`; }
 /* 文字の進行を読む → 小節の並び [{g:[3,2], mark:'A', t:160}]。読めない所は err に入れる */
 function parseSong(text) {
@@ -16930,8 +17028,8 @@ function songMapMark(cur) {
    ・どこにでも「＋ここに入れる」で、途中に別の拍子をはさめる。↑↓で順番を入れかえ、⧉で複製、🗑で消す
    ・鳴らしている間に直すと、その場で反映される */
 let songDraft = [];
-try { songDraft = parseSong(localStorage.getItem('kr_songdraft') || '').bars; } catch (e) {}
-function songDraftSave() { try { localStorage.setItem('kr_songdraft', songText(songDraft)); } catch (e) {} }
+songDraft = STORE.load('kr_songdraft', [], v => typeof v === 'string' && v.length < 20000 ? parseSong(v).bars : undefined, false);
+function songDraftSave() { STORE.save('kr_songdraft', songText(songDraft), false); }
 let pgBlocks = [], pgBound = false, pgPick = null;
 const gF = g => g.every(L => L === 2) ? 2 : g.every(L => L === 3) ? 3 : 1;   // その拍子のテンポの単位（2＝♩、3＝♩.、まざる＝♪）
 const gNote = g => ({ 1: '♪', 2: '♩', 3: '♩.' })[gF(g)];
@@ -17386,7 +17484,7 @@ $('#vol').oninput = e => {
 function setMirror(v) {
   mirrorView = v; $('#mirSw').classList.toggle('on', v);
   $('#mirDesc').textContent = v ? '向かい合って見た向き（生徒側）' : '指揮者の後ろから見た向き';
-  try { localStorage.setItem('kr_mirror', v ? '1' : '0'); } catch (e) {}
+  STORE.save('kr_mirror', v ? '1' : '0', false);
 }
 $('#mirSw').onclick = () => setMirror(!mirrorView);
 setMirror(mirrorView);
@@ -17395,7 +17493,7 @@ setMirror(mirrorView);
 function setLat(v) {
   latencyMs = clamp(Math.round(v / 5) * 5, -250, 350);
   $('#lat').value = latencyMs; $('#latVal').textContent = (latencyMs > 0 ? '+' : '') + latencyMs;
-  try { localStorage.setItem('kr_latency', latencyMs); } catch (e) {}
+  STORE.save('kr_latency', latencyMs, false);
   refreshPanels();
 }
 $('#lat').oninput = e => setLat(+e.target.value);
@@ -17438,11 +17536,11 @@ $('#tupBtn').addEventListener('pointerdown', e => e.stopPropagation());
 
 /* ----- リズムを作る ----- */
 let buildCards = [2, 2, 2, 3];
-try { const b = JSON.parse(localStorage.getItem('kr_build') || 'null'); if (Array.isArray(b)) buildCards = b.filter(L => L === 2 || L === 3).slice(0, 6); } catch (e) {}
+{ const b = STORE.load('kr_build', null, v => Array.isArray(v) ? v.filter(L => L === 2 || L === 3).slice(0, 6) : undefined); if (b) buildCards = b; }
 const MAX_CARDS = 6, MAX_TOTAL = 16;
 function buildMsg(s) { $('#buildMsg').textContent = s; clearTimeout(buildMsg.t); buildMsg.t = setTimeout(() => { $('#buildMsg').textContent = ''; }, 3000); }
 function renderBuilder() {
-  try { localStorage.setItem('kr_build', JSON.stringify(buildCards)); } catch (e) {}
+  STORE.save('kr_build', buildCards);
   const box = $('#cards'); box.innerHTML = '';
   if (!buildCards.length) box.innerHTML = '<span class="empty">下のボタンでカードを足してください</span>';
   buildCards.forEach((L, i) => {
@@ -17542,8 +17640,8 @@ const SUMMARY = [
 let lessonStep = -1, lessonOpen = false, lessonShowAns = false, lessonFold = true, lessonPick = null;
 /* レッスンの進みぐあい（どこまで進んだか・確かめで正解したステップ）をブラウザに残す */
 const lessonProg = { max: -1, ok: [] };
-try { Object.assign(lessonProg, JSON.parse(localStorage.getItem('kr_lesson') || '{}')); } catch (e) {}
-function saveLessonProg() { try { localStorage.setItem('kr_lesson', JSON.stringify(lessonProg)); } catch (e) {} }
+Object.assign(lessonProg, STORE.load('kr_lesson', {}, v => { const o = STORE.obj(v); if (!o) throw new Error('lesson'); return { max: STORE.num(o.max, -1, -1, 99), ok: STORE.arr(o.ok, x => Number.isInteger(x) ? x : undefined, 100) }; }));
+function saveLessonProg() { STORE.save('kr_lesson', lessonProg); }
 function lessonApply(i) {
   const st = LESSON[i]; if (!st) return;
   lessonStep = i; lessonShowAns = false; lessonPick = null;
@@ -18177,15 +18275,26 @@ $('#tapReset2').onclick = () => $('#tapReset').onclick();
 $('#progBtn').onclick = () => { closeModals(); openProg(); };
 $('#toDrawerPrac').onclick = () => { closeModals(); openDrawer('secPractice'); };
 /* ★ プリセット */
-let mPresets = []; try { mPresets = JSON.parse(localStorage.getItem('vm_presets') || '[]'); } catch (e) {}
-const saveMPresets = () => { try { localStorage.setItem('vm_presets', JSON.stringify(mPresets)); } catch (e) {} };
+const sanPresets = v => {
+  if (!Array.isArray(v)) throw new Error('presets');
+  return v.filter(p => p && typeof p === 'object' && STORE.obj(p.preset) && Number.isFinite(p.bpm)).map(p => {
+    const o = { name: STORE.str(p.name, 'プリセット', 80), bpm: STORE.num(p.bpm, 240, 40, 600), preset: p.preset, msub: typeof p.msub === 'number' || p.msub === 'sw' ? p.msub : 1, msound: STORE.str(p.msound, 'click', 20), mode: STORE.str(p.mode, 'MB', 8) };
+    if (STORE.obj(p.acc)) o.acc = p.acc;
+    if (STORE.obj(p.song) && typeof p.song.text === 'string') o.song = { name: STORE.str(p.song.name, '', 80), text: p.song.text.slice(0, 20000) };
+    return o;
+  }).slice(0, 100);
+};
+let mPresets = STORE.load('vm_presets', [], sanPresets);
+STORE.onExternal('vm_presets', raw => { try { mPresets = sanPresets(JSON.parse(raw)); } catch (e) {} });
+const saveMPresets = () => STORE.save('vm_presets', mPresets);
 const presetPlain = p => ({ cat: p.cat, sig: p.sig, sigs: p.sigs, bars: p.bars, note: p.note, tn: p.tune ? TUNES.indexOf(p.tune) : undefined });
 function presetFrom(o) { if (o.tn !== undefined && TUNES[o.tn]) return TUNES[o.tn].preset; const f = PRESETS.find(p => presetKey(p) === presetKey(o)); return f || o; }
 function renderMPresets() {
   const box = $('#pList'); if (!box) return;
   box.innerHTML = mPresets.length ? '' : '<div class="hint" style="padding:10px 0">まだありません。名前を入れて「保存」を押そう。</div>';
   mPresets.forEach((p, i) => {
-    const d = document.createElement('div'), F = metF(makeMeta(presetFrom(p.preset))), sb = (MSUB_Q.concat(MSUB_E).find(x => x[0] === p.msub) || [0, ''])[1];
+    let F = 2; try { F = metF(makeMeta(presetFrom(p.preset))); } catch (e) { return; }   // 読めないプリセットは、とばす（ほかは出す）
+    const d = document.createElement('div'), sb = (MSUB_Q.concat(MSUB_E).find(x => x[0] === p.msub) || [0, ''])[1];
     d.className = 'mpreset';
     d.innerHTML = `<button class="pn"><b></b><span>${p.song ? '🎼 プログラム　' + p.song.text.slice(0, 40) + (p.song.text.length > 40 ? '…' : '') : `${fNote(F)} = ${Math.round(p.bpm / F)}　${p.preset.sigs ? p.preset.sigs.join('→') : p.preset.sig} ${p.preset.bars.map(b => b.join('+')).join(' → ')}`}　${sb}　${(MODE_INFO[p.mode] || {}).name || ''}</span></button><button class="del" aria-label="消す">✕</button>`;
     d.querySelector('b').textContent = p.name;
@@ -18220,8 +18329,25 @@ selectPreset = function (p) { _selPreset(p); try { SET.mPreset = presetPlain(p);
    🏆 きろく・今日のお題・ごほうび（この端末の中だけに保存）
    ========================================================= */
 let REC = { days: {}, total: 0, odd: 0, best: 0, perfect: 0, views: [], badges: [], unl: [], chal: {}, chalCnt: 0 };
-try { Object.assign(REC, JSON.parse(localStorage.getItem('vm_rec') || '{}')); } catch (e) {}
-const recSave = () => { try { localStorage.setItem('vm_rec', JSON.stringify(REC)); } catch (e) {} };
+// きろく：型をそろえる。ほかのタブとは「多いほう」をとって合わせる（練習時間などが消えない）
+function sanRec(v) {
+  const o = STORE.obj(v); if (!o) throw new Error('rec');
+  const days = {}, od = STORE.obj(o.days) || {};
+  Object.keys(od).forEach(k => { if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(k) && Number.isFinite(od[k]) && od[k] >= 0) days[k] = od[k]; });
+  const strs = a => STORE.arr(a, x => typeof x === 'string' ? x.slice(0, 40) : undefined, 200);
+  return { days, total: STORE.num(o.total, 0, 0), odd: STORE.num(o.odd, 0, 0), best: STORE.num(o.best, 0, 0), perfect: STORE.num(o.perfect, 0, 0),
+    views: strs(o.views), badges: strs(o.badges), unl: strs(o.unl), chal: STORE.obj(o.chal) || {}, chalCnt: STORE.num(o.chalCnt, 0, 0) };
+}
+function mergeRec(a, b) {   // a に b を合わせる（数は大きいほう、一覧は両方）
+  for (const k of Object.keys(b.days)) a.days[k] = Math.max(a.days[k] || 0, b.days[k]);
+  for (const k of ['total', 'odd', 'best', 'perfect', 'chalCnt']) a[k] = Math.max(a[k] || 0, b[k] || 0);
+  for (const k of ['views', 'badges', 'unl']) b[k].forEach(x => { if (!a[k].includes(x)) a[k].push(x); });
+  for (const k of Object.keys(b.chal)) if (!(k in a.chal)) a.chal[k] = b.chal[k];
+  return a;
+}
+Object.assign(REC, STORE.load('vm_rec', {}, sanRec));
+STORE.onExternal('vm_rec', raw => { try { mergeRec(REC, sanRec(JSON.parse(raw))); } catch (e) {} });
+const recSave = () => { const cur = STORE.load('vm_rec', null, sanRec); if (cur) mergeRec(REC, cur); STORE.save('vm_rec', REC); };
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const dayBefore = (d, n) => { const x = new Date(d); x.setDate(x.getDate() - n); return x; };
 function recStreak() {   // 何日続けて練習したか（1日1分以上）。今日まだなら、きのうまでで数える
@@ -18440,6 +18566,37 @@ renderModes(); renderPresets(); renderPolySel(); renderBuilder(); refreshPanels(
 if (SET.mPreset && !(location.hash && location.hash.length > 2)) { try { selected = presetFrom(SET.mPreset); activeMeta = makeMeta(selected); } catch (e) {} }
 if (MODE_INFO[SET.mMode]) { mode = SET.mMode; lastMetaMode = SET.mMode; }
 setBpm(SET.mBpm || 240);
+
+/* 💾 データのバックアップ：書き出す・もどす（もどすときは、中身を1つずつたしかめてから入れる） */
+const STORE_KEYS = {   // キー → [JSONかどうか, たしかめる関数]
+  kr_settings: [true, o => sanSettings(o, SET_DEFAULT)], kr_custom: [true, sanCustoms], kr_songs: [true, sanSongs], vm_presets: [true, sanPresets], vm_rec: [true, sanRec],
+  kr_quizbest: [true, sanQuizBest], kr_filesync: [true, sanFileSync], kr_build: [true, v => Array.isArray(v) ? v : undefined], kr_lesson: [true, v => STORE.obj(v) || undefined],
+  kr_songdraft: [false, v => typeof v === 'string' ? v : undefined], kr_latency: [false, v => Number.isFinite(+v) ? v : undefined], kr_mirror: [false, v => v === '1' || v === '0' ? v : undefined],
+};
+function dataMsg(t) { const el = $('#dataMsg'); if (el) el.textContent = t; }
+$('#dataExport').onclick = () => {
+  const data = {}; for (const k of Object.keys(STORE_KEYS)) { const raw = STORE.raw(k); if (raw !== null) data[k] = raw; }
+  const blob = new Blob([JSON.stringify({ app: 'visual-metronome', ver: 1, at: new Date().toISOString(), data }, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `metronome-backup-${dayKey()}.json`;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  dataMsg(`書き出しました（${Object.keys(data).length}種類のデータ）`);
+};
+$('#dataImport').onclick = () => $('#dataFile').click();
+$('#dataFile').onchange = async e => {
+  const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+  let pk; try { pk = JSON.parse(await f.text()); } catch (err) { dataMsg('このファイルは読めませんでした（バックアップのファイルではないようです）'); return; }
+  if (!pk || pk.app !== 'visual-metronome' || !STORE.obj(pk.data)) { dataMsg('このファイルは、このアプリのバックアップではないようです'); return; }
+  const ok = [];
+  for (const [k, [json, check]] of Object.entries(STORE_KEYS)) {
+    const raw = pk.data[k]; if (typeof raw !== 'string') continue;
+    try { const v = check(json ? JSON.parse(raw) : raw); if (v !== undefined && v !== null) ok.push([k, raw]); } catch (err) {}
+  }
+  if (!ok.length) { dataMsg('もどせるデータがありませんでした'); return; }
+  if (!confirm(`バックアップ（${(pk.at || '').slice(0, 10)}）から ${ok.length} 種類のデータをもどします。いまのデータは上書きされます。よろしいですか？`)) return;
+  if (playing) stop();
+  STORE.lock(); for (const [k, raw] of ok) STORE.save(k, raw, false, true);
+  dataMsg('もどしました。読みこみなおします…'); setTimeout(() => location.reload(), 600);
+};
 setMode(mode); applyHash(); updatePlayBtn(); updateBarTempo(); renderMetro();
 </script>
 <div id="bigQ" class="bigq" hidden></div>
